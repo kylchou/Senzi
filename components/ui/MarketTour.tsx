@@ -15,8 +15,8 @@ const STEPS = [
   },
   {
     target: "allocation",
-    title: "YES allocation",
-    body: "The share of virtual credits placed on YES. It shows where the community stands. It is not a probability.",
+    title: "Market probability",
+    body: "The price of a YES share. Every forecast moves it: buying YES pushes it up, buying NO pulls it down.",
   },
   {
     target: "calibrated",
