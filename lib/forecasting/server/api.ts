@@ -89,6 +89,7 @@ async function assertNotSponsor(userId: string, marketId: string) {
  */
 export function assertCanTrade(user: Pick<SessionUser, "accountType"> | null) {
   if (user?.accountType === AccountType.VC) throw forbidden("VC accounts can't trade. Switch to a trader account to forecast.");
+  if (user && !user.accountType) throw forbidden("Finish setting up your account at /onboarding before forecasting.");
 }
 
 export async function submitForecastForUser(user: SessionUser, input: z.output<typeof submitForecastSchema>) {

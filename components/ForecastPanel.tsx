@@ -1,8 +1,9 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useId, useRef, useState } from "react";
-import { SignInButton } from "@clerk/nextjs";
+import { SignInButton, useAuth } from "@clerk/nextjs";
 import { AlertCircle, Check, Loader2, Lock } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/components/ui/cn";
@@ -12,7 +13,7 @@ import { Term } from "@/components/ui/Term";
 import { formatCredits, formatDateTime, formatShare } from "@/lib/market-view/format";
 import {
   errorMessage,
-  fetchBalance,
+  fetchAccount, fetchBalance,
   ForecastError,
   submitForecast,
   validateCredits,
@@ -34,7 +35,12 @@ function lastAmount(): string {
   }
 }
 
-type Session = { state: "loading" } | { state: "signed-out" } | { state: "ready"; balance: number | null };
+type Session =
+  | { state: "loading" }
+  | { state: "signed-out" }
+  // VC accounts never trade; accounts without a type still have to finish onboarding.
+  | { state: "cannot-trade"; reason: "vc" | "setup" }
+  | { state: "ready"; balance: number | null };
 
 function newKey() {
   return typeof crypto !== "undefined" && "randomUUID" in crypto
@@ -65,12 +71,26 @@ export function ForecastPanel({
   // One key per intended forecast, created on first submit and reused on retry
   // so the server can drop duplicates. Cleared whenever the forecast changes.
   const idempotencyKey = useRef<string | null>(null);
+  const { isLoaded, isSignedIn } = useAuth();
 
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen || !isLoaded) return;
+    if (!isSignedIn) {
+      // Known signed out: no need to ask the API (it would only answer 401).
+      const timer = window.setTimeout(() => setSession({ state: "signed-out" }), 0);
+      return () => window.clearTimeout(timer);
+    }
     const controller = new AbortController();
-    fetchBalance(controller.signal)
-      .then((balance) => setSession({ state: "ready", balance }))
+    fetchAccount(controller.signal)
+      .then(({ balance, accountType }) =>
+        setSession(
+          accountType === "VC"
+            ? { state: "cannot-trade", reason: "vc" }
+            : accountType === null
+              ? { state: "cannot-trade", reason: "setup" }
+              : { state: "ready", balance },
+        ),
+      )
       .catch((err: Error) => {
         if (err.name === "AbortError") return;
         setSession(
@@ -80,7 +100,7 @@ export function ForecastPanel({
         );
       });
     return () => controller.abort();
-  }, [isOpen]);
+  }, [isOpen, isLoaded, isSignedIn]);
 
   const balance = session.state === "ready" ? session.balance : null;
   const validation = validateCredits(amount, balance);
@@ -156,6 +176,24 @@ export function ForecastPanel({
         <div className="mt-4 flex min-h-32 items-center justify-center text-ink-500" role="status">
           <Loader2 className="size-5 animate-spin" aria-hidden />
           <span className="sr-only">Loading</span>
+        </div>
+      ) : session.state === "cannot-trade" ? (
+        <div className="mt-4 space-y-3 text-sm text-ink-600">
+          {session.reason === "vc" ? (
+            <>
+              <p>VC accounts can&apos;t trade, so nobody forecasts on questions their own firm sponsors.</p>
+              <Link href="/vc" className="font-semibold text-ink-900 hover:underline">
+                Open Senzi Intelligence
+              </Link>
+            </>
+          ) : (
+            <>
+              <p>Finish setting up your account to place forecasts.</p>
+              <Link href="/onboarding" className="font-semibold text-ink-900 hover:underline">
+                Finish setup
+              </Link>
+            </>
+          )}
         </div>
       ) : session.state === "signed-out" ? (
         <div className="mt-4 space-y-3">

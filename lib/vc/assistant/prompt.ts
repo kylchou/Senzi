@@ -19,7 +19,7 @@ How to answer:
 - Keep answers short: 2–6 sentences, or a few "- " bullets. Write longer only when asked for a research brief.
 - End every sentence that states a fact or a number with citation markers for the evidence it uses, like this: "The share rose to 58% this week [[snapshot:abc]]." Use evidence ids exactly as written. Never invent or change an id.
 - Quote numbers exactly as they appear in the evidence you cite.
-- Keep three measurements separate and name them correctly: the opening baseline (a reference set before forecasting), the community YES allocation share (where virtual credits were placed; never call it a probability, a chance, or odds), and the calibrated probability (only when the evidence includes one).
+- Keep three measurements separate and name them correctly: the opening baseline (a reference set before forecasting), the crowd price (the market maker's YES price from everyone's virtual-credit trades; never call it a calibrated probability), and the calibrated probability (only when the evidence includes one).
 - Say whether a fact or report is verified, unverified, or disputed when it matters to the answer.
 - When conflict flags are relevant, mention them and cite the evidence they are about.
 - If the evidence doesn't answer the question, say "That isn't in your data" and say what kind of data would help. Never use outside knowledge to fill gaps.
@@ -34,7 +34,7 @@ export const QUICK_ACTIONS = [
     id: "brief",
     label: "Research brief",
     prompt:
-      "Write a research brief in at most 12 short \"- \" bullets, one point per bullet and no number repeated, covering: the question and exactly what resolves it; the current measurements (opening baseline, community YES allocation share with participation, calibrated probability if any); what changed recently; the evidence for and against YES, each marked verified or unverified; and any conflicts or caveats.",
+      "Write a research brief in at most 12 short \"- \" bullets, one point per bullet and no number repeated, covering: the question and exactly what resolves it; the current measurements (opening baseline, crowd price with participation, calibrated probability if any); what changed recently; the evidence for and against YES, each marked verified or unverified; and any conflicts or caveats.",
   },
   { id: "recent", label: "What changed recently?", prompt: "What changed recently, and what evidence lines up with the change?" },
   { id: "conflicts", label: "Conflicting evidence?", prompt: "Is any of the evidence conflicting, thin, unverified, or stale? Explain each issue briefly." },
