@@ -2,6 +2,8 @@
 
 Private research workspace for venture capital firms: research studies, watchlists, alerts, dashboards and reports.
 
+**Navigation:** there's no separate VC bar. On desktop, **Intelligence** in the site header (`components/ui/VcMenu.tsx`) opens a menu with the three pages and, for people in several firms, the organization switcher. On phones, firm members get an Intelligence tab in the bottom bar (in place of Learn), and VC pages show a slim tab row (`components/vc/VcMobileTabs.tsx`). Both read `GET /api/vc/active-org`. The three pages: **Dashboard** (`/vc`), **Questions** (`/vc/studies`, filtered by stage: in progress, open, finished) and **Companies** (`/vc/companies`: search, the companies the firm follows, and every company). A company page (`/vc/companies/[slug or id]`) holds its public signals, open markets, the firm's own figures and questions, plus Follow and "Compare with…". Compare (`/vc/compare`) and the old watchlist URL live under the Companies tab; alerts and saved reports are reached from the dashboard. Platform admins also see **Review queue**.
+
 Owned paths: `app/vc/**`, `components/vc/**`, `lib/vc/**`, `app/api/studies/**`, `app/api/vc/**`.
 
 Senzi estimates are research signals from virtual-credit forecasts. They are not guaranteed predictions or investment advice. No real money is involved.
@@ -104,10 +106,8 @@ Every response uses the shared envelope from `lib/api-response.ts` (`{ "data": �
 | `DELETE /api/studies/:id/notes/:noteId` | | author or manager |
 | `GET /api/studies/:id/report` | `?format=json\|markdown\|csv` | live report, owning firm only |
 | `GET /api/vc/dashboard` | | |
-| `GET/POST /api/vc/watchlists` | `{ name }` | |
-| `DELETE /api/vc/watchlists/:id` | | |
-| `POST /api/vc/watchlists/:id/items` | `{ type: "STARTUP", startupId }` or `{ type: "STUDY", studyId }` | idempotent |
-| `DELETE /api/vc/watchlists/:id/items/:itemId` | | |
+| `POST /api/vc/follows` | `{ type: "STARTUP", startupId }` or `{ type: "STUDY", studyId }` | follow; idempotent. Each firm has one watchlist, created on first follow |
+| `DELETE /api/vc/follows` | same body | unfollow |
 | `GET /api/vc/alerts` | `?unreadOnly=true&type=&limit=` | |
 | `PATCH /api/vc/alerts` | `{ alertIds }` | marks the alerts read for the current user, and clears the matching inbox notifications |
 | `GET /api/vc/compare` | `?startupIds=a,b[,c,d]` | side-by-side comparison of 2–4 published startups |
