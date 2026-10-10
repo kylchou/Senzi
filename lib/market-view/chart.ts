@@ -120,3 +120,38 @@ export function shareMovement(
   if (base === latest) return null;
   return { delta: latest.share - base.share, from: base.share, to: latest.share, days: span };
 }
+
+export const CHART_RANGES = [
+  { key: "7d", label: "7D", days: 7 },
+  { key: "30d", label: "30D", days: 30 },
+  { key: "all", label: "All", days: null },
+] as const;
+export type ChartRangeKey = (typeof CHART_RANGES)[number]["key"];
+
+/**
+ * History limited to the last `days` before `end`. The last snapshot before
+ * the window is carried to the window start so the step line begins at the
+ * value that was current then.
+ */
+export function sliceHistory(history: HistoryPoint[], days: number | null, end: number): HistoryPoint[] {
+  if (days === null) return history;
+  const cutoff = end - days * 86_400_000;
+  const sorted = [...history].sort((a, b) => Date.parse(a.at) - Date.parse(b.at));
+  const inside = sorted.filter((point) => Date.parse(point.at) >= cutoff);
+  const before = sorted.filter((point) => Date.parse(point.at) < cutoff).at(-1);
+  return before ? [{ ...before, at: new Date(cutoff).toISOString() }, ...inside] : inside;
+}
+
+/** Ranges worth offering: only those shorter than the history itself, plus All. */
+export function availableRanges(history: HistoryPoint[], end: number): ChartRangeKey[] {
+  const first = history.reduce((min, point) => Math.min(min, Date.parse(point.at)), Infinity);
+  if (!Number.isFinite(first)) return [];
+  const spanDays = (end - first) / 86_400_000;
+  const keys = CHART_RANGES.filter((range) => range.days !== null && spanDays > range.days).map((range) => range.key);
+  return keys.length ? [...keys, "all"] : [];
+}
+
+/** Closed path under a line, for a gradient fill. */
+export function areaPath(linePath: string, baselineY: number, startX: number): string {
+  return `${linePath}V${baselineY.toFixed(1)}H${startX.toFixed(1)}Z`;
+}

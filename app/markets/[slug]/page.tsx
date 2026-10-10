@@ -105,7 +105,7 @@ async function MarketView({ params }: Pick<PageProps<"/markets/[slug]">, "params
               </h2>
               <MarketMovement movement={shareMovement(history, 7, chartEnd)} />
             </div>
-            <ProbabilityChart history={history} openingBaseline={market.openingBaseline} now={chartEnd} />
+            <ProbabilityChart history={history} openingBaseline={market.openingBaseline} now={chartEnd} live={isOpen} />
           </section>
 
           <section aria-labelledby="sources-heading">
