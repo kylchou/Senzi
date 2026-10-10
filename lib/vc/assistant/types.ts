@@ -30,7 +30,8 @@ export type EvidenceKind =
   | "track_record"
   | "startup"
   | "firm_note"
-  | "conflict_flag";
+  | "conflict_flag"
+  | "key_stats";
 
 export interface EvidenceItem {
   /** Stable, namespaced id from real records, e.g. "snapshot:clx…" or "study:clx…#criteria-yes". */
@@ -109,6 +110,8 @@ export interface CheckedCitation {
 export interface CheckedSentence {
   /** Sentence text with citation markers removed, ready to render. */
   text: string;
+  /** True when the sentence began a new line in the answer (paragraph or bullet). */
+  startsLine: boolean;
   citations: CheckedCitation[];
   issues: CitationIssue[];
   /** True when the UI should mark the sentence "not from your data". */

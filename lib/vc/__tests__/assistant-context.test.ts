@@ -104,7 +104,7 @@ describe("study context: items", () => {
     const pkg = await s.services.assistantContext.forStudy(users.analystA, study.id);
     const ids = pkg.items.map((i) => i.id);
     expect(new Set(ids).size).toBe(ids.length);
-    expect(ids.every((id) => /^(study|market|snapshot|source|fact|news|indicator|startup|note|flag):/.test(id))).toBe(true);
+    expect(ids.every((id) => /^(study|market|snapshot|source|fact|news|indicator|startup|note|flag|stats):/.test(id))).toBe(true);
     expect(ids).toEqual(
       expect.arrayContaining([
         `study:${study.id}#question`,
