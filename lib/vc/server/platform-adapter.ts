@@ -8,7 +8,7 @@ import "server-only";
 import type { PrismaClient } from "@/generated/prisma/client";
 import { closeMarketForStudy, createMarketForStudy } from "@/lib/admin";
 import { getCurrentUser, isPlatformAdmin } from "@/lib/auth";
-import { PUBLIC_MARKET_WHERE } from "@/lib/permissions";
+import { PUBLIC_MARKET_WHERE, PUBLIC_STARTUP_WHERE } from "@/lib/permissions";
 import type { PlatformGateway } from "../ports";
 
 const userSelect = { id: true, displayName: true, email: true } as const;
@@ -89,6 +89,28 @@ export function createPlatformGateway(db: PrismaClient): PlatformGateway {
     async createMarketForStudy(input) {
       const market = await createMarketForStudy(input);
       return { marketId: market.id };
+    },
+
+    async getStartupEvidence(startupIds) {
+      if (startupIds.length === 0) return { facts: [], news: [] };
+      const published = { startup: PUBLIC_STARTUP_WHERE };
+      const [facts, news] = await Promise.all([
+        db.startupFact.findMany({
+          where: { startupId: { in: startupIds }, ...published },
+          orderBy: { asOf: "desc" },
+          select: { id: true, startupId: true, label: true, value: true, sourceName: true, sourceUrl: true, asOf: true, verified: true },
+        }),
+        db.newsItem.findMany({
+          where: {
+            startupId: { in: startupIds },
+            ...published,
+            OR: [{ marketId: null }, { market: PUBLIC_MARKET_WHERE }],
+          },
+          orderBy: { publishedAt: "desc" },
+          select: { id: true, startupId: true, title: true, summary: true, publisher: true, url: true, publishedAt: true, verification: true },
+        }),
+      ]);
+      return { facts, news: news.map((n) => ({ ...n, startupId: n.startupId! })) };
     },
 
     async listOrgMembers(organizationId) {

@@ -1,4 +1,6 @@
-# AI research assistant: design (not built yet)
+# AI research assistant: design
+
+**Status:** steps 1–2 are built (context builder with stable ids, data tiers, citation checker, computed conflict flags). See "Built so far" below. No AI provider is connected yet.
 
 This feature lets analysts ask questions about their research in plain language and get answers built only from data they're allowed to see, with every claim cited. It's planned as its own assignment: the design is here, and nothing is built yet.
 
@@ -60,3 +62,13 @@ The response arrives as text blocks carrying `citations` arrays. The UI renders 
 2. Decide on data retention, and whether firm notes may be included.
 3. Choose where it lives first: the study page, the comparison page, or both.
 4. Build a small eval before launch: around 30 real analyst questions with expected citations, graded for citation accuracy and for never calling the allocation share a probability.
+
+## Built so far
+
+- `lib/vc/assistant/`: `context.ts` (evidence packages), `flags.ts` (conflict flags), `citations.ts` (checker), `render.ts` (prompt text), `types.ts`.
+- `lib/vc/services/assistant-context.ts`: loads authorized data and enforces the data tier (`VC_ASSISTANT_DATA_TIER`, default `standard`).
+- **Tests:**
+  - Unit tests in `lib/vc/__tests__/assistant-*.test.ts` cover authorization, tiers, ids, caveats, flags and checker rules.
+  - Database tests in `tests/integration/vc/vc.test.ts` cover private-market news exclusion, unpublished startups, real snapshot ids, and the restricted-study refusal.
+
+**Next:** the Research brief button. That means a provider adapter, a server route, and a UI that renders `CitationReport` sentences with clickable citations, after the provider and data-tier decisions.
