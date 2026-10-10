@@ -86,6 +86,42 @@ enum ResolutionOutcome {
   VOID
 }
 
+/// Why a market resolved VOID (stakes refunded). Required whenever outcome = VOID.
+enum VoidReason {
+  CANCELLED // the question no longer applies (e.g. the company was acquired first)
+  AMBIGUOUS // the criteria can't decide the outcome as written
+  UNVERIFIABLE // the evidence needed to decide isn't available
+  INVALID_MARKET // the market was set up incorrectly
+  OTHER
+}
+
+/// A proposed resolution waits for a second admin before it takes effect.
+enum ProposalStatus {
+  PROPOSED
+  APPROVED
+  REJECTED
+}
+
+/// What kind of source a piece of evidence or a citation is.
+enum SourceType {
+  COMPANY_ANNOUNCEMENT
+  REGULATORY_FILING
+  NEWS_REPORT
+  DATA_PROVIDER
+  OFFICIAL_RECORD
+  SOCIAL_MEDIA
+  OTHER
+}
+
+/// What we may do with a source's content. A public web page isn't
+/// automatically licensed for redistribution, so the default is to only link.
+enum SourceLicense {
+  LINK_ONLY // cite and link; don't copy the content
+  ATTRIBUTION_REQUIRED // short quotes allowed with attribution
+  OPEN_LICENSE // e.g. CC-BY or public domain
+  PERMISSION_GRANTED // the owner gave written permission
+}
+
 enum SettlementStatus {
   PENDING
   IN_PROGRESS
@@ -219,6 +255,12 @@ model User {
   createdStartups        Startup[]
   createdMarkets         Market[]                 @relation("MarketCreatedBy")
   resolutions            Resolution[]
+  resolutionsApproved    Resolution[]             @relation("ResolutionApprovedBy")
+  proposalsMade          ResolutionProposal[]     @relation("ProposalProposedBy")
+  proposalsReviewed      ResolutionProposal[]     @relation("ProposalReviewedBy")
+  evidenceSubmitted      ResolutionEvidence[]
+  factsVerified          StartupFact[]            @relation("FactVerifiedBy")
+  newsVerified           NewsItem[]               @relation("NewsVerifiedBy")
   createdNews            NewsItem[]
   createdStudies         ResearchStudy[]          @relation("StudyCreatedBy")
   studyParticipations    StudyParticipant[]       @relation("StudyParticipantUser")
@@ -286,6 +328,8 @@ model Startup {
   headquarters String?
   /// Unpublished startups are visible only in admin tools.
   isPublished  Boolean      @default(false)
+  /// Fictional company created for demos. The UI must label it as such.
+  isDemo       Boolean      @default(false)
   createdById  String?
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
@@ -305,18 +349,26 @@ model Startup {
 /// Public, sourced information about a startup. Every fact cites a source;
 /// `verified` means an admin checked it against that source.
 model StartupFact {
-  id         String   @id @default(cuid())
-  startupId  String
-  label      String
-  value      String
-  sourceName String
-  sourceUrl  String
-  asOf       DateTime
-  verified   Boolean  @default(false)
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  id           String        @id @default(cuid())
+  startupId    String
+  label        String
+  value        String
+  sourceName   String
+  sourceUrl    String
+  sourceType   SourceType    @default(OTHER)
+  license      SourceLicense @default(LINK_ONLY)
+  /// When the value was true according to the source.
+  asOf         DateTime
+  /// When we read the source.
+  retrievedAt  DateTime      @default(now())
+  verified     Boolean       @default(false)
+  verifiedById String?
+  verifiedAt   DateTime?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
 
-  startup Startup @relation(fields: [startupId], references: [id], onDelete: Cascade)
+  startup    Startup @relation(fields: [startupId], references: [id], onDelete: Cascade)
+  verifiedBy User?   @relation("FactVerifiedBy", fields: [verifiedById], references: [id], onDelete: SetNull)
 
   @@index([startupId])
 }
@@ -372,6 +424,7 @@ model Market {
   forecasts              Forecast[]
   snapshots              MarketSnapshot[]
   resolution             Resolution?
+  resolutionProposals    ResolutionProposal[]
   creditTxns             CreditTransaction[]
   news                   NewsItem[]
   modelQuestionSpec      ModelQuestionSpec?
@@ -384,13 +437,16 @@ model Market {
 
 /// Where the resolver will look for evidence (filings, press, registries...).
 model MarketSource {
-  id          String    @id @default(cuid())
+  id          String        @id @default(cuid())
   marketId    String
   title       String
   url         String
   publisher   String?
   publishedAt DateTime?
-  position    Int       @default(0)
+  sourceType  SourceType    @default(OTHER)
+  license     SourceLicense @default(LINK_ONLY)
+  retrievedAt DateTime      @default(now())
+  position    Int           @default(0)
 
   market Market @relation(fields: [marketId], references: [id], onDelete: Cascade)
 
@@ -472,27 +528,108 @@ model MarketSnapshot {
   @@index([marketId, recordedAt])
 }
 
+/// The approved, current outcome of a market. Created only when a second
+/// admin approves a ResolutionProposal; corrections update it through another
+/// approved proposal, and every version stays in ResolutionProposal.
 model Resolution {
-  id                String            @id @default(cuid())
-  marketId          String            @unique
-  outcome           ResolutionOutcome
+  id                  String            @id @default(cuid())
+  marketId            String            @unique
+  outcome             ResolutionOutcome
+  /// Required when outcome = VOID (CHECK constraint).
+  voidReason          VoidReason?
   /// Human-readable explanation of why the criteria were (not) met.
-  evidenceSummary   String
+  evidenceSummary     String
   /// Links to the documented evidence. At least one (CHECK constraint).
-  evidenceUrls      String[]
-  resolvedById      String?
-  resolvedAt        DateTime          @default(now())
-  settlementStatus  SettlementStatus  @default(PENDING)
+  /// Full provenance is on the approved proposal's ResolutionEvidence rows.
+  evidenceUrls        String[]
+  /// The admin who proposed the outcome.
+  resolvedById        String?
+  resolvedAt          DateTime          @default(now())
+  /// The second admin who approved it.
+  approvedById        String?
+  approvedAt          DateTime?
+  /// The proposal currently in effect.
+  currentProposalId   String?           @unique
+  /// How many approved corrections have been applied.
+  correctionCount     Int               @default(0)
+  settlementStatus    SettlementStatus  @default(PENDING)
   /// Which settlement model paid this out (set by the forecasting engine).
-  settlementModelId String?
-  settledAt         DateTime?
-  settlementError   String?
+  settlementModelId   String?
+  /// When the current settlement attempt started (stale attempts can be retried).
+  settlementStartedAt DateTime?
+  settlementAttempts  Int               @default(0)
+  settledAt           DateTime?
+  settlementError     String?
 
-  market     Market              @relation(fields: [marketId], references: [id], onDelete: Restrict)
-  resolvedBy User?               @relation(fields: [resolvedById], references: [id], onDelete: SetNull)
-  creditTxns CreditTransaction[]
+  market          Market               @relation(fields: [marketId], references: [id], onDelete: Restrict)
+  resolvedBy      User?                @relation(fields: [resolvedById], references: [id], onDelete: SetNull)
+  approvedBy      User?                @relation("ResolutionApprovedBy", fields: [approvedById], references: [id], onDelete: SetNull)
+  currentProposal ResolutionProposal?  @relation("CurrentProposal", fields: [currentProposalId], references: [id], onDelete: Restrict)
+  corrections     ResolutionProposal[] @relation("CorrectionOf")
+  creditTxns      CreditTransaction[]
 
   @@index([settlementStatus])
+}
+
+/// An admin's proposed outcome (or correction) with its evidence. Never
+/// deleted, so the full decision history of a market is preserved.
+model ResolutionProposal {
+  id               String            @id @default(cuid())
+  marketId         String
+  /// Set when this proposal corrects an already-approved resolution.
+  correctsId       String?
+  outcome          ResolutionOutcome
+  voidReason       VoidReason?
+  evidenceSummary  String
+  /// Why a correction is needed. Required for corrections (CHECK constraint).
+  correctionReason String?
+  status           ProposalStatus    @default(PROPOSED)
+  proposedById     String
+  proposedAt       DateTime          @default(now())
+  reviewedById     String?
+  reviewedAt       DateTime?
+  reviewNote       String?
+
+  market     Market               @relation(fields: [marketId], references: [id], onDelete: Restrict)
+  corrects   Resolution?          @relation("CorrectionOf", fields: [correctsId], references: [id], onDelete: Restrict)
+  proposedBy User                 @relation("ProposalProposedBy", fields: [proposedById], references: [id], onDelete: Restrict)
+  reviewedBy User?                @relation("ProposalReviewedBy", fields: [reviewedById], references: [id], onDelete: Restrict)
+  evidence   ResolutionEvidence[]
+  appliedAs  Resolution?          @relation("CurrentProposal")
+
+  @@index([marketId, proposedAt])
+  @@index([status, proposedAt])
+}
+
+/// One piece of evidence behind a proposal, with where it came from.
+model ResolutionEvidence {
+  id            String        @id @default(cuid())
+  proposalId    String
+  title         String
+  url           String
+  sourceType    SourceType    @default(OTHER)
+  license       SourceLicense @default(LINK_ONLY)
+  publisher     String?
+  publishedAt   DateTime?
+  retrievedAt   DateTime      @default(now())
+  note          String?
+  submittedById String
+  createdAt     DateTime      @default(now())
+
+  proposal    ResolutionProposal @relation(fields: [proposalId], references: [id], onDelete: Restrict)
+  submittedBy User               @relation(fields: [submittedById], references: [id], onDelete: Restrict)
+
+  @@index([proposalId])
+}
+
+/// Fixed-window counters for lib/rate-limit.ts. Old windows are pruned by cron.
+model RateLimitBucket {
+  key         String
+  windowStart DateTime
+  count       Int      @default(0)
+
+  @@id([key, windowStart])
+  @@index([windowStart])
 }
 
 // ---------------------------------------------------------------------------
@@ -856,15 +993,20 @@ model NewsItem {
   publisher    String
   url          String
   publishedAt  DateTime
+  license      SourceLicense    @default(LINK_ONLY)
+  retrievedAt  DateTime         @default(now())
   /// Whether an admin has verified the reported facts against the source.
   verification NewsVerification @default(UNVERIFIED)
+  verifiedById String?
+  verifiedAt   DateTime?
   createdById  String?
   createdAt    DateTime         @default(now())
   updatedAt    DateTime         @updatedAt
 
-  startup   Startup? @relation(fields: [startupId], references: [id], onDelete: Cascade)
-  market    Market?  @relation(fields: [marketId], references: [id], onDelete: SetNull)
-  createdBy User?    @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  startup    Startup? @relation(fields: [startupId], references: [id], onDelete: Cascade)
+  market     Market?  @relation(fields: [marketId], references: [id], onDelete: SetNull)
+  createdBy  User?    @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  verifiedBy User?    @relation("NewsVerifiedBy", fields: [verifiedById], references: [id], onDelete: SetNull)
 
   @@index([startupId, publishedAt])
   @@index([marketId])

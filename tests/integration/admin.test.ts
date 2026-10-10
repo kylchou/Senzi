@@ -48,18 +48,23 @@ describe("market lifecycle", () => {
     ).rejects.toMatchObject({ code: "INVALID_STATE" });
   });
 
-  it("locks the market terms once someone has forecast", async () => {
+  it("lets drafts change freely but locks the terms once the market opens", async () => {
     const admin = await makeAdmin();
-    const user = await makeUser();
-    const market = await makeMarket(admin);
-    await updateMarket(admin, market.id, { openingBaseline: 0.6 });
+    const draft = await makeMarket(admin, { open: false });
+    await updateMarket(admin, draft.id, { openingBaseline: 0.6, question: "Will the draft question change?" });
 
-    await placeForecast(user, market.id);
-    await expect(updateMarket(admin, market.id, { openingBaseline: 0.7 })).rejects.toMatchObject({
-      code: "INVALID_STATE",
+    const open = await makeMarket(admin);
+    await expect(updateMarket(admin, open.id, { openingBaseline: 0.7 })).rejects.toMatchObject({ code: "INVALID_STATE" });
+    await expect(
+      updateMarket(admin, open.id, { sources: [{ title: "New source", url: "https://example.com/other", sourceType: "OTHER", license: "LINK_ONLY" }] }),
+    ).rejects.toMatchObject({ code: "INVALID_STATE" });
+    // Unchanged values and the allowed fields are fine, and logged with before/after values.
+    const later = new Date(open.closesAt.getTime() + 24 * 60 * 60 * 1000);
+    await updateMarket(admin, open.id, { openingBaseline: 0.4, description: "More context.", closesAt: later });
+    const audit = await db.auditLog.findFirstOrThrow({ where: { action: "market.update", entityId: open.id } });
+    expect(audit.data).toMatchObject({
+      changes: { description: { from: null, to: "More context." }, closesAt: { from: open.closesAt.toISOString(), to: later.toISOString() } },
     });
-    // Unchanged values and non-term fields are still fine.
-    await updateMarket(admin, market.id, { openingBaseline: 0.6, description: "More context." });
   });
 
   it("requires resolution (not a status change) to cancel a market with forecasts", async () => {
@@ -108,7 +113,7 @@ describe("resolution", () => {
   it("marks VOID outcomes as CANCELLED markets", async () => {
     const admin = await makeAdmin();
     const market = await makeMarket(admin);
-    await resolveMarket(admin, market.id, { outcome: "VOID", ...evidence });
+    await resolveMarket(admin, market.id, { outcome: "VOID", voidReason: "UNVERIFIABLE", ...evidence });
     expect((await db.market.findUniqueOrThrow({ where: { id: market.id } })).status).toBe(MarketStatus.CANCELLED);
   });
 

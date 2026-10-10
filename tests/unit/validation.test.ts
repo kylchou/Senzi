@@ -5,6 +5,8 @@ import {
   createMarketSchema,
   forecastSubmissionSchema,
   httpUrlSchema,
+  proposeCorrectionSchema,
+  proposeResolutionSchema,
   resolveMarketSchema,
   updateProfileSchema,
 } from "@/lib/validation";
@@ -136,5 +138,28 @@ describe("profiles and urls", () => {
     expect(httpUrlSchema.safeParse("https://senzi.example").success).toBe(true);
     expect(httpUrlSchema.safeParse("ftp://senzi.example").success).toBe(false);
     expect(httpUrlSchema.safeParse("data:text/html,hi").success).toBe(false);
+  });
+});
+
+describe("proposeResolutionSchema", () => {
+  const base = {
+    evidenceSummary: "The company announced the round in a press release.",
+    evidence: [{ title: "Press release", url: "https://example.com/pr" }],
+  };
+
+  it("requires a reason for VOID and only for VOID", () => {
+    expect(proposeResolutionSchema.safeParse({ ...base, outcome: "VOID" }).success).toBe(false);
+    expect(proposeResolutionSchema.safeParse({ ...base, outcome: "VOID", voidReason: "AMBIGUOUS" }).success).toBe(true);
+    expect(proposeResolutionSchema.safeParse({ ...base, outcome: "YES", voidReason: "AMBIGUOUS" }).success).toBe(false);
+  });
+
+  it("defaults evidence to link-only licensing", () => {
+    const parsed = proposeResolutionSchema.parse({ ...base, outcome: "YES" });
+    expect(parsed.evidence[0]).toMatchObject({ license: "LINK_ONLY", sourceType: "OTHER" });
+  });
+
+  it("needs a reason for corrections", () => {
+    expect(proposeCorrectionSchema.safeParse({ ...base, outcome: "NO" }).success).toBe(false);
+    expect(proposeCorrectionSchema.safeParse({ ...base, outcome: "NO", correctionReason: "Wrong filing was cited" }).success).toBe(true);
   });
 });

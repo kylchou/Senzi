@@ -1,10 +1,11 @@
 import Link from "next/link";
+import { SourceLicense, SourceType } from "@/generated/prisma/enums";
 import { getAdminStartup, listAdminMarkets } from "@/lib/admin";
 import { listStartupFacts } from "@/lib/admin-content";
 import { requireAdminPage } from "@/lib/auth";
 import { createFactAction, deleteFactAction, setFactVerifiedAction, updateStartupAction } from "../../actions";
 import { ActionForm } from "../../_components/action-form";
-import { Badge, ButtonLink, Field, formatUtc, PageHeader, Section, Table } from "../../_components/ui";
+import { Badge, ButtonLink, Field, formatUtc, PageHeader, Section, Select, Table } from "../../_components/ui";
 import { StartupForm } from "../startup-form";
 
 export default async function EditStartupPage({ params }: PageProps<"/admin/startups/[id]">) {
@@ -67,6 +68,18 @@ export default async function EditStartupPage({ params }: PageProps<"/admin/star
               <Field label="Source name" name="sourceName" required placeholder="Company press release" />
               <Field label="Source URL" name="sourceUrl" type="url" required />
               <Field label="As of (UTC)" name="asOf" type="datetime-local" required />
+              <Select
+                label="Source type"
+                name="sourceType"
+                defaultValue="COMPANY_ANNOUNCEMENT"
+                options={Object.values(SourceType).map((v) => ({ value: v, label: v.replace(/_/g, " ").toLowerCase() }))}
+              />
+              <Select
+                label="What we may do with it"
+                name="license"
+                defaultValue="LINK_ONLY"
+                options={Object.values(SourceLicense).map((v) => ({ value: v, label: v.replace(/_/g, " ").toLowerCase() }))}
+              />
             </div>
             <Field label="I checked this against the source (verified)" name="verified" type="checkbox" />
           </ActionForm>

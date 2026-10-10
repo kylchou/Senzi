@@ -8,11 +8,13 @@ import {
   NewsVerification,
   OrgRole,
   PlatformRole,
+  ProposalStatus,
   ResolutionOutcome,
   SnapshotTrigger,
   StudyStatus,
   StudyVisibility,
   VcAlertType,
+  VoidReason,
   WatchlistItemType,
 } from "../generated/prisma/enums";
 import { applyCreditTransaction, grantSignupCredits } from "../lib/credits";
@@ -73,6 +75,8 @@ async function main() {
   }
   const uid = (handle: string) => userIds.get(handle)!;
   const adminId = uid("avery");
+  // A second admin approves the seeded resolutions (two-admin rule).
+  const reviewerId = uid("jordan");
 
   const demoEmail = process.env.SEED_DEMO_EMAIL?.trim().toLowerCase();
   let demoUserId: string | null = null;
@@ -122,7 +126,7 @@ async function main() {
   const startupIds = new Map<string, string>();
   for (const s of startups) {
     const row = await db.startup.create({
-      data: { ...s, websiteUrl: `https://${s.slug}.example.com`, isPublished: true, createdById: adminId },
+      data: { ...s, websiteUrl: `https://${s.slug}.example.com`, isPublished: true, isDemo: true, createdById: adminId },
     });
     startupIds.set(s.slug, row.id);
   }
@@ -134,8 +138,11 @@ async function main() {
         value: f.value,
         sourceName: f.sourceName,
         sourceUrl: `https://${f.startup}.example.com/press`,
+        sourceType: "COMPANY_ANNOUNCEMENT",
         asOf: daysFrom(f.days),
-        verified: f.verified,
+        retrievedAt: daysFrom(f.days + 1),
+        // Fictional company, so never verified.
+        verified: false,
       },
     });
   }
@@ -170,7 +177,7 @@ async function main() {
         resolvesBy: new Date(closesAt.getTime() + 30 * DAY),
         createdById: adminId,
         sources: {
-          create: [{ title: m.source, url: `https://${m.startup}.example.com/news`, position: 0 }],
+          create: [{ title: m.source, url: `https://${m.startup}.example.com/news`, sourceType: "COMPANY_ANNOUNCEMENT", retrievedAt: opensAt, position: 0 }],
         },
       },
     });
@@ -274,17 +281,44 @@ async function main() {
     await db.market.update({ where: { id: market.id }, data: { status } });
     const outcome = resolutionOutcome(m);
     if (outcome) {
+      // Proposed by one admin, approved by another, like the real workflow.
+      const voidReason = outcome === ResolutionOutcome.VOID ? VoidReason.CANCELLED : null;
+      const evidenceSummary =
+        outcome === ResolutionOutcome.VOID
+          ? "The trial site's permit was withdrawn, so the question can no longer be fairly answered. Stakes will be refunded."
+          : `Demo resolution: the published record ${outcome === ResolutionOutcome.YES ? "meets" : "does not meet"} the criteria by the deadline.`;
+      const evidenceUrl = `https://${m.startup}.example.com/news`;
+      const proposedAt = daysFrom(m.closesInDays + 2);
+      const approvedAt = daysFrom(m.closesInDays + 3);
+      const proposal = await db.resolutionProposal.create({
+        data: {
+          marketId: market.id,
+          outcome,
+          voidReason,
+          evidenceSummary,
+          proposedById: adminId,
+          proposedAt,
+          evidence: {
+            create: [{ title: "Company newsroom (fictional)", url: evidenceUrl, sourceType: "COMPANY_ANNOUNCEMENT", retrievedAt: proposedAt, submittedById: adminId }],
+          },
+        },
+      });
+      await db.resolutionProposal.update({
+        where: { id: proposal.id },
+        data: { status: ProposalStatus.APPROVED, reviewedById: reviewerId, reviewedAt: approvedAt },
+      });
       await db.resolution.create({
         data: {
           marketId: market.id,
           outcome,
-          evidenceSummary:
-            outcome === ResolutionOutcome.VOID
-              ? "The trial site's permit was withdrawn, so the question can no longer be fairly answered. Stakes will be refunded."
-              : `Demo resolution: the published record ${outcome === ResolutionOutcome.YES ? "meets" : "does not meet"} the criteria by the deadline.`,
-          evidenceUrls: [`https://${m.startup}.example.com/news`],
+          voidReason,
+          evidenceSummary,
+          evidenceUrls: [evidenceUrl],
           resolvedById: adminId,
-          resolvedAt: daysFrom(m.closesInDays + 3),
+          resolvedAt: approvedAt,
+          approvedById: reviewerId,
+          approvedAt,
+          currentProposalId: proposal.id,
         },
       });
     }
@@ -455,7 +489,9 @@ async function main() {
         publisher: n.sourceName,
         url: `https://news.example.com/${n.startup}/${i + 1}`,
         publishedAt: daysFrom(n.days),
-        verification: n.verified ? NewsVerification.VERIFIED : NewsVerification.UNVERIFIED,
+        retrievedAt: daysFrom(n.days),
+        // Fictional article, so never verified.
+        verification: NewsVerification.UNVERIFIED,
         createdById: adminId,
       },
     });
