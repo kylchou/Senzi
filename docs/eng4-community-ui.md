@@ -53,8 +53,8 @@ Error codes the panel handles: `UNAUTHENTICATED` (sign-in prompt), `INSUFFICIENT
 
 ## Theme, motion, and app chrome
 
-- Light, dark, and system themes. `components/ui/theme.css` holds the tokens; the ink and red scales, `surface`, `page`, and `hairline` switch under a `.dark` class on `<html>`. `night` and `mist` never switch (navbar, hero). `white` is never redefined, so VC and admin `bg-white` and `dark:` styles behave as before.
-- `ThemeScript` applies the saved or system theme before first paint; `ThemeToggle` switches it.
+- Light, dark, and system themes. `components/ui/theme.css` holds the tokens; the ink and red scales, `surface`, `page`, and `hairline` switch under a `.dark` class on `<html>`. The navbar, hero, tutorial, and tab bar use these switching tokens, so every part of the page follows the theme. `night` and `mist` stay fixed and are only for surfaces that must remain charcoal. `white` is never redefined, so VC and admin `bg-white` and `dark:` styles behave as before.
+- `ThemeScript` applies the saved or system theme before first paint. `ThemeToggle` (moon or sun in the navbar) switches between light and dark in one click; the OS setting applies until it is used.
 - `AppOverlays` mounts the mobile tab bar, the Command-K palette (also `/`), and toasts once.
 - `NotificationsBell` reads `GET /api/users/me/notifications` and uses `PATCH` with `{ ids: "all" }`, and badges the tab icon while anything is unread.
 - Motion uses CSS keyframes and React `ViewTransition`; everything is disabled under `prefers-reduced-motion`.

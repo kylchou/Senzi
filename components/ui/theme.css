@@ -5,8 +5,8 @@
  * and red text on white both meet WCAG AA contrast.
  *
  * Theming: the ink and red scales, `surface`, and `page` switch under `.dark`.
- * `night` and `mist` never switch; they are for brand surfaces that stay
- * charcoal in both themes (navbar, hero, footer). `white` is never redefined,
+ * `night` and `mist` never switch; they are only for surfaces that must stay
+ * charcoal in both themes. `white` is never redefined,
  * so other teams' `bg-white` and `text-white` keep their meaning.
  */
 @theme {
