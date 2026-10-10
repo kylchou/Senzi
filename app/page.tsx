@@ -5,6 +5,8 @@ import { MarketCard } from "@/components/MarketCard";
 import { NewsFeed } from "@/components/NewsFeed";
 import { StartupCard } from "@/components/StartupCard";
 import { AllocationBar } from "@/components/ui/AllocationBar";
+import { BiggestMoves } from "@/components/ui/BiggestMoves";
+import { HeroGreeting } from "@/components/ui/HeroGreeting";
 import { SignInCta } from "@/components/ui/AuthControls";
 import { ButtonLink } from "@/components/ui/Button";
 import { Container } from "@/components/ui/Container";
@@ -13,8 +15,8 @@ import { ErrorState } from "@/components/ui/ErrorState";
 import { SectionHeading } from "@/components/ui/SectionHeading";
 import { CardGridSkeleton, Skeleton } from "@/components/ui/Skeleton";
 import { listFeaturedStartups } from "@/lib/discovery/queries";
-import { formatDeadline, formatShare } from "@/lib/market-view/format";
-import { getPublicCounts, listFeaturedMarkets } from "@/lib/market-view/queries";
+import { formatDeadline, formatShare, requestTime } from "@/lib/market-view/format";
+import { getPublicCounts, listBiggestMoves, listFeaturedMarkets } from "@/lib/market-view/queries";
 import { safe } from "@/lib/market-view/safe";
 import { listNews } from "@/lib/news/queries";
 import { PageTransition, StreamIn } from "@/components/ui/Transitions";
@@ -63,6 +65,7 @@ export default function HomePage() {
             />
             <div className="relative grid items-center gap-12 px-6 py-14 sm:px-12 sm:py-20 lg:grid-cols-[1.1fr_1fr]">
               <div>
+                <HeroGreeting />
                 <h1 className="text-4xl font-extrabold leading-[1.05] sm:text-6xl">
                   Forecast what startups do <span className="text-red-500">next.</span>
                 </h1>
@@ -92,6 +95,10 @@ export default function HomePage() {
             <OpenMarkets />
           </StreamIn>
         </Container>
+
+        <StreamIn fallback={null}>
+          <Moves />
+        </StreamIn>
 
         <section>
           <Container className="grid gap-12 py-16 sm:py-20 lg:grid-cols-2">
@@ -216,6 +223,24 @@ async function Spotlight() {
         {formatDeadline(market.closesAt)} · {market.allocation.forecastCount} forecasts
       </p>
     </Link>
+  );
+}
+
+/** Hidden entirely when nothing moved, so the homepage never shows an empty block. */
+async function Moves() {
+  await io();
+  const result = await safe(() => listBiggestMoves(requestTime(), 4));
+  if (!result.data || result.data.moves.length === 0) return null;
+  return (
+    <Container className="pb-16 sm:pb-20">
+      <SectionHeading
+        eyebrow="Movement"
+        title={result.data.days === 7 ? "Biggest moves this week" : "Biggest moves this month"}
+        href="/markets?sort=active"
+        linkLabel="Most forecasts"
+      />
+      <BiggestMoves moves={result.data.moves} />
+    </Container>
   );
 }
 

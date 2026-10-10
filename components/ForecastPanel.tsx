@@ -7,6 +7,7 @@ import { AlertCircle, Check, Loader2, Lock } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/components/ui/cn";
 import { toast } from "@/components/ui/Toaster";
+import { refreshMe } from "@/components/ui/me-client";
 import { formatCredits, formatDateTime, formatShare } from "@/lib/market-view/format";
 import {
   errorMessage,
@@ -100,6 +101,7 @@ export function ForecastPanel({
       const result = await submitForecast({ marketId, side, credits: Number(amount), idempotencyKey: idempotencyKey.current });
       setReceipt(result);
       if (typeof result.balanceAfter === "number") setSession({ state: "ready", balance: result.balanceAfter });
+      refreshMe();
       toast(`Forecast recorded: ${formatCredits(result.credits)} credits on ${result.side}`);
       try {
         localStorage.setItem(LAST_AMOUNT_KEY, String(result.credits));

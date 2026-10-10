@@ -17,7 +17,10 @@ import { formatDate } from "@/lib/market-view/format";
 import type { NewsItemView } from "@/lib/market-view/types";
 import { listNewsPage } from "@/lib/news/queries";
 
-export const metadata: Metadata = { title: "News" };
+export const metadata: Metadata = {
+  title: "News",
+  description: "Sourced coverage of startups on Senzi, labeled verified or reported.",
+};
 
 const verificationOptions = [
   { value: "", label: "All" },
