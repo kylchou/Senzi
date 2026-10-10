@@ -111,6 +111,14 @@ export function MarketForm({
         defaultValue={market?.sources?.map((s) => `${s.title} | ${s.url}`).join("\n") ?? ""}
         hint="Where the resolver will look. One per line: Title | https://link"
       />
+      {!termsLocked && <input type="hidden" name="verifiedUsersOnlyField" value="1" />}
+      <Field
+        label="Verified users only (people who proved they use this startup's product)"
+        name="verifiedUsersOnly"
+        type="checkbox"
+        defaultChecked={market?.verifiedUsersOnly ?? false}
+        disabled={termsLocked}
+      />
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Min credits per forecast" name="minForecastCredits" type="number" min={1} defaultValue={market?.minForecastCredits ?? ""} disabled={termsLocked} />
         <Field label="Max credits per forecast" name="maxForecastCredits" type="number" min={1} defaultValue={market?.maxForecastCredits ?? ""} disabled={termsLocked} />

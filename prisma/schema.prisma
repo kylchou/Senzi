@@ -45,6 +45,12 @@ enum VerificationStatus {
   REJECTED
 }
 
+/// How someone proved they use a startup's product.
+enum ProductVerificationMethod {
+  ACCESS_CODE // a code the startup (for now, a Senzi admin) gave them; instant
+  SCREENSHOT // a screenshot of their account, reviewed by an admin
+}
+
 /// Role inside a VC organization. Ordered from most to least privileged.
 enum OrgRole {
   OWNER
@@ -272,25 +278,25 @@ model User {
   updatedAt         DateTime     @updatedAt
 
   memberships             OrganizationMembership[]
-  invitedMembers          OrganizationMembership[] @relation("MembershipInvitedBy")
+  invitedMembers          OrganizationMembership[]  @relation("MembershipInvitedBy")
   forecasts               Forecast[]
-  creditTransactions      CreditTransaction[]      @relation("CreditTransactionUser")
-  creditActions           CreditTransaction[]      @relation("CreditTransactionActor")
+  creditTransactions      CreditTransaction[]       @relation("CreditTransactionUser")
+  creditActions           CreditTransaction[]       @relation("CreditTransactionActor")
   notifications           Notification[]
   achievements            UserAchievement[]
   createdStartups         Startup[]
-  createdMarkets          Market[]                 @relation("MarketCreatedBy")
+  createdMarkets          Market[]                  @relation("MarketCreatedBy")
   resolutions             Resolution[]
-  resolutionsApproved     Resolution[]             @relation("ResolutionApprovedBy")
-  proposalsMade           ResolutionProposal[]     @relation("ProposalProposedBy")
-  proposalsReviewed       ResolutionProposal[]     @relation("ProposalReviewedBy")
+  resolutionsApproved     Resolution[]              @relation("ResolutionApprovedBy")
+  proposalsMade           ResolutionProposal[]      @relation("ProposalProposedBy")
+  proposalsReviewed       ResolutionProposal[]      @relation("ProposalReviewedBy")
   evidenceSubmitted       ResolutionEvidence[]
-  factsVerified           StartupFact[]            @relation("FactVerifiedBy")
-  newsVerified            NewsItem[]               @relation("NewsVerifiedBy")
+  factsVerified           StartupFact[]             @relation("FactVerifiedBy")
+  newsVerified            NewsItem[]                @relation("NewsVerifiedBy")
   createdNews             NewsItem[]
-  createdStudies          ResearchStudy[]          @relation("StudyCreatedBy")
-  studyParticipations     StudyParticipant[]       @relation("StudyParticipantUser")
-  addedParticipants       StudyParticipant[]       @relation("StudyParticipantAddedBy")
+  createdStudies          ResearchStudy[]           @relation("StudyCreatedBy")
+  studyParticipations     StudyParticipant[]        @relation("StudyParticipantUser")
+  addedParticipants       StudyParticipant[]        @relation("StudyParticipantAddedBy")
   studyEvents             StudyEvent[]
   studyNotes              StudyNote[]
   createdWatchlists       Watchlist[]
@@ -298,8 +304,11 @@ model User {
   alertReceipts           VcAlertReceipt[]
   createdReports          VcReport[]
   modelDataPointsEntered  ModelDataPoint[]
-  vcVerifications         VcVerificationRequest[]  @relation("VcVerificationUser")
-  vcVerificationsReviewed VcVerificationRequest[]  @relation("VcVerificationReviewer")
+  vcVerifications         VcVerificationRequest[]   @relation("VcVerificationUser")
+  vcVerificationsReviewed VcVerificationRequest[]   @relation("VcVerificationReviewer")
+  productVerifications    ProductUserVerification[] @relation("ProductVerificationUser")
+  productReviews          ProductUserVerification[] @relation("ProductVerificationReviewer")
+  productAccessCodes      ProductAccessCode[]
 }
 
 /// A VC's firm details, checked by a platform admin before they get VC access.
@@ -387,13 +396,15 @@ model Startup {
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
 
-  createdBy       User?            @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  createdBy       User?                     @relation(fields: [createdById], references: [id], onDelete: SetNull)
   facts           StartupFact[]
   markets         Market[]
   news            NewsItem[]
   studies         ResearchStudy[]
   watchlistItems  WatchlistItem[]
   modelDataPoints ModelDataPoint[]
+  productUsers    ProductUserVerification[]
+  accessCodes     ProductAccessCode[]
 
   @@index([industry])
   @@index([isPublished, name])
@@ -439,6 +450,8 @@ model Market {
   category            String?
   status              MarketStatus     @default(DRAFT)
   visibility          MarketVisibility @default(PUBLIC)
+  /// Only verified users of the startup's product can trade. Locked once open.
+  verifiedUsersOnly   Boolean          @default(false)
   /// Required when visibility is not PUBLIC (CHECK constraint).
   organizationId      String?
   opensAt             DateTime
@@ -764,10 +777,10 @@ model ResearchStudy {
   createdAt           DateTime           @default(now())
   updatedAt           DateTime           @updatedAt
 
-  organization   Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  createdBy      User               @relation("StudyCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
-  startup        Startup            @relation(fields: [startupId], references: [id], onDelete: Restrict)
-  market         Market?            @relation(fields: [marketId], references: [id], onDelete: Restrict)
+  organization   Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdBy      User                @relation("StudyCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  startup        Startup             @relation(fields: [startupId], references: [id], onDelete: Restrict)
+  market         Market?             @relation(fields: [marketId], references: [id], onDelete: Restrict)
   sources        StudySource[]
   participants   StudyParticipant[]
   events         StudyEvent[]
@@ -1163,4 +1176,57 @@ model AuditLog {
   @@index([actorId, createdAt])
   @@index([organizationId, createdAt])
   @@index([action, createdAt])
+}
+
+/// Proof that someone uses a startup's product. Approved rows unlock that
+/// startup's verified-users-only markets and count toward the Verified Users
+/// line. Never edited after review; a retry is a new row.
+model ProductUserVerification {
+  id             String                    @id @default(cuid())
+  userId         String
+  startupId      String
+  method         ProductVerificationMethod
+  status         VerificationStatus        @default(PENDING)
+  accessCodeId   String?
+  /// Screenshot proof, at most 3 MB. Only admins can view it.
+  screenshot     Bytes?
+  screenshotType String?
+  note           String?
+  reviewedById   String?
+  reviewedAt     DateTime?
+  /// Shown to the user. Required when rejecting.
+  reviewNote     String?
+  createdAt      DateTime                  @default(now())
+
+  user       User               @relation("ProductVerificationUser", fields: [userId], references: [id], onDelete: Cascade)
+  startup    Startup            @relation(fields: [startupId], references: [id], onDelete: Cascade)
+  accessCode ProductAccessCode? @relation(fields: [accessCodeId], references: [id], onDelete: SetNull)
+  reviewedBy User?              @relation("ProductVerificationReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+
+  @@index([userId, startupId, status])
+  @@index([status, createdAt])
+}
+
+/// A code that verifies whoever enters it as a user of one startup's product.
+/// Only a hash is stored; the code itself is shown once, when it's made.
+model ProductAccessCode {
+  id          String    @id @default(cuid())
+  startupId   String
+  codeHash    String    @unique
+  /// Last characters, so admins can tell codes apart.
+  hint        String
+  label       String?
+  /// Null means unlimited.
+  maxUses     Int?
+  useCount    Int       @default(0)
+  expiresAt   DateTime?
+  revokedAt   DateTime?
+  createdById String?
+  createdAt   DateTime  @default(now())
+
+  startup       Startup                   @relation(fields: [startupId], references: [id], onDelete: Cascade)
+  createdBy     User?                     @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  verifications ProductUserVerification[]
+
+  @@index([startupId, createdAt])
 }

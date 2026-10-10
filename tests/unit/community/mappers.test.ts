@@ -11,6 +11,7 @@ const summaryRow = {
   question: "Will Acme announce a Series B by June 30?",
   status: "OPEN" as const,
   closesAt: new Date("2027-06-30T00:00:00Z"),
+  verifiedUsersOnly: false,
   openingBaseline: 0.35,
   yesCredits: 600,
   noCredits: 400,
