@@ -21,12 +21,12 @@ function Stat({
   tour?: string;
 }) {
   return (
-    <div className="bg-surface p-5" data-tour={tour}>
+    <div className="surface-card p-5" data-tour={tour}>
       <div className="flex items-center gap-1 text-xs font-medium text-ink-600">
         {label}
         <InfoTip label={`About ${label.toLowerCase()}`}>{tip}</InfoTip>
       </div>
-      <p className="mt-1 font-display text-2xl font-bold tabular-nums text-ink-900 sm:text-3xl">{value}</p>
+      <p className="mt-2 font-display text-3xl font-semibold tracking-tight tabular-nums text-ink-900 sm:text-4xl">{value}</p>
       <p className="mt-0.5 text-xs text-ink-500">{note}</p>
     </div>
   );
@@ -70,9 +70,8 @@ export function MarketBrief({ market }: { market: MarketDetail }) {
         </div>
       )}
 
-      <div className="overflow-hidden rounded-[var(--radius-card)] border border-ink-200 bg-surface">
-        {/* 1px gaps over an ink background draw the dividers at every breakpoint. */}
-        <div className="grid grid-cols-2 gap-px bg-ink-100 sm:grid-cols-4">
+      <div className="space-y-3">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <Stat
             tour="allocation"
             label="YES allocation"
@@ -108,8 +107,8 @@ export function MarketBrief({ market }: { market: MarketDetail }) {
             tip="Forecasts placed on this market and the number of unique forecasters."
           />
         </div>
-        <div className="border-t border-ink-100 px-5 py-4">
-          <AllocationBar share={allocation.share} baseline={market.openingBaseline} />
+        <div className="surface-card px-5 py-5">
+          <AllocationBar share={allocation.share} baseline={market.openingBaseline} knob />
           <div className="mt-2 flex justify-between text-xs tabular-nums text-ink-600">
             <span>
               <span className="font-semibold text-ink-900">YES</span> <AnimatedNumber value={allocation.yesCredits} /> credits
@@ -122,13 +121,13 @@ export function MarketBrief({ market }: { market: MarketDetail }) {
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2">
-        <div className="rounded-[var(--radius-card)] border border-ink-200 p-5">
+        <div className="surface-card p-5">
           <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.12em] text-red-700">
             <Scale className="size-4" aria-hidden /> Resolves YES if
           </p>
           <p className="mt-2 whitespace-pre-line text-sm leading-relaxed text-ink-800">{market.yesCriteria}</p>
         </div>
-        <div className="rounded-[var(--radius-card)] border border-ink-200 p-5">
+        <div className="surface-card p-5">
           <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.12em] text-ink-600">
             <CircleSlash className="size-4" aria-hidden /> Resolves NO if
           </p>

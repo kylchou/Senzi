@@ -13,7 +13,7 @@ export function MarketCard({ market }: { market: MarketSummary }) {
   const isLive = market.status === "OPEN";
 
   return (
-    <article className="group relative flex h-full flex-col rounded-[var(--radius-card)] border border-ink-200 bg-surface p-5 shadow-[var(--shadow-card)] transition-[box-shadow,border-color,transform] duration-200 hover:-translate-y-0.5 hover:border-ink-300 hover:shadow-[var(--shadow-lift)]">
+    <article className="group relative flex h-full flex-col surface-card card-hover p-5">
       <div className="flex items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-2.5">
           <StartupMark name={market.startup.name} logoUrl={market.startup.logoUrl} size="sm" />
@@ -36,7 +36,7 @@ export function MarketCard({ market }: { market: MarketSummary }) {
       <div className="mt-auto pt-5">
         <div className="mb-2.5 flex items-end justify-between gap-2">
           <div>
-            <p className="font-display text-2xl font-bold tabular-nums text-ink-900">
+            <p className="font-display text-3xl font-semibold tracking-tight tabular-nums text-ink-900">
               {allocation.share === null ? "N/A" : formatShare(allocation.share)}
             </p>
             <p className="text-xs text-ink-500">YES allocation</p>

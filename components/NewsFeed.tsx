@@ -39,7 +39,7 @@ export function NewsFeed({
   }
 
   return (
-    <ul className="divide-y divide-ink-100 rounded-[var(--radius-card)] border border-ink-200 bg-surface">
+    <ul className="divide-y divide-ink-100 surface-card">
       {items.map((item) => (
         <li key={item.id} className="group relative p-5 transition-colors hover:bg-ink-50">
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-ink-500">

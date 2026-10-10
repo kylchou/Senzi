@@ -131,7 +131,7 @@ export function ForecastPanel({
   return (
     <section
       aria-labelledby="forecast-heading"
-      className="rounded-[var(--radius-card)] border border-ink-200 bg-surface p-5 shadow-[var(--shadow-card)]"
+      className="surface-card p-5"
     >
       <div className="flex items-baseline justify-between gap-2">
         <h2 id="forecast-heading" className="font-display text-lg font-bold text-ink-900">

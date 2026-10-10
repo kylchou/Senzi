@@ -104,7 +104,7 @@ async function MarketView({ params }: Pick<PageProps<"/markets/[slug]">, "params
         <div className="min-w-0 space-y-8 lg:col-start-1 lg:row-start-2">
           <section
             aria-labelledby="history-heading"
-            className="rounded-[var(--radius-card)] border border-ink-200 bg-surface p-5"
+            className="surface-card p-5"
           >
             <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
               <h2 id="history-heading" className="font-display text-lg font-bold text-ink-900">
@@ -122,7 +122,7 @@ async function MarketView({ params }: Pick<PageProps<"/markets/[slug]">, "params
             {market.sources.length === 0 ? (
               <p className="text-sm text-ink-600">No sources listed.</p>
             ) : (
-              <ul className="divide-y divide-ink-100 rounded-[var(--radius-card)] border border-ink-200">
+              <ul className="divide-y divide-ink-100 surface-card">
                 {market.sources.map((source) => (
                   <li
                     key={source.url}
@@ -147,7 +147,7 @@ async function MarketView({ params }: Pick<PageProps<"/markets/[slug]">, "params
             <NewsFeed items={market.coverage} showStartup={false} emptyTitle="No linked coverage yet" />
           </section>
 
-          <section aria-labelledby="startup-heading" className="rounded-[var(--radius-card)] bg-ink-50 p-5">
+          <section aria-labelledby="startup-heading" className="surface-card p-5">
             <h2 id="startup-heading" className="font-display text-lg font-bold text-ink-900">
               About {market.startup.name}
             </h2>

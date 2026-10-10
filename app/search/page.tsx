@@ -43,7 +43,7 @@ function SearchForm({ q }: { q?: string }) {
           Search markets and startups
         </Label>
         <Search
-          className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-500"
+          className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-ink-500"
           aria-hidden
         />
         <Input
@@ -52,7 +52,7 @@ function SearchForm({ q }: { q?: string }) {
           type="search"
           placeholder="Markets and startups"
           defaultValue={q}
-          className="h-12 pl-9 text-base"
+          className="h-12 rounded-full pl-11 text-base"
         />
       </div>
       <Button type="submit" size="lg">

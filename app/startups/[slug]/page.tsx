@@ -49,7 +49,7 @@ async function StartupView({ params }: Pick<PageProps<"/startups/[slug]">, "para
 
   return (
     <>
-      <div className="border-b border-ink-200 bg-ink-50">
+      <div className="relative">
         <Container className="py-8 sm:py-10">
           <nav aria-label="Breadcrumb" className="mb-6 flex items-center gap-1 text-sm text-ink-500">
             <Link href="/startups" className="hover:text-ink-900">
@@ -122,7 +122,7 @@ async function StartupView({ params }: Pick<PageProps<"/startups/[slug]">, "para
             <h2 id="details-heading" className="mb-4 font-display text-xl font-bold text-ink-900">
               Details
             </h2>
-            <dl className="divide-y divide-ink-100 rounded-[var(--radius-card)] border border-ink-200 bg-surface">
+            <dl className="divide-y divide-ink-100 surface-card">
               {details.map((detail) => (
                 <div key={detail.label} className="flex justify-between gap-4 px-5 py-3.5 text-sm">
                   <dt className="text-ink-600">{detail.label}</dt>
@@ -140,7 +140,7 @@ async function StartupView({ params }: Pick<PageProps<"/startups/[slug]">, "para
             {startup.facts.length === 0 ? (
               <EmptyState illustration="news" title="No sourced information yet" />
             ) : (
-              <dl className="divide-y divide-ink-100 rounded-[var(--radius-card)] border border-ink-200 bg-surface">
+              <dl className="divide-y divide-ink-100 surface-card">
                 {startup.facts.map((fact) => (
                   <div key={`${fact.label}-${fact.sourceUrl}`} className="px-5 py-4">
                     <dt className="flex items-center gap-1.5 text-xs font-medium text-ink-600">
@@ -182,7 +182,7 @@ async function StartupView({ params }: Pick<PageProps<"/startups/[slug]">, "para
 function ProfileSkeleton() {
   return (
     <div role="status" aria-label="Loading">
-      <div className="border-b border-ink-200 bg-ink-50">
+      <div className="relative">
         <Container className="space-y-4 py-12">
           <Skeleton className="h-4 w-40" />
           <Skeleton className="h-16 w-80" />

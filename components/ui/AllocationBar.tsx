@@ -10,6 +10,7 @@ export function AllocationBar({
   baseline,
   size = "md",
   tone = "light",
+  knob = false,
   className,
 }: {
   share: number | null;
@@ -17,6 +18,8 @@ export function AllocationBar({
   size?: "sm" | "md";
   /** Use "dark" on charcoal surfaces. */
   tone?: "light" | "dark";
+  /** Show a handle at the current share, like a slider (detail pages). */
+  knob?: boolean;
   className?: string;
 }) {
   const label =
@@ -48,6 +51,13 @@ export function AllocationBar({
           aria-hidden
           className={cn("absolute w-0.5 -translate-x-1/2 rounded-full", tone === "dark" ? "bg-white" : "bg-ink-900", size === "sm" ? "-top-1 h-3.5" : "-top-1 h-[18px]")}
           style={{ left: `${baseline * 100}%` }}
+        />
+      )}
+      {knob && share !== null && (
+        <div
+          aria-hidden
+          className="absolute top-1/2 size-4 -translate-x-1/2 -translate-y-1/2 animate-[pop-in_400ms_var(--ease-out-soft)_300ms_both] rounded-full border-[3px] border-red-500 bg-surface shadow-[0_2px_6px_rgb(0_0_0/0.15)] transition-[left] duration-700 ease-[var(--ease-out-soft)]"
+          style={{ left: `${share * 100}%` }}
         />
       )}
     </div>

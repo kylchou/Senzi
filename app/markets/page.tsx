@@ -6,6 +6,7 @@ import { Button, buttonStyles } from "@/components/ui/Button";
 import { Container } from "@/components/ui/Container";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Input, Label, Select } from "@/components/ui/Field";
+import { ChipGroup } from "@/components/ui/ChipGroup";
 import { ClearFiltersLink, FilterForm } from "@/components/ui/FilterForm";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Pagination } from "@/components/ui/Pagination";
@@ -55,49 +56,47 @@ async function Filters({ searchParams }: Pick<PageProps<"/markets">, "searchPara
   const industries = await listIndustries();
 
   return (
-    <FilterForm action="/markets">
-      <div className="relative flex-1">
-        <Label htmlFor="q" className="sr-only">
-          Search markets
-        </Label>
-        <Search
-          className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-500"
-          aria-hidden
-        />
-        <Input
-          id="q"
-          name="q"
-          type="search"
-          placeholder="Search questions or startups"
-          defaultValue={params.q}
-          className="pl-9"
-        />
-      </div>
-      <div className="grid grid-cols-3 gap-3 sm:flex">
-        <div className="flex flex-col gap-1">
-          <Label htmlFor="status">Status</Label>
-          <Select id="status" name="status" defaultValue={params.status ?? ""}>
-            {statusOptions.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </Select>
+    <FilterForm action="/markets" className="sm:flex-col sm:items-stretch">
+      <ChipGroup name="status" label="Status" options={statusOptions} value={params.status ?? ""} />
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+        <div className="relative flex-1">
+          <Label htmlFor="q" className="sr-only">
+            Search markets
+          </Label>
+          <Search
+            className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-ink-500"
+            aria-hidden
+          />
+          <Input
+            id="q"
+            name="q"
+            type="search"
+            placeholder="Search questions or startups"
+            defaultValue={params.q}
+            className="h-11 rounded-full pl-10"
+          />
         </div>
-        <div className="flex flex-col gap-1">
-          <Label htmlFor="industry">Industry</Label>
-          <Select id="industry" name="industry" defaultValue={params.industry ?? ""}>
-            <option value="">All</option>
+        <div className="grid grid-cols-2 gap-3 sm:flex">
+          <Label htmlFor="industry" className="sr-only">
+            Industry
+          </Label>
+          <Select
+            id="industry"
+            name="industry"
+            defaultValue={params.industry ?? ""}
+            className="h-11 rounded-full sm:w-44"
+          >
+            <option value="">All industries</option>
             {industries.map((industry) => (
               <option key={industry} value={industry}>
                 {industry}
               </option>
             ))}
           </Select>
-        </div>
-        <div className="flex flex-col gap-1">
-          <Label htmlFor="sort">Sort</Label>
-          <Select id="sort" name="sort" defaultValue={params.sort}>
+          <Label htmlFor="sort" className="sr-only">
+            Sort
+          </Label>
+          <Select id="sort" name="sort" defaultValue={params.sort} className="h-11 rounded-full sm:w-44">
             {sortOptions.map((option) => (
               <option key={option.value} value={option.value}>
                 {option.label}
@@ -105,10 +104,10 @@ async function Filters({ searchParams }: Pick<PageProps<"/markets">, "searchPara
             ))}
           </Select>
         </div>
+        <Button type="submit" size="lg" className="h-11">
+          Search
+        </Button>
       </div>
-      <Button type="submit" className="sm:self-end">
-        Search
-      </Button>
     </FilterForm>
   );
 }

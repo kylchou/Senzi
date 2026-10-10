@@ -17,7 +17,7 @@ export function Skeleton({ className }: { className?: string }) {
 /** Same shape as MarketCard, so the grid does not jump when data arrives. */
 export function MarketCardSkeleton() {
   return (
-    <div aria-hidden className="flex h-full flex-col rounded-[var(--radius-card)] border border-ink-200 bg-surface p-5">
+    <div aria-hidden className="flex h-full flex-col surface-card p-5">
       <div className="flex items-center gap-2.5">
         <Skeleton className="size-7 rounded-md" />
         <div className="space-y-1.5">
@@ -44,7 +44,7 @@ export function MarketCardSkeleton() {
 /** Same shape as StartupCard. */
 export function StartupCardSkeleton() {
   return (
-    <div aria-hidden className="flex h-full flex-col rounded-[var(--radius-card)] border border-ink-200 bg-surface p-5">
+    <div aria-hidden className="flex h-full flex-col surface-card p-5">
       <div className="flex items-start gap-3">
         <Skeleton className="size-10 rounded-lg" />
         <div className="space-y-1.5">

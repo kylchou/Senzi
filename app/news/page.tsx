@@ -54,7 +54,7 @@ async function Filters({ searchParams }: Pick<PageProps<"/news">, "searchParams"
         <Label htmlFor="industry" className="shrink-0">
           Industry
         </Label>
-        <Select id="industry" name="industry" defaultValue={params.industry ?? ""} className="sm:w-48">
+        <Select id="industry" name="industry" defaultValue={params.industry ?? ""} className="rounded-full sm:w-48">
           <option value="">All</option>
           {industries.map((industry) => (
             <option key={industry} value={industry}>

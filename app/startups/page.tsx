@@ -46,7 +46,7 @@ async function Filters({ searchParams }: Pick<PageProps<"/startups">, "searchPar
           Search startups
         </Label>
         <Search
-          className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-500"
+          className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-ink-500"
           aria-hidden
         />
         <Input
@@ -55,12 +55,12 @@ async function Filters({ searchParams }: Pick<PageProps<"/startups">, "searchPar
           type="search"
           placeholder="Search by name or industry"
           defaultValue={params.q}
-          className="pl-9"
+          className="rounded-full pl-10"
         />
       </div>
       <div className="flex flex-col gap-1 sm:w-56">
         <Label htmlFor="industry">Industry</Label>
-        <Select id="industry" name="industry" defaultValue={params.industry ?? ""}>
+        <Select id="industry" name="industry" defaultValue={params.industry ?? ""} className="rounded-full">
           <option value="">All</option>
           {industries.map((industry) => (
             <option key={industry} value={industry}>
@@ -69,7 +69,7 @@ async function Filters({ searchParams }: Pick<PageProps<"/startups">, "searchPar
           ))}
         </Select>
       </div>
-      <Button type="submit" className="sm:self-end">
+      <Button type="submit" size="lg" className="h-11 sm:self-end">
         Search
       </Button>
     </FilterForm>

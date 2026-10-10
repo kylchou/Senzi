@@ -51,38 +51,40 @@ export default function HomePage() {
   return (
     <PageTransition>
       <main id="main" className="flex-1">
-        <section className="relative overflow-hidden bg-night text-white">
-          <div
-            aria-hidden
-            className="pointer-events-none absolute inset-0 opacity-[0.07] [background-image:linear-gradient(to_right,#fff_1px,transparent_1px),linear-gradient(to_bottom,#fff_1px,transparent_1px)] [background-size:48px_48px] [mask-image:radial-gradient(ellipse_at_top_right,black_20%,transparent_70%)]"
-          />
-          <div
-            aria-hidden
-            className="pointer-events-none absolute -right-32 -top-32 size-96 rounded-full bg-red-500/20 blur-3xl"
-          />
-          <Container className="relative grid items-center gap-12 py-20 sm:py-24 lg:grid-cols-[1.1fr_1fr]">
-            <div>
-              <h1 className="text-4xl font-extrabold leading-[1.05] sm:text-6xl">
-                Forecast what startups do <span className="text-red-500">next.</span>
-              </h1>
-              <p className="mt-5 max-w-lg text-lg text-mist-300">
-                Allocate virtual credits on measurable startup milestones and see where the community stands.
-              </p>
-              <div className="mt-8 flex flex-wrap gap-3">
-                <ButtonLink href="/markets" variant="accent" size="lg">
-                  Explore markets <ArrowRight className="size-4" aria-hidden />
-                </ButtonLink>
-                <SignInCta variant="inverse">Sign in</SignInCta>
+        <Container className="pt-6">
+          <section className="relative overflow-hidden rounded-[var(--radius-hero)] bg-night text-white">
+            <div
+              aria-hidden
+              className="dot-grid pointer-events-none absolute inset-0 text-white/[0.12] [mask-image:radial-gradient(ellipse_at_85%_15%,black_10%,transparent_60%)]"
+            />
+            <div
+              aria-hidden
+              className="pointer-events-none absolute -right-24 -top-24 size-80 rounded-full bg-red-500/20 blur-3xl"
+            />
+            <div className="relative grid items-center gap-12 px-6 py-14 sm:px-12 sm:py-20 lg:grid-cols-[1.1fr_1fr]">
+              <div>
+                <h1 className="text-4xl font-extrabold leading-[1.05] sm:text-6xl">
+                  Forecast what startups do <span className="text-red-500">next.</span>
+                </h1>
+                <p className="mt-5 max-w-lg text-lg text-mist-300">
+                  Allocate virtual credits on measurable startup milestones and see where the community stands.
+                </p>
+                <div className="mt-8 flex flex-wrap gap-3">
+                  <ButtonLink href="/markets" variant="accent" size="lg">
+                    Explore markets <ArrowRight className="size-4" aria-hidden />
+                  </ButtonLink>
+                  <SignInCta variant="inverse">Sign in</SignInCta>
+                </div>
+                <StreamIn fallback={<div className="mt-10 h-14" />}>
+                  <HeroStats />
+                </StreamIn>
               </div>
-              <StreamIn fallback={<div className="mt-10 h-14" />}>
-                <HeroStats />
+              <StreamIn fallback={<Skeleton className="hidden h-64 rounded-2xl bg-white/5 lg:block" />}>
+                <Spotlight />
               </StreamIn>
             </div>
-            <StreamIn fallback={<Skeleton className="hidden h-64 rounded-2xl bg-white/5 lg:block" />}>
-              <Spotlight />
-            </StreamIn>
-          </Container>
-        </section>
+          </section>
+        </Container>
 
         <Container className="py-16 sm:py-20">
           <SectionHeading eyebrow="Live" title="Open markets" href="/markets" />
@@ -91,11 +93,11 @@ export default function HomePage() {
           </StreamIn>
         </Container>
 
-        <section className="border-y border-ink-200 bg-ink-50">
+        <section>
           <Container className="grid gap-12 py-16 sm:py-20 lg:grid-cols-2">
             <div>
               <SectionHeading eyebrow="How it works" title="Three steps" />
-              <ol className="space-y-6">
+              <ol className="surface-card space-y-6 p-6 sm:p-8">
                 {steps.map((step, index) => (
                   <li key={step.title} className="flex gap-4">
                     <span className="font-display text-3xl font-extrabold leading-none text-red-500 tabular-nums">
@@ -113,7 +115,7 @@ export default function HomePage() {
               <SectionHeading eyebrow="Reading the numbers" title="What each figure means" />
               <ul className="grid gap-3 sm:grid-cols-2">
                 {measures.map((measure) => (
-                  <li key={measure.name} className="rounded-[var(--radius-card)] border border-ink-200 bg-surface p-5">
+                  <li key={measure.name} className="surface-card p-5">
                     <span aria-hidden className={`block w-8 ${measure.swatch}`} />
                     <h3 className="mt-3 font-display font-semibold text-ink-900">{measure.name}</h3>
                     <p className="mt-1 text-sm text-ink-600">{measure.body}</p>
@@ -140,7 +142,7 @@ export default function HomePage() {
         </Container>
 
         <Container>
-          <div className="relative overflow-hidden rounded-3xl bg-night px-6 py-12 text-center text-white sm:px-12">
+          <div className="relative overflow-hidden rounded-[var(--radius-hero)] bg-night px-6 py-12 text-center text-white sm:px-12">
             <div
               aria-hidden
               className="pointer-events-none absolute -bottom-24 left-1/2 h-48 w-2/3 -translate-x-1/2 rounded-full bg-red-500/25 blur-3xl"
@@ -222,7 +224,13 @@ async function OpenMarkets() {
   const markets = await safe(() => listFeaturedMarkets(6));
   if (markets.failed) return <ErrorState body="Markets could not load. Try again shortly." />;
   if (markets.data.length === 0) {
-    return <EmptyState illustration="markets" title="No open markets yet" body="New questions appear here as soon as they open." />;
+    return (
+      <EmptyState
+        illustration="markets"
+        title="No open markets yet"
+        body="New questions appear here as soon as they open."
+      />
+    );
   }
   return (
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
