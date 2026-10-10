@@ -6,7 +6,7 @@
  */
 import "server-only";
 import type { PrismaClient } from "@/generated/prisma/client";
-import { createMarketForStudy } from "@/lib/admin";
+import { closeMarketForStudy, createMarketForStudy } from "@/lib/admin";
 import { getCurrentUser, isPlatformAdmin } from "@/lib/auth";
 import { PUBLIC_MARKET_WHERE } from "@/lib/permissions";
 import type { PlatformGateway } from "../ports";
@@ -62,7 +62,7 @@ export function createPlatformGateway(db: PrismaClient): PlatformGateway {
     async getStartups(ids) {
       if (ids.length === 0) return [];
       return db.startup.findMany({
-        where: { id: { in: ids } },
+        where: { id: { in: ids }, isPublished: true },
         select: { id: true, name: true, slug: true, industry: true },
       });
     },
@@ -80,7 +80,7 @@ export function createPlatformGateway(db: PrismaClient): PlatformGateway {
     async listPublicMarketsForStartups(startupIds) {
       if (startupIds.length === 0) return [];
       return db.market.findMany({
-        where: { ...PUBLIC_MARKET_WHERE, startupId: { in: startupIds } },
+        where: { ...PUBLIC_MARKET_WHERE, startupId: { in: startupIds }, study: { is: null } },
         select: { id: true, startupId: true, question: true, status: true, closesAt: true },
         orderBy: { closesAt: "asc" },
       });
@@ -89,6 +89,10 @@ export function createPlatformGateway(db: PrismaClient): PlatformGateway {
     async createMarketForStudy(input) {
       const market = await createMarketForStudy(input);
       return { marketId: market.id };
+    },
+
+    async closeMarketForStudy(input) {
+      await closeMarketForStudy(input);
     },
   };
 }

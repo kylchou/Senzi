@@ -207,6 +207,14 @@ export function createMemoryRepository(now: () => Date = () => new Date()): VcRe
           .slice(0, options.limit),
       );
     },
+    async countUnreadAlertsByStudy(organizationId, userId) {
+      const counts = new Map<string | null, number>();
+      for (const a of alerts) {
+        if (a.organizationId !== organizationId || receipts.has(`${a.id}:${userId}`)) continue;
+        counts.set(a.studyId, (counts.get(a.studyId) ?? 0) + 1);
+      }
+      return [...counts].map(([studyId, count]) => ({ studyId, count }));
+    },
     async markAlertsRead(organizationId, userId, alertIds, at) {
       for (const a of alerts) {
         if (a.organizationId === organizationId && alertIds.includes(a.id)) {
@@ -237,10 +245,18 @@ export interface FakePlatformState {
   sessionUser: SessionUser | null;
   memberships: Map<string, OrgMembership[]>;
   users: UserSummary[];
-  startups: StartupSummary[];
-  markets: (MarketSummary & { visibility: string })[];
+  startups: (StartupSummary & { isPublished?: boolean })[];
+  markets: (MarketSummary & { visibility: string; studyId?: string })[];
   createdMarkets: { studyId: string; marketId: string }[];
+  closedMarketStudyIds: string[];
 }
+
+const toStartupSummary = (x: StartupSummary): StartupSummary => ({
+  id: x.id,
+  name: x.name,
+  slug: x.slug,
+  industry: x.industry,
+});
 
 export function createFakePlatform(state: Partial<FakePlatformState> = {}): PlatformGateway & {
   state: FakePlatformState;
@@ -252,6 +268,7 @@ export function createFakePlatform(state: Partial<FakePlatformState> = {}): Plat
     startups: [],
     markets: [],
     createdMarkets: [],
+    closedMarketStudyIds: [],
     ...state,
   };
   return {
@@ -269,14 +286,17 @@ export function createFakePlatform(state: Partial<FakePlatformState> = {}): Plat
       return s.users.filter((u) => u.email && emails.includes(u.email.toLowerCase()));
     },
     async getStartups(ids) {
-      return s.startups.filter((x) => ids.includes(x.id));
+      return s.startups.filter((x) => ids.includes(x.id) && x.isPublished !== false).map(toStartupSummary);
     },
     async searchStartups(q, limit) {
-      return s.startups.filter((x) => x.name.toLowerCase().includes(q.toLowerCase())).slice(0, limit);
+      return s.startups
+        .filter((x) => x.isPublished !== false && x.name.toLowerCase().includes(q.toLowerCase()))
+        .slice(0, limit)
+        .map(toStartupSummary);
     },
     async listPublicMarketsForStartups(startupIds) {
       return s.markets
-        .filter((m) => m.visibility === "PUBLIC" && startupIds.includes(m.startupId))
+        .filter((m) => m.visibility === "PUBLIC" && !m.studyId && startupIds.includes(m.startupId))
         .map((m) => ({ id: m.id, startupId: m.startupId, question: m.question, status: m.status, closesAt: m.closesAt }));
     },
     async createMarketForStudy(input) {
@@ -285,6 +305,9 @@ export function createFakePlatform(state: Partial<FakePlatformState> = {}): Plat
       const marketId = `mkt_${input.studyId}`;
       s.createdMarkets.push({ studyId: input.studyId, marketId });
       return { marketId };
+    },
+    async closeMarketForStudy(input) {
+      if (s.createdMarkets.some((m) => m.studyId === input.studyId)) s.closedMarketStudyIds.push(input.studyId);
     },
   };
 }

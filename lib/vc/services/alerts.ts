@@ -125,16 +125,14 @@ export function createAlertService(deps: VcDeps) {
     ].filter((id): id is string => !!id);
     const estimates = marketIds.length ? await forecasting.getEstimates(marketIds) : new Map();
 
-    const historyCache = new Map<string, Promise<EstimatePoint[]>>();
-    const historyFor = (marketId: string) => {
-      if (!historyCache.has(marketId)) {
-        historyCache.set(
-          marketId,
-          forecasting.getHistory(marketId, { from: new Date(at.getTime() - 2 * MOVEMENT_WINDOW_MS) }),
-        );
-      }
-      return historyCache.get(marketId)!;
-    };
+    // Every open market's recent history, fetched in parallel up front.
+    const historyFrom = new Date(at.getTime() - 2 * MOVEMENT_WINDOW_MS);
+    const histories = new Map<string, EstimatePoint[]>(
+      await Promise.all(
+        [...new Set(marketIds)].map(async (id) => [id, await forecasting.getHistory(id, { from: historyFrom })] as const),
+      ),
+    );
+    const historyFor = (marketId: string) => histories.get(marketId) ?? [];
 
     const pending: NewAlert[] = [];
     for (const [orgId, ids] of followedStudies) {
@@ -142,7 +140,7 @@ export function createAlertService(deps: VcDeps) {
         const study = studyById.get(id);
         if (!study || !organizationCanFollowStudy(orgId, study)) continue;
         const estimate = study.marketId ? estimates.get(study.marketId) ?? null : null;
-        const history = study.status === "OPEN" && study.marketId ? await historyFor(study.marketId) : [];
+        const history = study.status === "OPEN" && study.marketId ? historyFor(study.marketId) : [];
         pending.push(
           ...alertsForSubject(
             orgId,
@@ -181,7 +179,7 @@ export function createAlertService(deps: VcDeps) {
               closesAt: market.closesAt,
             },
             estimate,
-            await historyFor(market.id),
+            historyFor(market.id),
             at,
           ),
         );
@@ -209,10 +207,17 @@ export function createAlertService(deps: VcDeps) {
     return filterVisible(ctx, alerts);
   }
 
+  /**
+   * Unread badge count. Counts per study in the database, then drops studies
+   * the user can't see, so restricted-study alerts never inflate the badge.
+   */
   async function unreadCount(ctx: VcContext): Promise<number> {
     if (!ctx.activeOrg) return 0;
-    const unread = await list(ctx, { unreadOnly: true, limit: 200 });
-    return unread.length;
+    const groups = await repo.countUnreadAlertsByStudy(ctx.activeOrg.organizationId, ctx.user.id);
+    const studyIds = groups.map((g) => g.studyId).filter((id): id is string => !!id);
+    const studies = studyIds.length ? await repo.listStudies({ ids: studyIds }) : [];
+    const visible = new Set(studies.filter((s) => getStudyPermissions(ctx, s).canView).map((s) => s.id));
+    return groups.reduce((sum, g) => sum + (!g.studyId || visible.has(g.studyId) ? g.count : 0), 0);
   }
 
   async function markRead(ctx: VcContext, alertIds: string[]): Promise<void> {
