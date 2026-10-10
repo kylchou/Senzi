@@ -141,6 +141,17 @@
   }
 }
 
+/*
+ * Long sections below the fold: the browser skips styling and painting them
+ * until they come near the viewport, so page-wide changes (like the theme
+ * switch) only restyle what is on screen. The last rendered size is kept, so
+ * nothing jumps once a section has been seen.
+ */
+@utility render-when-visible {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 640px;
+}
+
 /* Dot grid decoration (brand surfaces and headers). */
 @utility dot-grid {
   background-image: radial-gradient(currentColor 1px, transparent 1.4px);
@@ -287,22 +298,12 @@
   }
 }
 
-/*
- * Theme switch: a single cross-fade between snapshots of the old and new page
- * (theme.ts adds .theme-transition while it runs). The navbar, which normally
- * stays still during page transitions, fades along with everything else.
- */
-html.theme-transition::view-transition-old(*),
-html.theme-transition::view-transition-new(*) {
-  animation-duration: 260ms;
-  animation-timing-function: ease;
-}
-html.theme-transition::view-transition-old(site-header) {
-  display: block;
-  animation: 260ms ease both vt-fade reverse;
-}
-html.theme-transition::view-transition-new(site-header) {
-  animation: 260ms ease both vt-fade;
+/* No per-element color transitions during the theme swap (theme.ts). */
+html.theme-swap,
+html.theme-swap *,
+html.theme-swap *::before,
+html.theme-swap *::after {
+  transition: none !important;
 }
 
 @media (prefers-reduced-motion: reduce) {

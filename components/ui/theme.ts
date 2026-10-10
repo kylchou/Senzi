@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useSyncExternalStore } from "react";
-import { motionReduced } from "./a11y/preferences";
 import { THEME_STORAGE_KEY } from "./theme-key";
 
 /**
@@ -30,28 +29,24 @@ export function resolveDark(mode: ThemeMode, systemDark: boolean): boolean {
 }
 
 /**
- * Switches the dark class. When animated, the browser cross-fades a snapshot of
- * the old page into the new one (View Transitions API): one composited fade,
- * however many elements the page has. Animating every element's colors instead
- * made the switch stutter on large pages. Without the API, or with reduced
- * motion, the switch is instant.
+ * Switches the dark class in a single frame. Measured alternatives were slower:
+ * animating every element's colors froze large pages for most of a second, and
+ * a full-page cross-fade (View Transitions) dropped several frames on slower
+ * machines. One instant restyle is what feels smooth.
+ *
+ * Hover transitions (transition-colors and similar) are off during the swap, so
+ * buttons, links, and cards do not each animate to their new colors and keep
+ * restyling the page for the next few frames. They come back in idle time.
  */
-function applyTheme(mode: ThemeMode, animate: boolean) {
+function applyTheme(mode: ThemeMode) {
   const root = document.documentElement;
   const dark = resolveDark(mode, media().matches);
   if (root.classList.contains("dark") === dark) return;
-  const swap = () => {
-    root.classList.toggle("dark", dark);
-  };
-  if (!animate || motionReduced() || typeof document.startViewTransition !== "function") {
-    swap();
-    return;
-  }
-  root.classList.add("theme-transition");
-  document
-    .startViewTransition(swap)
-    .finished.catch(() => undefined)
-    .finally(() => root.classList.remove("theme-transition"));
+  root.classList.add("theme-swap");
+  root.classList.toggle("dark", dark);
+  const restore = () => root.classList.remove("theme-swap");
+  if (typeof window.requestIdleCallback === "function") window.requestIdleCallback(restore, { timeout: 500 });
+  else window.setTimeout(restore, 100);
 }
 
 export function setThemeMode(mode: ThemeMode) {
@@ -61,7 +56,7 @@ export function setThemeMode(mode: ThemeMode) {
   } catch {
     // Storage can be unavailable (private mode); the theme still applies for this page.
   }
-  applyTheme(mode, true);
+  applyTheme(mode);
   listeners.forEach((listener) => listener());
 }
 
@@ -82,7 +77,7 @@ export function useThemeMode(): ThemeMode {
   useEffect(() => {
     if (mode !== "system") return;
     const query = media();
-    const onChange = () => applyTheme("system", true);
+    const onChange = () => applyTheme("system");
     query.addEventListener("change", onChange);
     return () => query.removeEventListener("change", onChange);
   }, [mode]);
