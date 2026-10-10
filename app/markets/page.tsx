@@ -10,15 +10,16 @@ import { ChipGroup } from "@/components/ui/ChipGroup";
 import { ClearFiltersLink, FilterForm } from "@/components/ui/FilterForm";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Pagination } from "@/components/ui/Pagination";
-import { CardGridSkeleton, Skeleton } from "@/components/ui/Skeleton";
-import { parseMarketParams } from "@/lib/discovery/params";
+import { CardGridSkeleton } from "@/components/ui/Skeleton";
+import { parseMarketParams, type MarketQuery } from "@/lib/discovery/params";
 import { listIndustries } from "@/lib/discovery/queries";
 import { listMarkets } from "@/lib/market-view/queries";
 import { PageTransition, StreamIn } from "@/components/ui/Transitions";
 
 export const metadata: Metadata = {
   title: "Markets",
-  description: "YES or NO questions on measurable startup milestones, with community allocation shares, opening baselines, and deadlines.",
+  description:
+    "YES or NO questions on measurable startup milestones, with community allocation shares, opening baselines, and deadlines.",
 };
 
 const statusOptions = [
@@ -40,7 +41,7 @@ export default function MarketsPage({ searchParams }: PageProps<"/markets">) {
     <PageTransition>
       <main id="main" className="flex-1">
         <PageHeader title="Markets" subtitle="YES or NO questions on measurable startup milestones.">
-          <StreamIn fallback={<Skeleton className="h-10 w-full" />}>
+          <StreamIn fallback={<FiltersView params={parseMarketParams({})} industries={[]} />}>
             <Filters searchParams={searchParams} />
           </StreamIn>
         </PageHeader>
@@ -57,7 +58,11 @@ export default function MarketsPage({ searchParams }: PageProps<"/markets">) {
 async function Filters({ searchParams }: Pick<PageProps<"/markets">, "searchParams">) {
   const params = parseMarketParams(await searchParams);
   const industries = await listIndustries();
+  return <FiltersView params={params} industries={industries} />;
+}
 
+/** The filter form. Also rendered with defaults while loading, so the page does not shift. */
+function FiltersView({ params, industries }: { params: MarketQuery; industries: string[] }) {
   return (
     <FilterForm action="/markets" className="sm:flex-col sm:items-stretch">
       <ChipGroup name="status" label="Status" options={statusOptions} value={params.status ?? ""} />
@@ -123,6 +128,7 @@ async function Results({ searchParams }: Pick<PageProps<"/markets">, "searchPara
 
   return (
     <>
+      <h2 className="sr-only">Results</h2>
       <p className="mb-5 text-sm text-ink-600" aria-live="polite">
         {result.total} {result.total === 1 ? "market" : "markets"}
       </p>

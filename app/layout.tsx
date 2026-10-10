@@ -15,12 +15,14 @@ const inter = Inter({
 const montserrat = Montserrat({
   variable: "--font-montserrat",
   subsets: ["latin"],
-  weight: ["600", "700", "800"],
+  weight: ["600", "700"],
 });
 
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
+  // Only admin tables use the mono font, so public pages do not preload it.
+  preload: false,
 });
 
 export const metadata: Metadata = {

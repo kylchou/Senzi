@@ -9,8 +9,8 @@ import { Input, Label, Select } from "@/components/ui/Field";
 import { ClearFiltersLink, FilterForm } from "@/components/ui/FilterForm";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Pagination } from "@/components/ui/Pagination";
-import { CardGridSkeleton, Skeleton } from "@/components/ui/Skeleton";
-import { parseStartupParams } from "@/lib/discovery/params";
+import { CardGridSkeleton } from "@/components/ui/Skeleton";
+import { parseStartupParams, type StartupQuery } from "@/lib/discovery/params";
 import { listIndustries, listStartups } from "@/lib/discovery/queries";
 import { PageTransition, StreamIn } from "@/components/ui/Transitions";
 
@@ -24,7 +24,7 @@ export default function StartupsPage({ searchParams }: PageProps<"/startups">) {
     <PageTransition>
       <main id="main" className="flex-1">
         <PageHeader title="Startups" subtitle="Companies with public markets and sourced coverage.">
-          <StreamIn fallback={<Skeleton className="h-10 w-full" />}>
+          <StreamIn fallback={<FiltersView params={parseStartupParams({})} industries={[]} />}>
             <Filters searchParams={searchParams} />
           </StreamIn>
         </PageHeader>
@@ -41,7 +41,11 @@ export default function StartupsPage({ searchParams }: PageProps<"/startups">) {
 async function Filters({ searchParams }: Pick<PageProps<"/startups">, "searchParams">) {
   const params = parseStartupParams(await searchParams);
   const industries = await listIndustries();
+  return <FiltersView params={params} industries={industries} />;
+}
 
+/** The filter form. Also rendered with defaults while loading, so the page does not shift. */
+function FiltersView({ params, industries }: { params: StartupQuery; industries: string[] }) {
   return (
     <FilterForm action="/startups">
       <div className="relative flex-1">
@@ -87,6 +91,7 @@ async function Results({ searchParams }: Pick<PageProps<"/startups">, "searchPar
 
   return (
     <>
+      <h2 className="sr-only">Results</h2>
       <p className="mb-5 text-sm text-ink-600" aria-live="polite">
         {result.total} {result.total === 1 ? "startup" : "startups"}
       </p>

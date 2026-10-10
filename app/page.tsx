@@ -66,7 +66,7 @@ export default function HomePage() {
             <div className="relative grid items-center gap-12 px-6 py-14 sm:px-12 sm:py-20 lg:grid-cols-[1.1fr_1fr]">
               <div>
                 <HeroGreeting />
-                <h1 className="text-4xl font-extrabold leading-[1.05] sm:text-6xl">
+                <h1 className="text-4xl font-bold leading-[1.05] sm:text-6xl">
                   Forecast what startups do <span className="text-red-500">next.</span>
                 </h1>
                 <p className="mt-5 max-w-lg text-lg text-mist-300">
@@ -78,11 +78,11 @@ export default function HomePage() {
                   </ButtonLink>
                   <SignInCta variant="inverse">Sign in</SignInCta>
                 </div>
-                <StreamIn fallback={<div className="mt-10 h-14" />}>
+                <StreamIn fallback={<div className="mt-10 h-12" />}>
                   <HeroStats />
                 </StreamIn>
               </div>
-              <StreamIn fallback={<Skeleton className="hidden h-64 rounded-2xl bg-white/5 lg:block" />}>
+              <StreamIn fallback={<Skeleton className="h-72 rounded-2xl bg-white/5" />}>
                 <Spotlight />
               </StreamIn>
             </div>
@@ -107,7 +107,7 @@ export default function HomePage() {
               <ol className="surface-card space-y-6 p-6 sm:p-8">
                 {steps.map((step, index) => (
                   <li key={step.title} className="flex gap-4">
-                    <span className="font-display text-3xl font-extrabold leading-none text-red-500 tabular-nums">
+                    <span className="font-display text-3xl font-bold leading-none text-red-500 tabular-nums">
                       {String(index + 1).padStart(2, "0")}
                     </span>
                     <div>

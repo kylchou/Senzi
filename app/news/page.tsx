@@ -11,7 +11,7 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { Pagination } from "@/components/ui/Pagination";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { PageTransition, StreamIn } from "@/components/ui/Transitions";
-import { parseNewsParams } from "@/lib/discovery/params";
+import { parseNewsParams, type NewsQuery } from "@/lib/discovery/params";
 import { listIndustries } from "@/lib/discovery/queries";
 import { formatDate } from "@/lib/market-view/format";
 import type { NewsItemView } from "@/lib/market-view/types";
@@ -32,8 +32,11 @@ export default function NewsPage({ searchParams }: PageProps<"/news">) {
   return (
     <PageTransition>
       <main id="main" className="flex-1">
-        <PageHeader title="News" subtitle="Sourced coverage of startups on Senzi. Verified items were checked against the source.">
-          <StreamIn fallback={<Skeleton className="h-10 w-full max-w-md" />}>
+        <PageHeader
+          title="News"
+          subtitle="Sourced coverage of startups on Senzi. Verified items were checked against the source."
+        >
+          <StreamIn fallback={<FiltersView params={parseNewsParams({})} industries={[]} />}>
             <Filters searchParams={searchParams} />
           </StreamIn>
         </PageHeader>
@@ -50,9 +53,19 @@ export default function NewsPage({ searchParams }: PageProps<"/news">) {
 async function Filters({ searchParams }: Pick<PageProps<"/news">, "searchParams">) {
   const params = parseNewsParams(await searchParams);
   const industries = await listIndustries();
+  return <FiltersView params={params} industries={industries} />;
+}
+
+/** The filter form. Also rendered with defaults while loading, so the page does not shift. */
+function FiltersView({ params, industries }: { params: NewsQuery; industries: string[] }) {
   return (
     <FilterForm action="/news" className="sm:items-center">
-      <ChipGroup name="verification" label="Verification" options={verificationOptions} value={params.verification ?? ""} />
+      <ChipGroup
+        name="verification"
+        label="Verification"
+        options={verificationOptions}
+        value={params.verification ?? ""}
+      />
       <div className="flex items-center gap-2 sm:ml-auto">
         <Label htmlFor="industry" className="shrink-0">
           Industry
