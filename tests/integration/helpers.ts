@@ -65,7 +65,7 @@ export async function makeStartup() {
 
 export async function makeMarket(
   admin: SessionUser,
-  opts: { open?: boolean; private?: string; restricted?: boolean; startupId?: string } = {},
+  opts: { open?: boolean; private?: string; restricted?: boolean; startupId?: string; verifiedUsersOnly?: boolean } = {},
 ) {
   const startupId = opts.startupId ?? (await makeStartup()).id;
   const now = Date.now();
@@ -78,6 +78,7 @@ export async function makeMarket(
     openingBaseline: 0.4,
     baselineMethodology: "Test fixture",
     visibility: opts.private ? (opts.restricted ? "RESTRICTED" : "ORGANIZATION") : "PUBLIC",
+    verifiedUsersOnly: opts.verifiedUsersOnly ?? false,
     organizationId: opts.private ?? null,
     opensAt: new Date(now - DAY),
     closesAt: new Date(now + 30 * DAY),

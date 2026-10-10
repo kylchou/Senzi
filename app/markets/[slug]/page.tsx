@@ -2,8 +2,11 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { io } from "next/cache";
-import { CalendarClock, ChevronRight } from "lucide-react";
+import { CalendarClock, ChevronRight, ShieldCheck } from "lucide-react";
 import { ForecastPanel } from "@/components/ForecastPanel";
+import { VerifiedUserNote, VerifiedUsersGate } from "@/components/verify/VerifiedUsersGate";
+import { getCurrentUser } from "@/lib/auth";
+import { isVerifiedUserOfSlug } from "@/lib/product-verification";
 import { MarketBrief } from "@/components/MarketBrief";
 import { MarketMovement } from "@/components/MarketMovement";
 import { NewsFeed } from "@/components/NewsFeed";
@@ -74,6 +77,8 @@ async function MarketView({ params }: Pick<PageProps<"/markets/[slug]">, "params
   const history = await getMarketHistory(market.id);
   const now = requestTime();
   const isOpen = market.status === "OPEN" && !isPastDeadline(market.closesAt, new Date(now));
+  const viewer = market.verifiedUsersOnly ? await getCurrentUser() : null;
+  const unlocked = !market.verifiedUsersOnly || (viewer !== null && (await isVerifiedUserOfSlug(viewer.id, market.startup.slug)));
   // Closed markets stop the history line at close or resolution instead of today.
   const origin = await requestOrigin();
   const chartEnd = isOpen ? now : Math.min(now, Date.parse(market.resolvedAt ?? market.closesAt));
@@ -100,6 +105,11 @@ async function MarketView({ params }: Pick<PageProps<"/markets/[slug]">, "params
           </Link>
           <span className="text-sm text-ink-500">{market.category ?? market.startup.industry}</span>
           <MarketStatusBadge status={market.status} outcome={market.outcome} closesAt={market.closesAt} />
+          {market.verifiedUsersOnly && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-ink-100 px-2.5 py-0.5 text-xs font-semibold text-ink-800">
+              <ShieldCheck className="size-3.5" aria-hidden /> Verified users only
+            </span>
+          )}
         </div>
         <div id="market-intro">
           <Morph name={`market-title-${market.id}`}>
@@ -129,7 +139,14 @@ async function MarketView({ params }: Pick<PageProps<"/markets/[slug]">, "params
         </div>
 
         <aside className="lg:sticky lg:top-6 lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:self-start">
-          <ForecastPanel marketId={market.id} isOpen={isOpen} />
+          {unlocked ? (
+            <>
+              {market.verifiedUsersOnly && <VerifiedUserNote startupName={market.startup.name} />}
+              <ForecastPanel marketId={market.id} isOpen={isOpen} />
+            </>
+          ) : (
+            <VerifiedUsersGate startup={market.startup} marketSlug={market.slug} />
+          )}
           <p className="mt-3 px-1 text-xs leading-relaxed text-ink-500">
             Forecasts are research signals, not guarantees or investment advice.
           </p>
