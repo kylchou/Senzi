@@ -42,14 +42,14 @@ function lineProps(style: LineStyle, patterned: boolean) {
 
 /** Chart box in real pixels so labels stay readable at every width. */
 function boxFor(width: number): ChartBox {
-  return { width, height: width < 480 ? 220 : 280, padding: { top: 16, right: 12, bottom: 32, left: 40 } };
+  return { width, height: width < 480 ? 220 : 280, padding: { top: 16, right: 12, bottom: 32, left: 46 } };
 }
-const GRID = [0, 0.25, 0.5, 0.75, 1];
 
 /**
  * Community YES allocation share over time, with the calibrated probability
  * (when the engine provides one) and the opening baseline drawn as separate,
- * labeled lines. All three share one 0 to 100% axis.
+ * labeled lines. Drawn like a stock chart: straight moves between trades and an
+ * axis zoomed to where the values are, with the current value and change on top.
  */
 export function ProbabilityChart({
   history,
@@ -84,7 +84,7 @@ export function ProbabilityChart({
   const days = CHART_RANGES.find((option) => option.key === range)?.days ?? null;
   const shown = useMemo(() => sliceHistory(history, days, now), [history, days, now]);
   const box = useMemo(() => boxFor(width), [width]);
-  const geometry = useMemo(() => buildGeometry(shown, box, now), [shown, box, now]);
+  const geometry = useMemo(() => buildGeometry(shown, box, now, openingBaseline), [shown, box, now, openingBaseline]);
   const hasChart = plottable(history).length >= 2 && geometry !== null;
 
   useEffect(() => {
@@ -105,13 +105,19 @@ export function ProbabilityChart({
     );
   }
 
-  const { points, path, calibratedPath, start, end, xFor, yFor } = geometry;
+  const { points, path, calibratedPath, domain, start, end, xFor, yFor } = geometry;
+  const bottom = box.height - box.padding.bottom;
   const markers = events
     .map((event) => ({ event, time: Date.parse(event.publishedAt) }))
     .filter(({ time }) => time >= start && time <= end)
     .map(({ event, time }) => ({ event, x: xFor(time), impact: eventImpact(history, event.publishedAt, now) }));
   const current = active !== null ? points[active] : null;
   const last = points[points.length - 1];
+  // Stock-style readout: the value under the cursor (or the latest) and its change over the range.
+  const shownValue = (current ?? last).point.share;
+  const change = shownValue - points[0].point.share;
+  const changePoints = Math.round(change * 100);
+  const since = CHART_RANGES.find((option) => option.key === range)?.since ?? "since open";
   // Shape markers along each line in accessible chart modes.
   const markerEvery = Math.max(1, Math.ceil(points.length / 8));
   const lineMarkers = patterned
@@ -138,8 +144,23 @@ export function ProbabilityChart({
 
   return (
     <figure>
+      <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <p className="font-display text-3xl font-bold tabular-nums text-ink-900">{formatShare(shownValue)}</p>
+          <p className="mt-0.5 text-sm tabular-nums">
+            <span
+              className={cn(
+                "font-semibold",
+                changePoints > 0 ? "text-emerald-700 dark:text-emerald-300" : changePoints < 0 ? "text-red-700" : "text-ink-500",
+              )}
+            >
+              {changePoints > 0 ? "▲" : changePoints < 0 ? "▼" : "■"} {Math.abs(changePoints)} {Math.abs(changePoints) === 1 ? "pt" : "pts"}
+            </span>{" "}
+            <span className="text-ink-500">{current ? formatDateTime(current.point.at) : since}</span>
+          </p>
+        </div>
       {ranges.length > 0 && (
-        <div role="radiogroup" aria-label="Time range" className="mb-3 flex justify-end">
+        <div role="radiogroup" aria-label="Time range" className="flex justify-end">
           <div className="inline-flex rounded-full bg-ink-100 p-0.5">
             {ranges.map((key) => (
               <button
@@ -159,6 +180,7 @@ export function ProbabilityChart({
           </div>
         </div>
       )}
+      </div>
 
       <div ref={containerRef} className="relative">
         <svg
@@ -186,7 +208,7 @@ export function ProbabilityChart({
             </linearGradient>
           </defs>
 
-          {GRID.map((value) => (
+          {domain.ticks.map((value) => (
             <g key={value}>
               <line
                 x1={box.padding.left}
@@ -226,7 +248,7 @@ export function ProbabilityChart({
               x1={x}
               x2={x}
               y1={box.padding.top}
-              y2={yFor(0)}
+              y2={bottom}
               className="stroke-ink-300"
               strokeWidth={1}
               strokeDasharray="2 4"
@@ -236,7 +258,7 @@ export function ProbabilityChart({
           {/* Keyed by range so switching ranges redraws the lines. */}
           <g key={range}>
             <path
-              d={areaPath(path, yFor(0), points[0].x)}
+              d={areaPath(path, bottom, points[0].x)}
               fill={`url(#${gradientId})`}
               className="animate-[vt-fade_700ms_ease-out_both]"
             />
@@ -256,7 +278,7 @@ export function ProbabilityChart({
                 <text
                   x={box.width - box.padding.right}
                   y={yFor(openingBaseline)}
-                  dy={openingBaseline > 0.85 ? "1.3em" : "-0.6em"}
+                  dy={yFor(openingBaseline) - box.padding.top < 18 ? "1.3em" : "-0.6em"}
                   textAnchor="end"
                   className="fill-ink-600 text-[11px] font-medium"
                 >
@@ -343,7 +365,7 @@ export function ProbabilityChart({
               aria-label={`News, ${formatDate(event.publishedAt)}: ${event.title}, ${event.publisher}`}
               data-hit-exempt="marker"
               className="group absolute z-20 -translate-x-1/2 -translate-y-1/2 p-1.5"
-              style={{ left: `${left}%`, top: `${(yFor(0) / box.height) * 100}%` }}
+              style={{ left: `${left}%`, top: `${(bottom / box.height) * 100}%` }}
             >
               <span className="block size-3 rounded-full border-2 border-red-500 bg-surface transition-transform duration-200 group-hover:scale-125 group-focus-visible:scale-125" />
               <span
@@ -440,7 +462,7 @@ function ChartIllustration() {
     <svg viewBox="0 0 120 48" className="h-12 w-28" aria-hidden>
       <path d="M4 40H116" className="stroke-ink-300" strokeWidth="1.5" strokeLinecap="round" />
       <path
-        d="M8 34H30V26H52V30H74V16H96V20H112"
+        d="M8 34L30 26L52 30L74 16L96 20L112 20"
         fill="none"
         className="stroke-ink-400"
         strokeWidth="2"
