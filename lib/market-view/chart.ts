@@ -16,7 +16,7 @@ export interface ChartGeometry {
   /** YES allocation share points, used for hover. */
   points: PlottedPoint[];
   path: string;
-  /** Step path for the calibrated probability, or null when none is recorded. */
+  /** Line for the calibrated probability, or null when none is recorded. */
   calibratedPath: string | null;
   start: number;
   end: number;
@@ -38,15 +38,51 @@ export function downsample<T>(items: T[], max: number): T[] {
   return Array.from({ length: max }, (_, index) => items[Math.round(index * stride)]);
 }
 
-function stepPath(coords: { x: number; y: number }[], endX: number): string {
-  let path = `M${coords[0].x.toFixed(1)},${coords[0].y.toFixed(1)}`;
-  for (let index = 1; index < coords.length; index++) {
-    path += `H${coords[index].x.toFixed(1)}V${coords[index].y.toFixed(1)}`;
+const sign = (value: number) => (value < 0 ? -1 : 1);
+
+/**
+ * Smooth line through every point (monotone cubic, like d3's curveMonotoneX):
+ * it never overshoots between two values, so it stays inside 0 to 100% and
+ * never shows a rise or dip that did not happen. After the last point the line
+ * holds flat until endX, since nothing newer has been recorded.
+ */
+export function smoothPath(coords: { x: number; y: number }[], endX: number): string {
+  // Points recorded at the same moment collapse to the latest value.
+  const pts: { x: number; y: number }[] = [];
+  for (const point of coords) {
+    if (pts.length && point.x <= pts[pts.length - 1].x) pts[pts.length - 1] = { x: pts[pts.length - 1].x, y: point.y };
+    else pts.push(point);
   }
-  return path + `H${endX.toFixed(1)}`;
+  const f = (value: number) => value.toFixed(1);
+  let path = `M${f(pts[0].x)},${f(pts[0].y)}`;
+  const n = pts.length;
+  if (n > 1) {
+    const secant = pts.slice(0, -1).map((point, index) => (pts[index + 1].y - point.y) / (pts[index + 1].x - point.x));
+    const tangent = new Array<number>(n).fill(0);
+    for (let index = 1; index < n - 1; index++) {
+      const h0 = pts[index].x - pts[index - 1].x;
+      const h1 = pts[index + 1].x - pts[index].x;
+      const s0 = secant[index - 1];
+      const s1 = secant[index];
+      const blend = (s0 * h1 + s1 * h0) / (h0 + h1);
+      tangent[index] = (sign(s0) + sign(s1)) * Math.min(Math.abs(s0), Math.abs(s1), 0.5 * Math.abs(blend)) || 0;
+    }
+    tangent[0] = n > 2 ? (3 * secant[0] - tangent[1]) / 2 : secant[0];
+    tangent[n - 1] = n > 2 ? (3 * secant[n - 2] - tangent[n - 2]) / 2 : secant[0];
+    // End tangents must not reverse the first or last segment's direction.
+    if (sign(tangent[0]) !== sign(secant[0])) tangent[0] = 0;
+    if (sign(tangent[n - 1]) !== sign(secant[n - 2])) tangent[n - 1] = 0;
+    for (let index = 0; index < n - 1; index++) {
+      const a = pts[index];
+      const b = pts[index + 1];
+      const third = (b.x - a.x) / 3;
+      path += `C${f(a.x + third)},${f(a.y + third * tangent[index])} ${f(b.x - third)},${f(b.y - third * tangent[index + 1])} ${f(b.x)},${f(b.y)}`;
+    }
+  }
+  return endX > pts[n - 1].x ? path + `H${f(endX)}` : path;
 }
 
-/** Step paths so each line holds its value until the next snapshot. */
+/** Continuous lines through each snapshot, holding the last value until the end of the axis. */
 export function buildGeometry(history: HistoryPoint[], box: ChartBox, now: number = Date.now()): ChartGeometry | null {
   const data = downsample(plottable(history), 400);
   if (data.length === 0) return null;
@@ -67,16 +103,16 @@ export function buildGeometry(history: HistoryPoint[], box: ChartBox, now: numbe
 
   const points = data.map((point) => ({ x: xFor(Date.parse(point.at)), y: yFor(point.share), point }));
   const calibratedPath = calibrated.length
-    ? stepPath(
+    ? smoothPath(
         calibrated.map((point) => ({ x: xFor(Date.parse(point.at)), y: yFor(point.calibrated) })),
         xFor(end),
       )
     : null;
 
-  return { points, path: stepPath(points, xFor(end)), calibratedPath, start, end, xFor, yFor };
+  return { points, path: smoothPath(points, xFor(end)), calibratedPath, start, end, xFor, yFor };
 }
 
-/** Index of the plotted point at or before x (step semantics). */
+/** Index of the recorded point closest to x, for hover and keyboard focus. */
 export function nearestIndex(points: PlottedPoint[], x: number): number {
   let low = 0;
   let high = points.length - 1;
@@ -86,7 +122,8 @@ export function nearestIndex(points: PlottedPoint[], x: number): number {
     if (points[mid].x <= x) low = mid;
     else high = mid - 1;
   }
-  return low;
+  const next = points[low + 1];
+  return next && next.x - x < x - points[low].x ? low + 1 : low;
 }
 
 /** Up to `count` evenly spaced time ticks between start and end. */
