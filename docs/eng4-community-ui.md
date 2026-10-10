@@ -1,6 +1,6 @@
 # Community UI (Sahil)
 
-Public Senzi pages: homepage, markets, market detail, startups, startup profiles, search, news, and the forecast panel. Setup and environment variables are in the README and `.env.example`; this UI needs nothing extra.
+Public Senzi pages: homepage, markets, market detail, startups, startup profiles, search, news (`/news`), and the forecast panel. Market pages also have a generated share image (`app/markets/[slug]/opengraph-image.tsx`). Setup and environment variables are in the README and `.env.example`; this UI needs nothing extra.
 
 ## Privacy rules
 
@@ -51,9 +51,18 @@ Expected success: `201 { "data": { "id", "marketId", "side", "credits", "created
 
 Error codes the panel handles: `UNAUTHENTICATED` (sign-in prompt), `INSUFFICIENT_CREDITS`, `INVALID_STATE` (market closed, form locks), `NOT_FOUND`, `CONFLICT`, `VALIDATION_ERROR` (shows the server message), `FORBIDDEN`. The same idempotency key is resent when a user retries after a network failure, and a new one is made when the forecast changes. The browser never computes balances.
 
+## Theme, motion, and app chrome
+
+- Light, dark, and system themes. `components/ui/theme.css` holds the tokens; the ink and red scales, `surface`, `page`, and `hairline` switch under a `.dark` class on `<html>`. `night` and `mist` never switch (navbar, hero). `white` is never redefined, so VC and admin `bg-white` and `dark:` styles behave as before.
+- `ThemeScript` applies the saved or system theme before first paint; `ThemeToggle` switches it.
+- `AppOverlays` mounts the mobile tab bar, the Command-K palette (also `/`), and toasts once.
+- `NotificationsBell` reads `GET /api/users/me/notifications` and uses `PATCH` with `{ ids: "all" }`, and badges the tab icon while anything is unread.
+- Motion uses CSS keyframes and React `ViewTransition`; everything is disabled under `prefers-reduced-motion`.
+- Preferences kept in `localStorage`: `senzi-theme`, `senzi-last-credits`, `senzi-recent-searches`, `senzi-filters:<path>`, and `senzi-tour-market-v1`.
+
 ## Shared files touched
 
-- `app/layout.tsx`: adds the Navbar, footer, and Inter and Montserrat fonts.
+- `app/layout.tsx`: adds the Navbar, footer, Inter and Montserrat fonts, `ThemeScript` in `<head>` (with `suppressHydrationWarning` on `<html>`), and `AppOverlays`.
 - `app/globals.css`: imports `components/ui/theme.css` and makes the app light only (`dark:` utilities need an explicit `.dark` class).
 - `package.json`: adds `class-variance-authority`, `clsx`, `tailwind-merge`, `lucide-react` (shadcn/ui building blocks) and test-only `jsdom` plus Testing Library.
 
@@ -73,4 +82,17 @@ Headings use Montserrat (matches the logo), body text uses Inter.
 
 ## Tests
 
-`tests/unit/community/` runs with `npm test`. Component tests use a per-file `// @vitest-environment jsdom` comment, so the shared Vitest config is unchanged.
+- Unit: `tests/unit/community/` runs with `npm test`. Component tests use a per-file `// @vitest-environment jsdom` comment, so the shared Vitest config is unchanged.
+- Browser: `tests/e2e/community.spec.ts` runs with `npm run test:e2e` against a built app and a seeded database (`npm run db:seed`), signed out. Every page also runs an axe scan that fails on serious or critical WCAG 2 A/AA issues. Tests run with reduced motion so scans see settled content.
+
+## Performance notes
+
+Measured with Lighthouse 13 against the seeded database (production build):
+
+| Page | Desktop perf | Mobile perf | Accessibility | Layout shift |
+| --- | --- | --- | --- | --- |
+| Home, markets, startups, news, market detail | 97 to 99 | 78 to 86 | 100 | 0 to 0.09 |
+
+- Streamed filter forms render with default values while loading, so results do not jump.
+- Montserrat loads only weights 600 and 700, and the mono font used by admin is no longer preloaded.
+- Mobile load time is mostly fonts plus the Clerk client script. Lighthouse also reports a missing description on market pages because Next streams page metadata for regular browsers; search crawlers receive it in the document head.

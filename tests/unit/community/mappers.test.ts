@@ -37,6 +37,7 @@ const detailRow = {
   yesCriteria: "Announced on the company blog.",
   noCriteria: "No announcement by the deadline.",
   baselineMethodology: "Base rate of comparable rounds.",
+  baselineSetAt: null,
   category: null,
   opensAt: new Date("2026-09-01T00:00:00Z"),
   resolvesBy: null,

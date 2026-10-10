@@ -3,19 +3,37 @@
  * Brand: red #FF2C2C, charcoal #25282B, white #FFFFFF.
  * red-600 and red-700 are darker steps of the brand red so white text on red
  * and red text on white both meet WCAG AA contrast.
+ *
+ * Theming: the ink and red scales, `surface`, and `page` switch under `.dark`.
+ * `night` and `mist` never switch; they are for brand surfaces that stay
+ * charcoal in both themes (navbar, hero, footer). `white` is never redefined,
+ * so other teams' `bg-white` and `text-white` keep their meaning.
  */
 @theme {
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
   --font-display: var(--font-montserrat), var(--font-inter), ui-sans-serif, sans-serif;
 
   --color-white: #ffffff;
+  /* Warm off-white page with white raised surfaces, so cards read by contrast
+     and soft shadow rather than heavy borders. */
+  --color-page: #f4f4f2;
+  --color-surface: #ffffff;
+  --color-hairline: rgb(37 40 43 / 0.07);
+
+  /* Fixed brand surfaces and the text that sits on them. */
+  --color-night: #25282b;
+  --color-night-800: #33373b;
+  --color-mist-200: #e3e5e7;
+  --color-mist-300: #c9ccd0;
+  --color-mist-400: #a3a8ad;
 
   --color-ink-950: #1b1d1f;
   --color-ink-900: #25282b;
   --color-ink-800: #33373b;
   --color-ink-700: #4a4f54;
   --color-ink-600: #5f656b;
-  --color-ink-500: #7d838a;
+  /* Darkened from #7d838a so muted text passes 4.5:1 on white and on the page. */
+  --color-ink-500: #676d73;
   --color-ink-400: #a3a8ad;
   --color-ink-300: #c9ccd0;
   --color-ink-200: #e3e5e7;
@@ -28,9 +46,47 @@
   --color-red-100: #ffe1e1;
   --color-red-50: #fff3f3;
 
-  --radius-card: 14px;
-  --shadow-card: 0 1px 2px rgb(37 40 43 / 0.04), 0 4px 16px -8px rgb(37 40 43 / 0.08);
-  --shadow-lift: 0 2px 4px rgb(37 40 43 / 0.05), 0 12px 32px -12px rgb(37 40 43 / 0.18);
+  --radius-card: 20px;
+  --radius-hero: 28px;
+  --shadow-card: 0 1px 2px rgb(37 40 43 / 0.03), 0 10px 30px -18px rgb(37 40 43 / 0.16);
+  --shadow-lift: 0 2px 6px rgb(37 40 43 / 0.04), 0 22px 44px -20px rgb(37 40 43 / 0.28);
+
+  --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/*
+ * Dark theme. The ink scale flips so text stays readable, surfaces step up from
+ * a near-black page, and the red softens so it does not glow. Contrast: ink-500
+ * text on surface is about 5:1, red-700 text on surface about 6.5:1, and white
+ * on red-600 about 5.9:1.
+ */
+.dark {
+  color-scheme: dark;
+
+  --color-page: #111315;
+  --color-surface: #1b1e21;
+  --color-hairline: #2a2e33;
+
+  --color-ink-950: #f7f8f9;
+  --color-ink-900: #eceef0;
+  --color-ink-800: #dcdfe2;
+  --color-ink-700: #c4c9cd;
+  --color-ink-600: #a6acb2;
+  --color-ink-500: #8b9198;
+  --color-ink-400: #6a7077;
+  --color-ink-300: #464c52;
+  --color-ink-200: #33383d;
+  --color-ink-100: #282c30;
+  --color-ink-50: #1f2226;
+
+  --color-red-500: #f25555;
+  --color-red-600: #d63a3a;
+  --color-red-700: #ff7a7a;
+  --color-red-100: #3d2124;
+  --color-red-50: #2b1b1d;
+
+  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.3), 0 4px 16px -8px rgb(0 0 0 / 0.4);
+  --shadow-lift: 0 2px 4px rgb(0 0 0 / 0.3), 0 12px 32px -12px rgb(0 0 0 / 0.6);
 }
 
 @layer base {
@@ -38,10 +94,16 @@
     color-scheme: light;
     -webkit-font-smoothing: antialiased;
   }
+  html.dark {
+    color-scheme: dark;
+  }
   body {
-    background: var(--color-white);
+    background: var(--color-page);
     color: var(--color-ink-900);
     font-family: var(--font-sans);
+    transition:
+      background-color 200ms ease,
+      color 200ms ease;
   }
   h1, h2, h3 {
     font-family: var(--font-display);
@@ -57,9 +119,195 @@
   }
 }
 
+/* Shared card surface: white (or dark) panel, hairline border, soft shadow. */
+@utility surface-card {
+  border-radius: var(--radius-card);
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-hairline);
+  box-shadow: var(--shadow-card);
+}
+
+/* Interactive card: lifts slightly on hover and presses on click. */
+@utility card-hover {
+  transition:
+    transform 220ms var(--ease-out-soft),
+    box-shadow 220ms var(--ease-out-soft);
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-lift);
+  }
+  &:active {
+    transform: translateY(0) scale(0.995);
+  }
+}
+
+/* Dot grid decoration (brand surfaces and headers). */
+@utility dot-grid {
+  background-image: radial-gradient(currentColor 1px, transparent 1.4px);
+  background-size: 14px 14px;
+}
+
+/* Motion */
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes value-flash {
+  0% {
+    opacity: 0.9;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes grow-x {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes live-ping {
+  0% {
+    transform: scale(1);
+    opacity: 0.45;
+  }
+  70%,
+  100% {
+    transform: scale(2.6);
+    opacity: 0;
+  }
+}
+
+@keyframes ring-pulse {
+  from {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-red-500) 35%, transparent);
+  }
+  to {
+    box-shadow: 0 0 0 8px transparent;
+  }
+}
+
+/*
+ * Page transitions (React <ViewTransition>). Pages fade and rise slightly on
+ * navigation, loading skeletons hand off to real content, and the navbar stays
+ * anchored. Browsers without the View Transitions API simply skip these.
+ */
+::view-transition {
+  pointer-events: none;
+}
+::view-transition-old(.page-exit) {
+  animation: 140ms ease-in both vt-fade reverse;
+}
+::view-transition-new(.page-enter) {
+  animation:
+    220ms ease-out 100ms both vt-fade,
+    320ms var(--ease-out-soft) both vt-rise;
+}
+::view-transition-old(.skeleton-exit) {
+  animation: 140ms ease-out both vt-fade reverse;
+}
+::view-transition-new(.content-enter) {
+  animation:
+    200ms ease-in 120ms both vt-fade,
+    360ms var(--ease-out-soft) both vt-rise;
+}
+::view-transition-group(.morph) {
+  animation-duration: 380ms;
+  animation-timing-function: var(--ease-out-soft);
+}
+::view-transition-group(site-header) {
+  animation: none;
+  z-index: 100;
+}
+::view-transition-old(site-header) {
+  display: none;
+}
+::view-transition-new(site-header) {
+  animation: none;
+}
+@keyframes vt-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes vt-rise {
+  from {
+    transform: translateY(8px);
+  }
+  to {
+    transform: none;
+  }
+}
+
+/* Smooth color change while switching themes (class added for 300ms by theme.ts). */
+.theme-switching,
+.theme-switching *,
+.theme-switching *::before,
+.theme-switching *::after {
+  transition:
+    background-color 220ms ease,
+    border-color 220ms ease,
+    color 220ms ease,
+    fill 220ms ease,
+    stroke 220ms ease !important;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
+  }
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
   }
 }

@@ -7,7 +7,7 @@ import type { StartupSummary } from "@/lib/market-view/types";
 
 export function StartupCard({ startup }: { startup: StartupSummary }) {
   return (
-    <article className="group relative flex h-full flex-col rounded-[var(--radius-card)] border border-ink-200 bg-white p-5 shadow-[var(--shadow-card)] transition-[box-shadow,border-color,transform] duration-200 hover:-translate-y-0.5 hover:border-ink-300 hover:shadow-[var(--shadow-lift)]">
+    <article className="group relative flex h-full flex-col surface-card card-hover p-5">
       <div className="flex items-start gap-3">
         <StartupMark name={startup.name} logoUrl={startup.logoUrl} />
         <div className="min-w-0">
