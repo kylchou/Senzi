@@ -102,6 +102,30 @@ export async function reviewVcVerification(
   });
 }
 
+/**
+ * Demo shortcut: approves the user's own pending VC request without an admin.
+ * The caller must have checked the demo code; the approval is audited as a bypass.
+ */
+export async function bypassVcVerification(user: SessionUser, ctx: RequestContext = {}) {
+  return db.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT id FROM "User" WHERE id = ${user.id} FOR UPDATE`;
+    const current = await tx.user.findUniqueOrThrow({ where: { id: user.id }, select: { accountType: true, accountVerifiedAt: true } });
+    if (current.accountType !== AccountType.VC) throw invalidState("Only VC accounts need firm verification");
+    if (current.accountVerifiedAt) return;
+
+    const now = new Date();
+    await tx.vcVerificationRequest.updateMany({
+      where: { userId: user.id, status: VerificationStatus.PENDING },
+      data: { status: VerificationStatus.APPROVED, reviewedAt: now, reviewNote: "Demo bypass code" },
+    });
+    await tx.user.update({ where: { id: user.id }, data: { accountVerifiedAt: now } });
+    await recordAudit(
+      { actorId: user.id, action: "verification.bypass", entityType: "User", entityId: user.id, data: { reason: "Demo bypass code" }, ipAddress: ctx.ip },
+      tx,
+    );
+  });
+}
+
 export async function listVcVerifications(admin: SessionUser, status: VerificationStatus = VerificationStatus.PENDING) {
   assertAdmin(admin);
   return db.vcVerificationRequest.findMany({
