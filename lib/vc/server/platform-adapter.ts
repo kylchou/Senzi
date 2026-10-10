@@ -81,7 +81,7 @@ export function createPlatformGateway(db: PrismaClient): PlatformGateway {
       if (startupIds.length === 0) return [];
       return db.market.findMany({
         where: { ...PUBLIC_MARKET_WHERE, startupId: { in: startupIds }, study: { is: null } },
-        select: { id: true, startupId: true, question: true, status: true, closesAt: true },
+        select: { id: true, slug: true, startupId: true, question: true, status: true, closesAt: true },
         orderBy: { closesAt: "asc" },
       });
     },
@@ -89,6 +89,28 @@ export function createPlatformGateway(db: PrismaClient): PlatformGateway {
     async createMarketForStudy(input) {
       const market = await createMarketForStudy(input);
       return { marketId: market.id };
+    },
+
+    async listOrgMembers(organizationId) {
+      return db.organizationMembership.findMany({ where: { organizationId }, select: { userId: true, role: true } });
+    },
+
+    async notifyUsers(notifications) {
+      if (notifications.length === 0) return 0;
+      const { count } = await db.notification.createMany({ data: notifications });
+      return count;
+    },
+
+    async markAlertNotificationsRead(userId, alertIds, at) {
+      if (alertIds.length === 0) return;
+      await db.notification.updateMany({
+        where: {
+          userId,
+          readAt: null,
+          OR: alertIds.map((id) => ({ data: { path: ["vcAlertId"], equals: id } })),
+        },
+        data: { readAt: at },
+      });
     },
 
     async closeMarketForStudy(input) {

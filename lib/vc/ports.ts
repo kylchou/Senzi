@@ -23,6 +23,8 @@ import type {
   WatchlistItem,
   WatchlistItemType,
 } from "./types";
+import type { CreatedAlert, OrgMember, PersonalNotification } from "./alert-delivery";
+import type { CompareIndicators } from "./types";
 
 //identity, organizations, startups, market creation
 
@@ -56,6 +58,12 @@ export interface PlatformGateway {
    */
   listPublicMarketsForStartups(startupIds: string[]): Promise<MarketSummary[]>;
   createMarketForStudy(input: CreateMarketForStudyInput): Promise<{ marketId: string }>;
+  /** Current members of an organization, for alert delivery. */
+  listOrgMembers(organizationId: string): Promise<OrgMember[]>;
+  /** Writes personal inbox notifications (the shared Notification table). Returns rows written. */
+  notifyUsers(notifications: PersonalNotification[]): Promise<number>;
+  /** Marks a user's inbox notifications for these VC alerts as read. */
+  markAlertNotificationsRead(userId: string, alertIds: string[], at: Date): Promise<void>;
   /** Stops forecasting on the study's market. Idempotent; a no-op if the study has no market. */
   closeMarketForStudy(input: { studyId: string; closedById: string | null; reason: string | null }): Promise<void>;
 }
@@ -180,8 +188,8 @@ export interface VcRepository {
   }): Promise<WatchlistItem>;
   removeWatchlistItem(watchlistId: string, itemId: string): Promise<boolean>;
 
-  /** Inserts alerts, skipping any whose (organizationId, dedupeKey) already exists. Returns inserted count. */
-  createAlerts(alerts: NewAlert[]): Promise<number>;
+  /** Inserts alerts, skipping any whose (organizationId, dedupeKey) already exists. Returns the inserted alerts. */
+  createAlerts(alerts: NewAlert[]): Promise<CreatedAlert[]>;
   listAlerts(
     organizationId: string,
     userId: string,
@@ -196,10 +204,16 @@ export interface VcRepository {
   findReport(id: string): Promise<SavedReport | null>;
 }
 
+/** Public startup indicators from the model (downloads, repos, hiring, filings). */
+export interface IndicatorGateway {
+  getIndicators(startup: { slug: string; name: string }, asOf: Date): Promise<CompareIndicators>;
+}
+
 export interface VcDeps {
   repo: VcRepository;
   platform: PlatformGateway;
   forecasting: ForecastingGateway;
+  indicators: IndicatorGateway;
   now: () => Date;
 }
 

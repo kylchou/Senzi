@@ -1,4 +1,4 @@
-import type { StudyStatus, StudyVisibility } from "./types";
+import type { AlertType, StudyStatus, StudyVisibility } from "./types";
 
 const dateFmt = new Intl.DateTimeFormat("en-US", { year: "numeric", month: "short", day: "numeric", timeZone: "UTC" });
 const dateTimeFmt = new Intl.DateTimeFormat("en-US", {
@@ -57,4 +57,11 @@ export const VISIBILITY_LABELS: Record<StudyVisibility, { label: string; descrip
     label: "Restricted",
     description: "Only firm admins, the author, and invited participants can view and forecast.",
   },
+};
+
+export const ALERT_TYPE_LABELS: Record<AlertType, { label: string; icon: string }> = {
+  FORECAST_MOVEMENT: { label: "Forecast movement", icon: "↕" },
+  DEADLINE_APPROACHING: { label: "Deadline", icon: "⏱" },
+  STUDY_RESOLVED: { label: "Resolved", icon: "✓" },
+  STUDY_STATUS_CHANGED: { label: "Status change", icon: "●" },
 };
