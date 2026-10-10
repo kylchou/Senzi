@@ -38,6 +38,8 @@ Organizations (members only, and non-members get 404)
 Admin (platform admins only)
 
 - `GET|POST /api/admin/startups`, `GET|PATCH /api/admin/startups/:id`
+- `GET|POST /api/admin/startups/:id/facts` with `{ label, value, sourceName, sourceUrl, asOf, verified? }`, and `PATCH|DELETE /api/admin/facts/:factId`. Send `{ verified: true }` to mark a fact checked.
+- `GET|POST /api/admin/news`, `GET|PATCH|DELETE /api/admin/news/:id`. `verification` is `UNVERIFIED` (the default), `VERIFIED`, or `DISPUTED`.
 - `GET|POST /api/admin/markets`, `GET|PATCH /api/admin/markets/:id`. A market needs `yesCriteria`, `noCriteria`, and at least one entry in `sources` (`{ title, url }`). `openingBaseline` is optional, but if you set it you also need `baselineMethodology`.
 - `POST /api/admin/markets/:id/status` with `{ status: "OPEN" | "CLOSED" | "CANCELLED" }`
 - `POST /api/admin/markets/:id/resolve` with `{ outcome: "YES" | "NO" | "VOID", evidenceSummary, evidenceUrls: [...] }`
@@ -126,7 +128,7 @@ The schema now uses your names where we overlapped: `Startup.industry`, `Startup
 - `MarketSnapshot.recordedAt`, `allocationShare`, and `forecasterCount` match yours. There's also a `sequence` you can order by.
 - Market resolution lives in the `Resolution` relation (`market.resolution.outcome`, `evidenceSummary`, `evidenceUrls`, `resolvedAt`), not in columns on `Market`.
 - `Market.baselineMethodology` is the same thing as your `baselineMethod`.
-- `NewsItem.verification` is `VERIFIED`, `UNVERIFIED`, or `DISPUTED`. Label them that way.
+- `NewsItem.verification` is `VERIFIED`, `UNVERIFIED`, or `DISPUTED`, and `StartupFact.verified` is true only once an admin has checked the source. Label them that way. Admins manage both at `/admin/news` and on each startup's admin page, and every verification change is audit-logged.
 
 Every public query needs to use `PUBLIC_MARKET_WHERE` and `PUBLIC_STARTUP_WHERE` from `lib/permissions.ts`. That keeps drafts, unpublished startups, and VC markets off public pages.
 

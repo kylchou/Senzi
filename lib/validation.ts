@@ -4,6 +4,7 @@ import {
   ForecastSide,
   MarketStatus,
   MarketVisibility,
+  NewsVerification,
   OrgRole,
   PlatformRole,
   ResolutionOutcome,
@@ -280,6 +281,53 @@ export const resolveMarketSchema = z
 export { checkMarketInvariants };
 
 // ---------------------------------------------------------------------------
+// Admin: startup facts and news
+// ---------------------------------------------------------------------------
+
+/** A sourced fact shown on a startup page. `verified` = an admin checked the source. */
+export const startupFactSchema = z
+  .object({
+    label: z.string().trim().min(1).max(80),
+    value: z.string().trim().min(1).max(200),
+    sourceName: z.string().trim().min(1).max(120),
+    sourceUrl: httpUrlSchema,
+    asOf: dateInputSchema,
+    verified: z.boolean().default(false),
+  })
+  .strict();
+
+export const updateStartupFactSchema = startupFactSchema
+  .omit({ verified: true })
+  .extend({ verified: z.boolean() })
+  .partial()
+  .strict();
+
+export const newsItemSchema = z
+  .object({
+    startupId: idSchema.nullish(),
+    marketId: idSchema.nullish(),
+    title: z.string().trim().min(3).max(300),
+    summary: optionalText(2000),
+    publisher: z.string().trim().min(1).max(120),
+    url: httpUrlSchema,
+    publishedAt: dateInputSchema,
+    verification: z.enum(NewsVerification).default(NewsVerification.UNVERIFIED),
+  })
+  .strict();
+
+export const updateNewsItemSchema = newsItemSchema
+  .omit({ verification: true })
+  .extend({ verification: z.enum(NewsVerification) })
+  .partial()
+  .strict();
+
+export const newsQuerySchema = z.object({
+  q: z.string().trim().max(200).optional(),
+  startupId: idSchema.optional(),
+  verification: z.enum(NewsVerification).optional(),
+});
+
+// ---------------------------------------------------------------------------
 // Admin: credits
 // ---------------------------------------------------------------------------
 
@@ -335,4 +383,8 @@ export type ResolveMarketInput = z.output<typeof resolveMarketSchema>;
 export type AdminCreditAdjustmentInput = z.output<typeof adminCreditAdjustmentSchema>;
 export type ForecastSubmissionInput = z.output<typeof forecastSubmissionSchema>;
 export type CreateMarketForStudyInput = z.input<typeof createMarketForStudySchema>;
+export type StartupFactInput = z.output<typeof startupFactSchema>;
+export type UpdateStartupFactInput = z.output<typeof updateStartupFactSchema>;
+export type NewsItemInput = z.output<typeof newsItemSchema>;
+export type UpdateNewsItemInput = z.output<typeof updateNewsItemSchema>;
 export type MarketSourceInput = z.output<typeof marketSourceSchema>;
