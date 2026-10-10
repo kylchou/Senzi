@@ -31,6 +31,7 @@ export const marketSummarySelect = {
   yesCredits: true,
   noCredits: true,
   forecastCount: true,
+  verifiedUsersOnly: true,
   startup: { select: startupRefSelect },
   snapshots: latestSnapshot,
   resolution: { select: { outcome: true, resolvedAt: true } },
@@ -104,6 +105,7 @@ export function toMarketSummary(row: SummaryRow): MarketSummary {
     // Public queries exclude DRAFT, so the remaining statuses are public ones.
     status: row.status as PublicMarketStatus,
     closesAt: row.closesAt.toISOString(),
+    verifiedUsersOnly: row.verifiedUsersOnly,
     startup: toStartupRef(row.startup),
     openingBaseline: cleanShare(row.openingBaseline),
     allocation: {

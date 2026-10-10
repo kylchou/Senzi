@@ -137,7 +137,7 @@ export function CompareView({ comparison }: { comparison: StartupComparison }) {
                     <dd className="inline">{score(t.baselineBrier)}</dd>
                   </div>
                   <div>
-                    <dt className="inline text-slate-500">Final LMSR price: </dt>
+                    <dt className="inline text-slate-500">Final crowd price: </dt>
                     <dd className="inline">{score(t.allocationShareBrier)}</dd>
                   </div>
                   {t.limitations.map((l) => (

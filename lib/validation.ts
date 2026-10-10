@@ -131,6 +131,25 @@ export const reviewVerificationSchema = z
     path: ["note"],
   });
 
+export const createAccessCodeSchema = z
+  .object({
+    startupId: idSchema,
+    /** Optional custom code, e.g. "STRIPE-DEMO" for a demo. Generated when empty. */
+    code: z
+      .string()
+      .trim()
+      .max(40)
+      .regex(/^[A-Za-z0-9 -]*$/, "Use letters, numbers, spaces, and dashes")
+      .transform((v) => (v === "" ? null : v))
+      .nullish(),
+    label: optionalText(80),
+    maxUses: z.number().int().min(1).max(100_000).nullish(),
+    expiresInDays: z.number().int().min(1).max(365).nullish(),
+  })
+  .strict();
+
+export const redeemAccessCodeSchema = z.object({ code: z.string().trim().min(4).max(64) }).strict();
+
 export const setAccountTypeSchema = z
   .object({ accountType: z.enum(AccountType), reason: z.string().trim().min(3).max(500) })
   .strict();
@@ -231,6 +250,8 @@ const marketFields = {
   openingBaseline: openingBaselineSchema.nullish(),
   baselineMethodology: optionalText(1000),
   visibility: z.enum(MarketVisibility).default(MarketVisibility.PUBLIC),
+  /** Only verified users of the startup's product can trade (lib/product-verification.ts). */
+  verifiedUsersOnly: z.boolean().default(false),
   organizationId: idSchema.nullish(),
   opensAt: dateInputSchema,
   closesAt: dateInputSchema,
@@ -493,6 +514,7 @@ export const forecastSubmissionSchema = z
 export type UpdateProfileInput = z.output<typeof updateProfileSchema>;
 export type VcVerificationInput = z.output<typeof vcVerificationSchema>;
 export type ReviewVerificationInput = z.output<typeof reviewVerificationSchema>;
+export type CreateAccessCodeInput = z.output<typeof createAccessCodeSchema>;
 export type CreateOrganizationInput = z.output<typeof createOrganizationSchema>;
 export type UpdateOrganizationInput = z.output<typeof updateOrganizationSchema>;
 export type AddMemberInput = z.output<typeof addMemberSchema>;

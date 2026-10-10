@@ -1,4 +1,5 @@
 import { formatPointChange, formatShare } from "@/lib/vc/estimates";
+import { CROWD_PRICE_LABEL } from "@/lib/vc/constants";
 import { formatDate, formatDateTime, STATUS_LABELS, VISIBILITY_LABELS } from "@/lib/vc/format";
 import { describeCalibration } from "@/lib/vc/reports";
 import type { StudyReport } from "@/lib/vc/types";
@@ -54,7 +55,7 @@ export function ReportView({ report }: { report: StudyReport }) {
             {formatShare(r.baseline.value)}
             {r.baseline.methodology && <p className="text-xs text-slate-500">Method: {r.baseline.methodology}</p>}
           </Row>
-          <Row label={r.communityEstimate?.label ?? "General LMSR price"}>
+          <Row label={r.communityEstimate?.label ?? CROWD_PRICE_LABEL}>
             {r.communityEstimate ? (
               <>
                 {formatShare(r.communityEstimate.yesAllocationShare, 1)}

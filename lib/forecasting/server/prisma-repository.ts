@@ -75,6 +75,7 @@ const marketSelect = {
   modelUpdatedAt: true,
   minForecastCredits: true,
   maxForecastCredits: true,
+  verifiedUsersOnly: true,
   createdAt: true,
   modelBaselineSnapshots: { orderBy: { createdAt: "desc" }, take: 1, select: { confidence: true } },
 } satisfies Prisma.MarketSelect;
@@ -125,6 +126,7 @@ function toMarket(row: MarketRow): Market {
     ...(row.minForecastCredits !== null ? { minAmount: row.minForecastCredits } : {}),
     ...(row.maxForecastCredits !== null ? { maxAmount: row.maxForecastCredits } : {}),
     lmsrB: lmsrBFor(row),
+    ...(row.verifiedUsersOnly ? { verifiedUsersOnly: true } : {}),
     createdAt: row.createdAt,
   };
 }

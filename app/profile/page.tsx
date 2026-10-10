@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { Suspense } from "react";
-import { ArrowRight, FlaskConical } from "lucide-react";
+import { ArrowRight, FlaskConical, ShieldCheck } from "lucide-react";
 import { EditProfile } from "@/components/profile/EditProfile";
 import { ProfileDashboard, type DashboardData, type PositionRow } from "@/components/profile/ProfileDashboard";
 import { SignInCta } from "@/components/ui/AuthControls";
@@ -18,6 +18,7 @@ import { portfolioForUser } from "@/lib/forecasting/server/api";
 import { formatDate } from "@/lib/market-view/format";
 import { safe } from "@/lib/market-view/safe";
 import { getCurrentUserProfile } from "@/lib/users";
+import { listVerifiedStartups } from "@/lib/product-verification";
 
 export const metadata: Metadata = { title: "Profile", robots: { index: false } };
 
@@ -62,11 +63,11 @@ async function Profile() {
     );
   }
 
-  const loaded = await safe(() => Promise.all([portfolioForUser(user), getCurrentUserProfile(user)]));
+  const loaded = await safe(() => Promise.all([portfolioForUser(user), getCurrentUserProfile(user), listVerifiedStartups(user.id)]));
   if (loaded.failed) {
     return <ErrorState body="Your profile couldn't load. Try again shortly." />;
   }
-  const [p, me] = loaded.data;
+  const [p, me, verifiedFor] = loaded.data;
   const positions = [...p.active, ...p.awaitingResolution, ...p.resolved, ...p.cancelled];
   const slugs = new Map(
     (await db.market.findMany({ where: { id: { in: [...new Set(positions.map((x) => x.marketId))] } }, select: { id: true, slug: true } })).map(
@@ -127,6 +128,17 @@ async function Profile() {
               {me.username ? `@${me.username} · ` : ""}Joined {formatDate(me.createdAt)}
             </p>
             {me.bio && <p className="mt-2 max-w-xl text-sm text-ink-700">{me.bio}</p>}
+            {verifiedFor.length > 0 && (
+              <p className="mt-2 flex flex-wrap items-center gap-1.5 text-sm text-ink-600">
+                <ShieldCheck className="size-4 text-emerald-600" aria-hidden /> Verified user of
+                {verifiedFor.map((s, i) => (
+                  <Link key={s.slug} href={`/verify/${s.slug}`} className="font-semibold text-ink-900 hover:underline">
+                    {s.name}
+                    {i < verifiedFor.length - 1 ? "," : ""}
+                  </Link>
+                ))}
+              </p>
+            )}
             <div className="mt-3">
               <EditProfile displayName={me.displayName} username={me.username} bio={me.bio} />
             </div>

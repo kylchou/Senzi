@@ -118,7 +118,7 @@ export function TrendChart({ points, baseline }: { points: TrendPoint[]; baselin
             <thead className="sticky top-0 bg-slate-50 dark:bg-slate-900">
               <tr>
                 <th className="px-2 py-1 font-medium">Time</th>
-                <th className="px-2 py-1 text-right font-medium">General LMSR price</th>
+                <th className="px-2 py-1 text-right font-medium">{ALLOCATION_SHARE_LABEL}</th>
               </tr>
             </thead>
             <tbody>
@@ -225,13 +225,13 @@ export function TrendChart({ points, baseline }: { points: TrendPoint[]; baselin
               <div className="font-semibold tabular-nums text-slate-900 dark:text-slate-50">
                 {hovered.v == null ? "No allocation" : `${(hovered.v * 100).toFixed(1)}%`}
               </div>
-              <div>General LMSR price</div>
+              <div>{ALLOCATION_SHARE_LABEL}</div>
               {baseline != null && <div>Baseline {pct(baseline)}</div>}
               <div>{formatDateTime(new Date(hovered.t))}</div>
             </div>
           )}
           <p id={`${titleId}-summary`} className="sr-only">
-            Latest General LMSR price {last.v != null ? `${(last.v * 100).toFixed(1)}%` : "unavailable"} on{" "}
+            Latest {ALLOCATION_SHARE_LABEL.toLowerCase()} {last.v != null ? `${(last.v * 100).toFixed(1)}%` : "unavailable"} on{" "}
             {formatDate(new Date(last.t))}. Use the table view for all values.
           </p>
         </div>

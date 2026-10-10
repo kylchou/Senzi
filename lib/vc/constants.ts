@@ -29,9 +29,20 @@ export const MAX_TREND_POINTS = 200;
 export const MAX_PARTICIPANTS = 500;
 export const MAX_SOURCES = 20;
 
-export const ALLOCATION_SHARE_LABEL = "General LMSR price";
+export const ALLOCATION_SHARE_LABEL = "Crowd price";
 export const ALLOCATION_SHARE_EXPLAINER =
-  "The LMSR market-maker YES price from all trades. It is not a calibrated probability.";
+  "Crowd price is the market maker's YES price from everyone's trades. It is not a calibrated probability.";
+
+/** Column and legend names a VC reads. The LMSR definition lives in the tooltips. */
+export const CROWD_PRICE_LABEL = "Crowd price";
+export const VERIFIED_PRICE_LABEL = "Verified-user price";
+export const LMSR_DEFINITION =
+  "Prices come from Senzi's automated market maker, an LMSR (logarithmic market scoring rule). It always quotes a YES price between 0% and 100%, and every trade moves it. It is a market price, not a calibrated probability.";
+export const CROWD_PRICE_DEFINITION = `The YES price from every trader's trades. ${LMSR_DEFINITION}`;
+export const VERIFIED_PRICE_DEFINITION =
+  "The same market maker, replayed from the same opening price using only trades by people verified as users of this company's product.";
+export const MODEL_DEFINITION =
+  "Senzi's independent model, fit to scraped public data (plus any sponsor-provided figures). It sets the opening price and changes only when new data arrives, never from trades.";
 export const BASELINE_EXPLAINER =
   "The opening baseline was set before community forecasting began, using the methodology shown. It is a starting reference, not a forecast.";
 export const CALIBRATION_EXPLAINER =

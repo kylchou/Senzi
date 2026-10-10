@@ -1,10 +1,11 @@
 "use server";
 
+import { timingSafeEqual } from "node:crypto";
 import { redirect } from "next/navigation";
 import { toApiError } from "@/lib/api-response";
 import { chooseAccountType, homePathFor, parseAccountType, requireUser } from "@/lib/auth";
 import { rateLimit, RATE_LIMITS } from "@/lib/rate-limit";
-import { submitVcVerification, switchToTrader } from "@/lib/verification";
+import { bypassVcVerification, submitVcVerification, switchToTrader } from "@/lib/verification";
 import { vcVerificationSchema } from "@/lib/validation";
 
 export async function chooseAccountTypeAction(fd: FormData) {
@@ -57,6 +58,19 @@ export async function submitVerificationAction(_: VerificationFormState, fd: For
   } catch (error) {
     return { ok: false, message: toApiError(error).message };
   }
+  redirect("/onboarding");
+}
+
+/** Demo only: a code from DEMO_VC_BYPASS_CODE skips the admin review. Disabled when the variable is unset. */
+export async function bypassVerificationAction(fd: FormData) {
+  const expected = process.env.DEMO_VC_BYPASS_CODE;
+  const code = fd.get("code");
+  const user = await requireUser();
+  await rateLimit(`verification:${user.id}`, RATE_LIMITS.verificationSubmit);
+  const a = Buffer.from(typeof code === "string" ? code : "");
+  const b = Buffer.from(expected ?? "");
+  if (!expected || a.length !== b.length || !timingSafeEqual(a, b)) redirect("/onboarding?bypass=invalid");
+  await bypassVcVerification(user);
   redirect("/onboarding");
 }
 

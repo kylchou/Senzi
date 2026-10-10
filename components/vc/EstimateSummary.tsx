@@ -1,4 +1,5 @@
 import { formatShare, formatPointChange, type BaselineView, type Freshness } from "@/lib/vc/estimates";
+import { CROWD_PRICE_LABEL, VERIFIED_PRICE_LABEL } from "@/lib/vc/constants";
 import { formatDateTime } from "@/lib/vc/format";
 import type { MarketEstimate } from "@/lib/vc/types";
 export function EstimateSummary({baseline, estimate, freshness}: {baseline: BaselineView; estimate: MarketEstimate | null; freshness: Freshness}) {
@@ -8,8 +9,8 @@ export function EstimateSummary({baseline, estimate, freshness}: {baseline: Base
  return <div className="space-y-3">
    <dl className="grid gap-3 sm:grid-cols-3">{[
      {label:"Model prediction",value:formatShare(model,1),note:"Independent of trades; updated only from matching metric data."},
-     {label:"General LMSR price",value:formatShare(general,1),note:"Market-maker price from all trades."},
-     {label:"Verified-user LMSR price",value:formatShare(verified,1),note:verified == null ? "No verified-user data yet." : "Replay of verified users' trades."},
+     {label:CROWD_PRICE_LABEL,value:formatShare(general,1),note:"Market-maker price from all trades."},
+     {label:VERIFIED_PRICE_LABEL,value:formatShare(verified,1),note:verified == null ? "No verified-user data yet." : "Replay of verified users' trades."},
    ].map(m=><div className="rounded border p-3" key={m.label}><dt className="text-xs">{m.label}</dt><dd className="text-2xl font-semibold">{m.value}</dd><dd className="text-xs text-slate-500">{m.note}</dd></div>)}</dl>
    <p className="text-sm">Model - general: {formatPointChange(model != null && general != null ? model-general : null)} · Verified - general: {formatPointChange(verified != null && general != null ? verified-general : null)}</p>
    <p className="text-xs">Opening baseline: {formatShare(baseline.value,1)}. {baseline.methodology}</p>
