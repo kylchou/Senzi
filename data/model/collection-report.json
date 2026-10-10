@@ -1,204 +1,318 @@
 {
-  "collectedAt": "2026-10-10T01:32:17.368Z",
-  "companies": {
-    "supabase": {
-      "npm": {
-        "points": 1377,
-        "missing": [],
-        "ms": 1296
-      },
-      "pypi": {
-        "points": 184,
-        "missing": [],
-        "ms": 376
-      },
-      "github": {
-        "points": 52,
-        "missing": [],
-        "ms": 770
-      },
-      "jobs": {
-        "points": 1,
-        "missing": [],
-        "ms": 189
-      },
-      "tranco": {
-        "points": 40,
-        "missing": [],
-        "ms": 501
-      },
-      "hn": {
-        "points": 26,
-        "missing": [],
-        "ms": 10282
-      },
-      "storedPoints": 1680
-    },
-    "vercel": {
-      "npm": {
-        "points": 2754,
-        "missing": [],
-        "ms": 2065
-      },
-      "pypi": {
-        "points": 0,
-        "missing": [],
-        "ms": 0
-      },
-      "github": {
-        "points": 52,
-        "missing": [],
-        "ms": 729
-      },
-      "jobs": {
-        "points": 1,
-        "missing": [],
-        "ms": 179
-      },
-      "tranco": {
-        "points": 40,
-        "missing": [],
-        "ms": 543
-      },
-      "hn": {
-        "points": 26,
-        "missing": [],
-        "ms": 10196
-      },
-      "storedPoints": 2873
-    },
-    "stripe": {
-      "npm": {
-        "points": 1377,
-        "missing": [],
-        "ms": 977
-      },
-      "pypi": {
-        "points": 184,
-        "missing": [],
-        "ms": 280
-      },
-      "github": {
-        "points": 52,
-        "missing": [],
-        "ms": 469
-      },
-      "jobs": {
-        "points": 1,
-        "missing": [],
-        "ms": 114
-      },
-      "tranco": {
-        "points": 40,
-        "missing": [],
-        "ms": 823
-      },
-      "hn": {
-        "points": 26,
-        "missing": [],
-        "ms": 10182
-      },
-      "storedPoints": 1680
-    },
-    "databricks": {
-      "npm": {
-        "points": 0,
-        "missing": [],
-        "ms": 0
-      },
-      "pypi": {
-        "points": 184,
-        "missing": [],
-        "ms": 228
-      },
-      "github": {
-        "points": 52,
-        "missing": [],
-        "ms": 493
-      },
-      "jobs": {
-        "points": 1,
-        "missing": [],
-        "ms": 123
-      },
-      "tranco": {
-        "points": 40,
-        "missing": [],
-        "ms": 355
-      },
-      "hn": {
-        "points": 26,
-        "missing": [],
-        "ms": 10736
-      },
-      "storedPoints": 303
-    },
-    "huggingface": {
-      "npm": {
-        "points": 1377,
-        "missing": [],
-        "ms": 1078
-      },
-      "pypi": {
-        "points": 184,
-        "missing": [],
-        "ms": 238
-      },
-      "github": {
-        "points": 52,
-        "missing": [],
-        "ms": 503
-      },
-      "jobs": {
-        "points": 1,
-        "missing": [],
-        "ms": 141
-      },
-      "tranco": {
-        "points": 40,
-        "missing": [],
-        "ms": 532
-      },
-      "hn": {
-        "points": 26,
-        "missing": [],
-        "ms": 10199
-      },
-      "storedPoints": 1680
-    },
-    "posthog": {
-      "npm": {
-        "points": 1377,
-        "missing": [],
-        "ms": 1048
-      },
-      "pypi": {
-        "points": 184,
-        "missing": [],
-        "ms": 203
-      },
-      "github": {
-        "points": 52,
-        "missing": [],
-        "ms": 909
-      },
-      "jobs": {
-        "points": 1,
-        "missing": [],
-        "ms": 128
-      },
-      "tranco": {
-        "points": 40,
-        "missing": [],
-        "ms": 379
-      },
-      "hn": {
-        "points": 26,
-        "missing": [],
-        "ms": 10982
-      },
-      "storedPoints": 1680
-    }
-  },
-  "requests": 203
+    "collectedAt":  "2026-10-10T03:59:23.884Z",
+    "companies":  {
+                      "supabase":  {
+                                       "npm":  {
+                                                   "points":  1377,
+                                                   "missing":  [
+
+                                                               ],
+                                                   "ms":  1238
+                                               },
+                                       "pypi":  {
+                                                    "points":  184,
+                                                    "missing":  [
+
+                                                                ],
+                                                    "ms":  217
+                                                },
+                                       "github":  {
+                                                      "points":  52,
+                                                      "missing":  [
+
+                                                                  ],
+                                                      "ms":  824
+                                                  },
+                                       "sec":  {
+                                                   "points":  16,
+                                                   "missing":  [
+
+                                                               ],
+                                                   "ms":  1739
+                                               },
+                                       "jobs":  {
+                                                    "points":  1,
+                                                    "missing":  [
+
+                                                                ],
+                                                    "ms":  144
+                                                },
+                                       "tranco":  {
+                                                      "points":  40,
+                                                      "missing":  [
+
+                                                                  ],
+                                                      "ms":  419
+                                                  },
+                                       "hn":  {
+                                                  "points":  26,
+                                                  "missing":  [
+
+                                                              ],
+                                                  "ms":  10179
+                                              },
+                                       "storedPoints":  1696
+                                   },
+                      "vercel":  {
+                                     "npm":  {
+                                                 "points":  2754,
+                                                 "missing":  [
+
+                                                             ],
+                                                 "ms":  2263
+                                             },
+                                     "pypi":  {
+                                                  "points":  0,
+                                                  "missing":  [
+
+                                                              ],
+                                                  "ms":  0
+                                              },
+                                     "github":  {
+                                                    "points":  52,
+                                                    "missing":  [
+
+                                                                ],
+                                                    "ms":  732
+                                                },
+                                     "sec":  {
+                                                 "points":  2,
+                                                 "missing":  [
+
+                                                             ],
+                                                 "ms":  470
+                                             },
+                                     "jobs":  {
+                                                  "points":  1,
+                                                  "missing":  [
+
+                                                              ],
+                                                  "ms":  101
+                                              },
+                                     "tranco":  {
+                                                    "points":  40,
+                                                    "missing":  [
+
+                                                                ],
+                                                    "ms":  365
+                                                },
+                                     "hn":  {
+                                                "points":  26,
+                                                "missing":  [
+
+                                                            ],
+                                                "ms":  10385
+                                            },
+                                     "storedPoints":  2875
+                                 },
+                      "stripe":  {
+                                     "npm":  {
+                                                 "points":  1377,
+                                                 "missing":  [
+
+                                                             ],
+                                                 "ms":  930
+                                             },
+                                     "pypi":  {
+                                                  "points":  184,
+                                                  "missing":  [
+
+                                                              ],
+                                                  "ms":  218
+                                              },
+                                     "github":  {
+                                                    "points":  52,
+                                                    "missing":  [
+
+                                                                ],
+                                                    "ms":  465
+                                                },
+                                     "sec":  {
+                                                 "points":  16,
+                                                 "missing":  [
+
+                                                             ],
+                                                 "ms":  1728
+                                             },
+                                     "jobs":  {
+                                                  "points":  1,
+                                                  "missing":  [
+
+                                                              ],
+                                                  "ms":  90
+                                              },
+                                     "tranco":  {
+                                                    "points":  40,
+                                                    "missing":  [
+
+                                                                ],
+                                                    "ms":  301
+                                                },
+                                     "hn":  {
+                                                "points":  26,
+                                                "missing":  [
+
+                                                            ],
+                                                "ms":  38638
+                                            },
+                                     "storedPoints":  1696
+                                 },
+                      "resend":  {
+                                     "npm":  {
+                                                 "points":  1377,
+                                                 "missing":  [
+
+                                                             ],
+                                                 "ms":  651
+                                             },
+                                     "pypi":  {
+                                                  "points":  184,
+                                                  "missing":  [
+
+                                                              ],
+                                                  "ms":  179
+                                              },
+                                     "github":  {
+                                                    "points":  52,
+                                                    "missing":  [
+
+                                                                ],
+                                                    "ms":  438
+                                                },
+                                     "sec":  {
+                                                 "points":  0,
+                                                 "missing":  [
+                                                                 "No verified Form D filer configured for this company"
+                                                             ],
+                                                 "ms":  0
+                                             },
+                                     "jobs":  {
+                                                  "points":  0,
+                                                  "missing":  [
+                                                                  "No supported public job-board API verified; see the official careers page."
+                                                              ],
+                                                  "ms":  0
+                                              },
+                                     "tranco":  {
+                                                    "points":  40,
+                                                    "missing":  [
+
+                                                                ],
+                                                    "ms":  314
+                                                },
+                                     "hn":  {
+                                                "points":  26,
+                                                "missing":  [
+
+                                                            ],
+                                                "ms":  54384
+                                            },
+                                     "storedPoints":  1679
+                                 },
+                      "convex":  {
+                                     "npm":  {
+                                                 "points":  1377,
+                                                 "missing":  [
+
+                                                             ],
+                                                 "ms":  659
+                                             },
+                                     "pypi":  {
+                                                  "points":  0,
+                                                  "missing":  [
+
+                                                              ],
+                                                  "ms":  0
+                                              },
+                                     "github":  {
+                                                    "points":  1,
+                                                    "missing":  [
+                                                                    "GitHub commit activity get-convex/convex-js: Still computing after 5 tries: https://api.github.com/repos/get-convex/convex-js/stats/commit_activity"
+                                                                ],
+                                                    "ms":  16870
+                                                },
+                                     "sec":  {
+                                                 "points":  0,
+                                                 "missing":  [
+                                                                 "No verified Form D filer configured for this company"
+                                                             ],
+                                                 "ms":  0
+                                             },
+                                     "jobs":  {
+                                                  "points":  1,
+                                                  "missing":  [
+
+                                                              ],
+                                                  "ms":  91
+                                              },
+                                     "tranco":  {
+                                                    "points":  40,
+                                                    "missing":  [
+
+                                                                ],
+                                                    "ms":  1346
+                                                },
+                                     "hn":  {
+                                                "points":  26,
+                                                "missing":  [
+
+                                                            ],
+                                                "ms":  44150
+                                            },
+                                     "storedPoints":  1445
+                                 },
+                      "posthog":  {
+                                      "npm":  {
+                                                  "points":  1377,
+                                                  "missing":  [
+
+                                                              ],
+                                                  "ms":  1021
+                                              },
+                                      "pypi":  {
+                                                   "points":  184,
+                                                   "missing":  [
+
+                                                               ],
+                                                   "ms":  183
+                                               },
+                                      "github":  {
+                                                     "points":  52,
+                                                     "missing":  [
+
+                                                                 ],
+                                                     "ms":  774
+                                                 },
+                                      "sec":  {
+                                                  "points":  0,
+                                                  "missing":  [
+                                                                  "No verified Form D filer configured for this company"
+                                                              ],
+                                                  "ms":  0
+                                              },
+                                      "jobs":  {
+                                                   "points":  1,
+                                                   "missing":  [
+
+                                                               ],
+                                                   "ms":  110
+                                               },
+                                      "tranco":  {
+                                                     "points":  40,
+                                                     "missing":  [
+
+                                                                 ],
+                                                     "ms":  342
+                                                 },
+                                      "hn":  {
+                                                 "points":  26,
+                                                 "missing":  [
+
+                                                             ],
+                                                 "ms":  29311
+                                             },
+                                      "storedPoints":  1680
+                                  }
+                  },
+    "requests":  228
 }

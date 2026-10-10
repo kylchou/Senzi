@@ -5,9 +5,9 @@
 //   toEngineBaseline(result) -> the shape the forecasting engine's recordModelValue takes
 //   getCompanyIndicators(..) -> indicators panel rows for the VC dashboard
 
-import { computeBaseline, type BaselineOptions } from './baseline.js';
-import { FileModelStore, type ModelStore } from './store.js';
-import type { BaselineResult } from './types.js';
+import { computeBaseline, type BaselineOptions } from './baseline';
+import { FileModelStore, type ModelStore } from './store';
+import type { BaselineResult } from './types';
 
 export interface GetBaselineOptions extends Omit<BaselineOptions, 'sponsorPoints'> {
   asOf?: Date;
@@ -96,11 +96,11 @@ export function toMarketModelFields(result: BaselineResult): {
   };
 }
 
-export { computeBaseline, METHOD_DESCRIPTION } from './baseline.js';
-export { getCompanyIndicators, type Indicator } from './indicators.js';
-export { crossCheckSponsor, sponsorPoint, sponsorLabel, type SponsorEntry } from './sponsor.js';
-export { makeQuestion, questionText, resolveQuestion, type Resolution } from './questions.js';
-export { COMPANIES, getCompany, metricIds, metricsFor } from './catalog.js';
-export { defaultParams, MODEL_NAME, MODEL_VERSION, type ModelParams } from './params.js';
-export { FileModelStore, MemoryModelStore, type ModelStore } from './store.js';
-export type * from './types.js';
+export { computeBaseline, METHOD_DESCRIPTION } from './baseline';
+export { getCompanyIndicators, type Indicator } from './indicators';
+export { crossCheckSponsor, sponsorPoint, sponsorLabel, type SponsorEntry } from './sponsor';
+export { makeQuestion, questionText, resolveQuestion, type Resolution } from './questions';
+export { COMPANIES, getCompany, metricIds, metricsFor } from './catalog';
+export { defaultParams, MODEL_NAME, MODEL_VERSION, type ModelParams } from './params';
+export { FileModelStore, MemoryModelStore, type ModelStore } from './store';
+export type * from './types';

@@ -1,0 +1,204 @@
+{
+  "collectedAt": "2026-10-10T01:32:17.368Z",
+  "companies": {
+    "supabase": {
+      "npm": {
+        "points": 1377,
+        "missing": [],
+        "ms": 1296
+      },
+      "pypi": {
+        "points": 184,
+        "missing": [],
+        "ms": 376
+      },
+      "github": {
+        "points": 52,
+        "missing": [],
+        "ms": 770
+      },
+      "jobs": {
+        "points": 1,
+        "missing": [],
+        "ms": 189
+      },
+      "tranco": {
+        "points": 40,
+        "missing": [],
+        "ms": 501
+      },
+      "hn": {
+        "points": 26,
+        "missing": [],
+        "ms": 10282
+      },
+      "storedPoints": 1680
+    },
+    "vercel": {
+      "npm": {
+        "points": 2754,
+        "missing": [],
+        "ms": 2065
+      },
+      "pypi": {
+        "points": 0,
+        "missing": [],
+        "ms": 0
+      },
+      "github": {
+        "points": 52,
+        "missing": [],
+        "ms": 729
+      },
+      "jobs": {
+        "points": 1,
+        "missing": [],
+        "ms": 179
+      },
+      "tranco": {
+        "points": 40,
+        "missing": [],
+        "ms": 543
+      },
+      "hn": {
+        "points": 26,
+        "missing": [],
+        "ms": 10196
+      },
+      "storedPoints": 2873
+    },
+    "stripe": {
+      "npm": {
+        "points": 1377,
+        "missing": [],
+        "ms": 977
+      },
+      "pypi": {
+        "points": 184,
+        "missing": [],
+        "ms": 280
+      },
+      "github": {
+        "points": 52,
+        "missing": [],
+        "ms": 469
+      },
+      "jobs": {
+        "points": 1,
+        "missing": [],
+        "ms": 114
+      },
+      "tranco": {
+        "points": 40,
+        "missing": [],
+        "ms": 823
+      },
+      "hn": {
+        "points": 26,
+        "missing": [],
+        "ms": 10182
+      },
+      "storedPoints": 1680
+    },
+    "databricks": {
+      "npm": {
+        "points": 0,
+        "missing": [],
+        "ms": 0
+      },
+      "pypi": {
+        "points": 184,
+        "missing": [],
+        "ms": 228
+      },
+      "github": {
+        "points": 52,
+        "missing": [],
+        "ms": 493
+      },
+      "jobs": {
+        "points": 1,
+        "missing": [],
+        "ms": 123
+      },
+      "tranco": {
+        "points": 40,
+        "missing": [],
+        "ms": 355
+      },
+      "hn": {
+        "points": 26,
+        "missing": [],
+        "ms": 10736
+      },
+      "storedPoints": 303
+    },
+    "huggingface": {
+      "npm": {
+        "points": 1377,
+        "missing": [],
+        "ms": 1078
+      },
+      "pypi": {
+        "points": 184,
+        "missing": [],
+        "ms": 238
+      },
+      "github": {
+        "points": 52,
+        "missing": [],
+        "ms": 503
+      },
+      "jobs": {
+        "points": 1,
+        "missing": [],
+        "ms": 141
+      },
+      "tranco": {
+        "points": 40,
+        "missing": [],
+        "ms": 532
+      },
+      "hn": {
+        "points": 26,
+        "missing": [],
+        "ms": 10199
+      },
+      "storedPoints": 1680
+    },
+    "posthog": {
+      "npm": {
+        "points": 1377,
+        "missing": [],
+        "ms": 1048
+      },
+      "pypi": {
+        "points": 184,
+        "missing": [],
+        "ms": 203
+      },
+      "github": {
+        "points": 52,
+        "missing": [],
+        "ms": 909
+      },
+      "jobs": {
+        "points": 1,
+        "missing": [],
+        "ms": 128
+      },
+      "tranco": {
+        "points": 40,
+        "missing": [],
+        "ms": 379
+      },
+      "hn": {
+        "points": 26,
+        "missing": [],
+        "ms": 10982
+      },
+      "storedPoints": 1680
+    }
+  },
+  "requests": 203
+}
