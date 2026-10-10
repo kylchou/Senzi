@@ -3,7 +3,7 @@ export const VC_LINKS = [
   { href: "/vc", label: "Dashboard", exact: true },
   { href: "/vc/studies", label: "My questions", exact: false },
   { href: "/vc/companies", label: "Companies", exact: false },
-  { href: "/vc/watchlists", label: "Watchlists", exact: false },
+  { href: "/vc/watchlists", label: "Watchlist", exact: false },
   { href: "/vc/compare", label: "Compare", exact: false },
 ] as const;
 

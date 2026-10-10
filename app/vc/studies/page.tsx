@@ -9,7 +9,6 @@ import { studyListQuery } from "@/lib/vc/validation";
 
 const SCOPES = [
   { key: "organization", label: "My questions" },
-  { key: "participating", label: "Invited" },
   { key: "public", label: "Public research" },
 ] as const;
 
