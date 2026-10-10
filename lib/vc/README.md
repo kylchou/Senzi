@@ -61,6 +61,8 @@ These three values are always shown separately and labelled:
 
 Every transition uses a compare-and-set on `version` and writes a `StudyEvent` audit row in the same transaction.
 
+**Outcome corrections:** admins can correct an approved resolution until credits are settled. The cron re-checks studies resolved in the last 90 days. If the market's outcome changed, the study's outcome is updated (status stays RESOLVED), a `correct_resolution` event is recorded, and the firm gets a "Study outcome corrected" alert.
+
 ## Access model
 
 | Viewer | PUBLIC | ORGANIZATION | RESTRICTED |
@@ -125,11 +127,26 @@ Each column only includes public markets, published PUBLIC studies, and studies 
 
 ## AI research assistant
 
-This is designed but not built yet. See [`AI_RESEARCH_ASSISTANT.md`](./AI_RESEARCH_ASSISTANT.md).
+The design is in [`AI_RESEARCH_ASSISTANT.md`](./AI_RESEARCH_ASSISTANT.md). The provider-independent foundation is built; nothing calls an AI provider yet.
+
+- **Context builder** (`assistant/context.ts`, loaded by `services/assistant-context.ts`): builds one evidence package per question, for a study or a comparison. It reads through the same permission-checked services as the pages, so a package never holds anything the asker can't open. Every item has a stable id built from real records (`study:…#criteria-yes`, `snapshot:…`, `fact:…`, `news:…`), a kind, a date, a source link and a fixed caveat. Allocation-share items always carry "Not a calibrated probability".
+- **Data tiers:** `standard` (the default) excludes restricted studies and private notes. `extended` includes them and needs explicit team approval. The tier is set with `VC_ASSISTANT_DATA_TIER`.
+- **Conflict flags** (`assistant/flags.ts`): computed in code, not by a model, and added as items with links to the evidence they're about:
+  - a large move on thin participation
+  - a gap from the opening baseline or the calibrated probability
+  - no participation
+  - disputed or unverified-only evidence
+  - a move that follows an unverified report
+  - stale evidence
+  - a near deadline with few forecasters
+- **Citation checker** (`assistant/citations.ts`): checks an answer's `[[id]]` markers against the package.
+  - Errors: unknown ids, percentages that don't match the cited evidence, and the allocation share called a probability.
+  - Warnings: uncited claims, which are shown as "not from your data".
+- **Renderer** (`assistant/render.ts`): the deterministic text form of a package, for the provider prompt.
 
 ## Environment variables
 
-No new variables. `GET /api/vc/cron` uses the existing `CRON_SECRET`; without it the endpoint always returns `401`. The cron runs every 15 minutes (see `vercel.json`).
+`VC_ASSISTANT_DATA_TIER` (optional): `standard` (default) or `extended`. Set it to `extended` only after the team approves sending restricted studies and private notes to an AI provider. Otherwise there are no new variables. `GET /api/vc/cron` uses the existing `CRON_SECRET`; without it the endpoint always returns `401`. The cron runs every 15 minutes (see `vercel.json`).
 
 ## Tests
 

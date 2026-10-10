@@ -1,5 +1,16 @@
 import { describe, expect, it } from "vitest";
-import { buildGeometry, downsample, nearestIndex, plottable, shareMovement, timeTicks, type ChartBox } from "@/lib/market-view/chart";
+import {
+  areaPath,
+  availableRanges,
+  buildGeometry,
+  downsample,
+  nearestIndex,
+  plottable,
+  shareMovement,
+  sliceHistory,
+  timeTicks,
+  type ChartBox,
+} from "@/lib/market-view/chart";
 import type { HistoryPoint } from "@/lib/market-view/types";
 
 const box: ChartBox = { width: 100, height: 100, padding: { top: 0, right: 0, bottom: 0, left: 0 } };
@@ -96,5 +107,39 @@ describe("shareMovement", () => {
   it("returns null with fewer than two points", () => {
     expect(shareMovement([point(0, 0.5)], 7)).toBeNull();
     expect(shareMovement([point(0, null), point(1, 0.5)], 7)).toBeNull();
+  });
+});
+
+describe("sliceHistory", () => {
+  const history = [point(0, 0.2), point(5, 0.4), point(20, 0.6), point(28, 0.7)];
+  const end = t0 + 30 * day;
+
+  it("keeps everything for All", () => {
+    expect(sliceHistory(history, null, end)).toBe(history);
+  });
+
+  it("carries the last earlier value to the window start", () => {
+    const sliced = sliceHistory(history, 7, end);
+    expect(sliced.map((p) => p.share)).toEqual([0.6, 0.7]);
+    expect(sliced[0].at).toBe(at(23));
+  });
+
+  it("returns only points inside when nothing came before", () => {
+    expect(sliceHistory([point(29, 0.5)], 7, end).map((p) => p.share)).toEqual([0.5]);
+  });
+});
+
+describe("availableRanges", () => {
+  it("offers only ranges shorter than the history", () => {
+    expect(availableRanges([point(0, 0.5)], t0 + 3 * day)).toEqual([]);
+    expect(availableRanges([point(0, 0.5)], t0 + 10 * day)).toEqual(["7d", "all"]);
+    expect(availableRanges([point(0, 0.5)], t0 + 60 * day)).toEqual(["7d", "30d", "all"]);
+    expect(availableRanges([], t0)).toEqual([]);
+  });
+});
+
+describe("areaPath", () => {
+  it("closes the line down to the baseline", () => {
+    expect(areaPath("M0,50H100", 100, 0)).toBe("M0,50H100V100.0H0.0Z");
   });
 });

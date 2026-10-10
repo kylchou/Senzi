@@ -45,33 +45,33 @@
     }
   },
   {
-    "id": "q-databricks-2026-11-08",
-    "companyId": "databricks",
-    "metricId": "pypi_downloads:databricks-sdk",
-    "threshold": 22000000,
+    "id": "q-resend-2026-11-08",
+    "companyId": "resend",
+    "metricId": "npm_downloads:resend",
+    "threshold": 16000000,
     "windowEnd": "2026-11-08",
     "opensAt": "2026-10-10T00:00:00.000Z",
     "windowDays": 7,
-    "text": "Will PyPI downloads of databricks-sdk in the 7 days ending November 8, 2026 (UTC) be at least 22,000,000?",
+    "text": "Will npm downloads of resend in the 7 days ending November 8, 2026 (UTC) be at least 16,000,000?",
     "resolutionSource": {
-      "source": "pypistats",
-      "url": "https://pypistats.org/api/packages/databricks-sdk/overall?mirrors=false",
-      "description": "Sum of daily downloads (without mirrors) from pypistats.org for the 7-day window."
+      "source": "npm",
+      "url": "https://api.npmjs.org/downloads/range/2026-11-02:2026-11-08/resend",
+      "description": "Sum of daily downloads from the public npm downloads API for the 7-day window."
     }
   },
   {
-    "id": "q-huggingface-2026-11-08",
-    "companyId": "huggingface",
-    "metricId": "pypi_downloads:huggingface_hub",
-    "threshold": 65000000,
+    "id": "q-convex-2026-11-08",
+    "companyId": "convex",
+    "metricId": "npm_downloads:convex",
+    "threshold": 2000000,
     "windowEnd": "2026-11-08",
     "opensAt": "2026-10-10T00:00:00.000Z",
     "windowDays": 7,
-    "text": "Will PyPI downloads of huggingface_hub in the 7 days ending November 8, 2026 (UTC) be at least 65,000,000?",
+    "text": "Will npm downloads of convex in the 7 days ending November 8, 2026 (UTC) be at least 2,000,000?",
     "resolutionSource": {
-      "source": "pypistats",
-      "url": "https://pypistats.org/api/packages/huggingface_hub/overall?mirrors=false",
-      "description": "Sum of daily downloads (without mirrors) from pypistats.org for the 7-day window."
+      "source": "npm",
+      "url": "https://api.npmjs.org/downloads/range/2026-11-02:2026-11-08/convex",
+      "description": "Sum of daily downloads from the public npm downloads API for the 7-day window."
     }
   },
   {

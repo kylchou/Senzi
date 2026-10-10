@@ -1,4 +1,4 @@
-import type { NewsVerification, ResolutionOutcome, StartupStage } from "@/lib/types";
+import type { NewsVerification, ResolutionOutcome, SettlementStatus, StartupStage } from "@/lib/types";
 
 /**
  * Public view models returned by app/api/markets/** and app/api/startups/**
@@ -63,6 +63,8 @@ export interface ResolutionView {
   evidenceSummary: string;
   evidenceUrls: string[];
   resolvedAt: string;
+  settlementStatus: SettlementStatus;
+  settledAt: string | null;
 }
 
 export interface MarketDetail extends MarketSummary {
@@ -70,6 +72,7 @@ export interface MarketDetail extends MarketSummary {
   yesCriteria: string;
   noCriteria: string;
   baselineMethodology: string | null;
+  baselineSetAt: string | null;
   category: string | null;
   opensAt: string;
   resolvesBy: string | null;

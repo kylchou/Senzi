@@ -1,15 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { addDays, fromDayNumber, toDayNumber } from './dates.js';
-import { getBaseline, MODEL_VERSION, refreshBaseline, toEngineBaseline, toMarketModelFields, QuestionNotFoundError } from './index.js';
-import { getCompanyIndicators } from './indicators.js';
-import { median, normalCdf, quantile, robustScale, seededRandom, seedFrom } from './math.js';
-import { makeQuestion, questionText, resolveQuestion } from './questions.js';
-import { buildDailySeries, weeklySeries, windowTotal } from './series.js';
-import { crossCheckSponsor, sponsorPoint } from './sponsor.js';
-import { MemoryModelStore } from './store.js';
-import { asOfAfter, syntheticDaily, testQuestion } from './test-helpers.js';
-import { findLevelShift } from './forecast.js';
-import { fitTrend, theilSen } from './trend.js';
+import { addDays, fromDayNumber, toDayNumber } from './dates';
+import { getBaseline, MODEL_VERSION, refreshBaseline, toEngineBaseline, toMarketModelFields, QuestionNotFoundError } from './index';
+import { getCompanyIndicators } from './indicators';
+import { median, normalCdf, quantile, robustScale, seededRandom, seedFrom } from './math';
+import { makeQuestion, questionText, resolveQuestion } from './questions';
+import { buildDailySeries, weeklySeries, windowTotal } from './series';
+import { crossCheckSponsor, sponsorPoint } from './sponsor';
+import { MemoryModelStore } from './store';
+import { asOfAfter, syntheticDaily, testQuestion } from './test-helpers';
+import { findLevelShift } from './forecast';
+import { fitTrend, theilSen } from './trend';
 
 describe('math', () => {
   it('computes the normal CDF', () => {

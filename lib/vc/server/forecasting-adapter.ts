@@ -93,9 +93,10 @@ export function createForecastingGateway(db: PrismaClient): ForecastingGateway {
           ...((options?.from || options?.to) && { recordedAt: { gte: options?.from, lte: options?.to } }),
         },
         orderBy: { sequence: "asc" },
-        select: { recordedAt: true, allocationShare: true, yesCredits: true, noCredits: true, forecasterCount: true },
+        select: { id: true, recordedAt: true, allocationShare: true, yesCredits: true, noCredits: true, forecasterCount: true },
       });
       return rows.map((r) => ({
+        id: r.id,
         at: r.recordedAt,
         yesShare: r.allocationShare,
         totalCredits: r.yesCredits + r.noCredits,

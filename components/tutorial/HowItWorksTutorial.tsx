@@ -160,20 +160,20 @@ export function HowItWorksTutorial() {
     (practice.resolved && won && submittedPreview ? submittedPreview.payoutIfRight : 0);
 
   return (
-    <div ref={sectionRef} id="tutorial" className={cn("scroll-mt-24", started && "max-lg:pb-[44vh]")}>
+    <div ref={sectionRef} id="tutorial" className={cn("scroll-mt-24", started && "max-lg:pb-[46vh]")}>
       <div className="grid gap-6 lg:grid-cols-[1.35fr_1fr] lg:items-start">
         {/* Practice market */}
         <div className="relative">
           <div
             className={cn(
-              "relative rounded-[var(--radius-card)] border border-ink-200 bg-white p-5 shadow-[var(--shadow-lift)] transition sm:p-6",
+              "relative rounded-[var(--radius-card)] bg-surface p-5 shadow-[var(--shadow-lift)] ring-1 ring-hairline transition sm:p-6",
               !started && "pointer-events-none select-none",
             )}
             aria-hidden={!started}
             inert={!started}
           >
             <div className="mb-5 flex flex-wrap items-center justify-between gap-2">
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-800 ring-1 ring-amber-200">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-800 ring-1 ring-amber-200 dark:bg-amber-400/10 dark:text-amber-200 dark:ring-amber-400/30">
                 <FlaskConical className="size-3.5" aria-hidden /> Practice market · fictional
               </span>
               <span className="text-xs font-medium text-ink-600 tabular-nums">
@@ -188,7 +188,7 @@ export function HowItWorksTutorial() {
                 className="flex w-full items-start gap-3 rounded-xl p-3 text-left transition-colors hover:bg-ink-50"
                 aria-expanded={practice.startupOpened}
               >
-                <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-ink-900 text-white">
+                <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-night text-white">
                   <Building2 className="size-5" aria-hidden />
                 </span>
                 <span className="min-w-0 flex-1">
@@ -266,7 +266,7 @@ export function HowItWorksTutorial() {
                           practice.side === s
                             ? s === "YES"
                               ? "border-red-600 bg-red-600 text-white"
-                              : "border-ink-900 bg-ink-900 text-white"
+                              : "border-ink-900 bg-ink-900 text-surface"
                             : "border-ink-200 text-ink-700 hover:border-ink-300 hover:bg-ink-50",
                         )}
                       >
@@ -313,7 +313,7 @@ export function HowItWorksTutorial() {
                       onClick={() => update({ amount: String(p), amountTouched: true })}
                       className={cn(
                         "h-9 rounded-full border px-3.5 text-sm font-semibold tabular-nums transition-colors",
-                        practice.amount === String(p) ? "border-ink-900 bg-ink-900 text-white" : "border-ink-200 text-ink-700 hover:bg-ink-50",
+                        practice.amount === String(p) ? "border-ink-900 bg-ink-900 text-surface" : "border-ink-200 text-ink-700 hover:bg-ink-50",
                       )}
                     >
                       {p}
@@ -328,7 +328,7 @@ export function HowItWorksTutorial() {
                     onChange={(e) => update({ amount: e.target.value, amountTouched: true })}
                     aria-invalid={practice.amountTouched && !!amountError}
                     aria-describedby="tutorial-credits-help"
-                    className="h-9 w-24 rounded-full border border-ink-200 px-3.5 text-sm tabular-nums"
+                    className="h-9 w-24 rounded-full border border-ink-200 bg-surface px-3.5 text-sm tabular-nums"
                   />
                 </div>
                 <p id="tutorial-credits-help" className={cn("mt-2 text-xs", practice.amountTouched && amountError ? "text-red-700" : "text-ink-600")}>
@@ -344,7 +344,7 @@ export function HowItWorksTutorial() {
             <Spot id="submit" active={active} hint={step.hint} className="mt-4">
               <div className="rounded-xl p-3">
                 {practice.submitted ? (
-                  <p className="flex animate-[tutorial-in_300ms_ease-out] items-center gap-2 rounded-lg bg-emerald-50 px-3 py-2.5 text-sm font-medium text-emerald-800">
+                  <p className="flex animate-[tutorial-in_300ms_ease-out] items-center gap-2 rounded-lg bg-emerald-50 px-3 py-2.5 text-sm font-medium text-emerald-800 dark:bg-emerald-400/10 dark:text-emerald-200">
                     <Check className="size-4" aria-hidden />
                     Practice forecast placed: {practice.submitted.credits} on {practice.submitted.side}. YES allocation moved to {formatShare(share)}.
                   </p>
@@ -371,7 +371,7 @@ export function HowItWorksTutorial() {
                     <p className="text-ink-700">{TUTORIAL_RESOLUTION.evidence}</p>
                     <p className="text-xs text-ink-500">Evidence: {TUTORIAL_RESOLUTION.evidenceSource}</p>
                     {practice.submitted && submittedPreview && (
-                      <p className={cn("rounded-lg px-3 py-2 font-medium", won ? "bg-emerald-50 text-emerald-800" : "bg-ink-100 text-ink-700")}>
+                      <p className={cn("rounded-lg px-3 py-2 font-medium", won ? "bg-emerald-50 text-emerald-800 dark:bg-emerald-400/10 dark:text-emerald-200" : "bg-ink-100 text-ink-700")}>
                         {won
                           ? `You were right: ${submittedPreview.payoutIfRight} practice credits came back (+${submittedPreview.profitIfRight}).`
                           : `NO didn't happen this time, so your ${practice.submitted.credits} practice credits went to the YES side.`}
@@ -388,11 +388,11 @@ export function HowItWorksTutorial() {
           </div>
 
           {!started && (
-            <div className="absolute inset-0 grid place-items-center rounded-[var(--radius-card)] bg-white/60 backdrop-blur-[2px]">
-              <div className="mx-4 max-w-sm rounded-2xl bg-ink-900 p-6 text-center text-white shadow-[var(--shadow-lift)]">
+            <div className="absolute inset-0 grid place-items-center rounded-[var(--radius-card)] bg-page/60 backdrop-blur-[2px]">
+              <div className="mx-4 max-w-sm rounded-2xl bg-night p-6 text-center text-white shadow-[var(--shadow-lift)]">
                 <Pencil className="mx-auto size-6 text-red-500" aria-hidden />
                 <p className="mt-3 font-display text-xl font-bold">Try it with a practice market</p>
-                <p className="mt-2 text-sm text-ink-300">
+                <p className="mt-2 text-sm text-mist-300">
                   A two-minute, hands-on walkthrough with a made-up startup and {PRACTICE_BALANCE} practice credits. Nothing touches your real account.
                 </p>
                 <Button variant="accent" size="lg" className="mt-5" onClick={start}>
@@ -410,9 +410,10 @@ export function HowItWorksTutorial() {
           role="region"
           aria-labelledby={titleId}
           className={cn(
-            "rounded-[var(--radius-card)] bg-ink-900 p-6 text-white shadow-[var(--shadow-lift)] outline-none lg:sticky lg:top-24",
+            "rounded-[var(--radius-card)] bg-night p-6 text-white shadow-[var(--shadow-lift)] outline-none lg:sticky lg:top-24",
             // On small screens the guide becomes a bottom sheet so it stays next to what you're tapping.
-            started && "max-lg:fixed max-lg:inset-x-3 max-lg:bottom-3 max-lg:z-30 max-lg:max-h-[40vh] max-lg:overflow-y-auto max-lg:p-5",
+            started &&
+              "max-lg:fixed max-lg:inset-x-3 max-lg:bottom-3 max-lg:z-30 max-lg:max-h-[42vh] max-lg:overflow-y-auto max-lg:p-5 max-md:bottom-[calc(max(0.75rem,env(safe-area-inset-bottom))+4.25rem)] max-md:max-h-[38vh]",
           )}
         >
           {started ? (
@@ -421,7 +422,7 @@ export function HowItWorksTutorial() {
                 <p className="text-xs font-semibold uppercase tracking-[0.14em] text-red-500">
                   Step {stepIndex + 1} of {TUTORIAL_STEPS.length}
                 </p>
-                <button type="button" onClick={exit} className="rounded-full p-1.5 text-ink-400 hover:bg-white/10 hover:text-white" aria-label="Exit walkthrough">
+                <button type="button" onClick={exit} className="rounded-full p-1.5 text-mist-400 hover:bg-white/10 hover:text-white" aria-label="Exit walkthrough">
                   <X className="size-4" aria-hidden />
                 </button>
               </div>
@@ -440,7 +441,7 @@ export function HowItWorksTutorial() {
                 {isLast && <PartyPopper className="mr-2 inline size-6 text-red-500" aria-hidden />}
                 {step.title}
               </h3>
-              <p className="mt-2 text-ink-300">{step.body}</p>
+              <p className="mt-2 text-mist-300">{step.body}</p>
 
               {step.id === "numbers" && <NumbersQuiz answer={practice.quizAnswer} onAnswer={(quizAnswer) => update({ quizAnswer })} />}
 
@@ -463,7 +464,7 @@ export function HowItWorksTutorial() {
                     <ArrowLeft className="size-4" aria-hidden /> Back
                   </Button>
                   <div className="flex items-center gap-2">
-                    <button type="button" onClick={start} className="text-xs font-semibold text-ink-400 hover:text-white">
+                    <button type="button" onClick={start} className="text-xs font-semibold text-mist-400 hover:text-white">
                       Restart
                     </button>
                     <Button variant="accent" size="sm" onClick={next} disabled={!complete}>
@@ -472,7 +473,7 @@ export function HowItWorksTutorial() {
                   </div>
                 </div>
               )}
-              <p className="mt-5 border-t border-white/10 pt-4 text-xs text-ink-400 max-lg:mt-3 max-lg:pt-3">
+              <p className="mt-5 border-t border-white/10 pt-4 text-xs text-mist-400 max-lg:mt-3 max-lg:pt-3">
                 Practice mode: nothing here changes your real credits or places a real forecast.
                 <span className="max-lg:hidden"> Press Esc to exit.</span>
               </p>
@@ -481,7 +482,7 @@ export function HowItWorksTutorial() {
             <>
               <p className="text-xs font-semibold uppercase tracking-[0.14em] text-red-500">How it works</p>
               <h3 id={titleId} className="mt-2 text-2xl font-bold">Learn by doing</h3>
-              <ol className="mt-4 space-y-3 text-sm text-ink-300">
+              <ol className="mt-4 space-y-3 text-sm text-mist-300">
                 {["Read a YES/NO question and how it resolves", "Pick a side and allocate practice credits", "Watch the market resolve and pay out"].map((t, i) => (
                   <li key={t} className="flex gap-3">
                     <span className="font-display font-extrabold text-red-500 tabular-nums">{String(i + 1).padStart(2, "0")}</span>
@@ -492,7 +493,7 @@ export function HowItWorksTutorial() {
               <Button variant="accent" className="mt-6" onClick={start}>
                 Start the walkthrough <ArrowRight className="size-4" aria-hidden />
               </Button>
-              <p className="mt-4 text-xs text-ink-400">
+              <p className="mt-4 text-xs text-mist-400">
                 Or skip ahead and <Link href="/markets" className="underline hover:text-white">browse real markets</Link>.
               </p>
             </>
@@ -579,7 +580,7 @@ function NumbersQuiz({ answer, onAnswer }: { answer: Practice["quizAnswer"]; onA
               ? o.id === "allocation"
                 ? "border-emerald-400 bg-emerald-400/10 text-white"
                 : "border-amber-300 bg-amber-300/10 text-white"
-              : "border-white/15 text-ink-200 hover:bg-white/5",
+              : "border-white/15 text-mist-200 hover:bg-white/5",
           )}
         >
           {o.label}
@@ -610,7 +611,7 @@ function Spot({
       data-spot={id}
       className={cn(
         "relative scroll-mt-24 rounded-xl transition-all duration-300",
-        isActive && "z-10 bg-white ring-2 ring-red-500 ring-offset-2 shadow-[0_0_0_6px_rgb(255_44_44/0.08)]",
+        isActive && "z-10 bg-surface ring-2 ring-red-500 ring-offset-2 ring-offset-surface shadow-[0_0_0_6px_rgb(255_44_44/0.08)]",
         dimmed && "pointer-events-none opacity-35 saturate-50",
         className,
       )}

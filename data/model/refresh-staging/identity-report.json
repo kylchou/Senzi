@@ -1,0 +1,179 @@
+{
+  "checkedAt": "2026-10-10T04:06:03.518Z",
+  "identities": [
+    {
+      "companyId": "supabase",
+      "kind": "npm",
+      "package": "@supabase/supabase-js",
+      "repository": "https://github.com/supabase/supabase-js.git",
+      "sourceUrl": "https://registry.npmjs.org/%40supabase%2Fsupabase-js/latest",
+      "checkedAt": "2026-10-10T04:06:03.518Z"
+    },
+    {
+      "companyId": "supabase",
+      "kind": "pypi",
+      "package": "supabase",
+      "links": [
+        "https://github.com/supabase/supabase-py/tree/main/CHANGELOG.md",
+        "https://github.com/supabase/supabase-py/src/supabase",
+        "https://github.com/supabase/supabase-py",
+        "https://github.com/supabase/supabase-py",
+        ""
+      ],
+      "sourceUrl": "https://pypi.org/pypi/supabase/json",
+      "checkedAt": "2026-10-10T04:06:03.518Z"
+    },
+    {
+      "companyId": "supabase",
+      "kind": "github",
+      "repository": "supabase/supabase",
+      "sourceUrl": "https://github.com/supabase/supabase",
+      "checkedAt": "2026-10-10T04:06:03.518Z"
+    },
+    {
+      "companyId": "supabase",
+      "kind": "sec",
+      "cik": "0001829334",
+      "legalName": "Supabase, Inc.",
+      "sourceUrl": "https://data.sec.gov/submissions/CIK0001829334.json",
+      "checkedAt": "2026-10-10T04:06:03.518Z"
+    },
+    {
+      "companyId": "vercel",
+      "kind": "npm",
+      "package": "vercel",
+      "repository": "git+https://github.com/vercel/vercel.git",
+      "sourceUrl": "https://registry.npmjs.org/vercel/latest",
+      "checkedAt": "2026-10-10T04:06:03.518Z"
+    },
+    {
+      "companyId": "vercel",
+      "kind": "npm",
+      "package": "next",
+      "repository": "git+https://github.com/vercel/next.js.git",
+      "sourceUrl": "https://registry.npmjs.org/next/latest",
+      "checkedAt": "2026-10-10T04:06:03.518Z"
+    },
+    {
+      "companyId": "vercel",
+      "kind": "github",
+      "repository": "vercel/next.js",
+      "sourceUrl": "https://github.com/vercel/next.js",
+      "checkedAt": "2026-10-10T04:06:03.518Z"
+    },
+    {
+      "companyId": "vercel",
+      "kind": "sec",
+      "cik": "0001893137",
+      "legalName": "Vercel Inc.",
+      "sourceUrl": "https://data.sec.gov/submissions/CIK0001893137.json",
+      "checkedAt": "2026-10-10T04:06:03.518Z"
+    },
+    {
+      "companyId": "stripe",
+      "kind": "npm",
+      "package": "stripe",
+      "repository": "git+https://github.com/stripe/stripe-node.git",
+      "sourceUrl": "https://registry.npmjs.org/stripe/latest",
+      "checkedAt": "2026-10-10T04:06:03.518Z"
+    },
+    {
+      "companyId": "stripe",
+      "kind": "pypi",
+      "package": "stripe",
+      "links": [
+        "https://github.com/stripe/stripe-python/blob/master/CHANGELOG.md",
+        "https://stripe.com/docs/api/?lang=python",
+        "https://stripe.com/",
+        "https://github.com/stripe/stripe-python/issues",
+        "https://github.com/stripe/stripe-python",
+        ""
+      ],
+      "sourceUrl": "https://pypi.org/pypi/stripe/json",
+      "checkedAt": "2026-10-10T04:06:03.518Z"
+    },
+    {
+      "companyId": "stripe",
+      "kind": "github",
+      "repository": "stripe/stripe-node",
+      "sourceUrl": "https://github.com/stripe/stripe-node",
+      "checkedAt": "2026-10-10T04:06:03.518Z"
+    },
+    {
+      "companyId": "stripe",
+      "kind": "sec",
+      "cik": "0001691342",
+      "legalName": "Stripe, Inc.",
+      "sourceUrl": "https://data.sec.gov/submissions/CIK0001691342.json",
+      "checkedAt": "2026-10-10T04:06:03.518Z"
+    },
+    {
+      "companyId": "resend",
+      "kind": "npm",
+      "package": "resend",
+      "repository": "git+https://github.com/resend/resend-node.git",
+      "sourceUrl": "https://registry.npmjs.org/resend/latest",
+      "checkedAt": "2026-10-10T04:06:03.518Z"
+    },
+    {
+      "companyId": "resend",
+      "kind": "pypi",
+      "package": "resend",
+      "links": [
+        "https://github.com/resendlabs/resend-python",
+        "https://github.com/resendlabs/resend-python"
+      ],
+      "sourceUrl": "https://pypi.org/pypi/resend/json",
+      "checkedAt": "2026-10-10T04:06:03.518Z"
+    },
+    {
+      "companyId": "resend",
+      "kind": "github",
+      "repository": "resend/resend-node",
+      "sourceUrl": "https://github.com/resend/resend-node",
+      "checkedAt": "2026-10-10T04:06:03.518Z"
+    },
+    {
+      "companyId": "convex",
+      "kind": "npm",
+      "package": "convex",
+      "repository": "git+https://github.com/get-convex/convex-backend.git",
+      "sourceUrl": "https://registry.npmjs.org/convex/latest",
+      "checkedAt": "2026-10-10T04:06:03.518Z"
+    },
+    {
+      "companyId": "convex",
+      "kind": "github",
+      "repository": "get-convex/convex-js",
+      "sourceUrl": "https://github.com/get-convex/convex-js",
+      "checkedAt": "2026-10-10T04:06:03.518Z"
+    },
+    {
+      "companyId": "posthog",
+      "kind": "npm",
+      "package": "posthog-js",
+      "repository": "https://github.com/PostHog/posthog-js",
+      "sourceUrl": "https://registry.npmjs.org/posthog-js/latest",
+      "checkedAt": "2026-10-10T04:06:03.518Z"
+    },
+    {
+      "companyId": "posthog",
+      "kind": "pypi",
+      "package": "posthog",
+      "links": [
+        "https://github.com/posthog/posthog-python",
+        "https://github.com/posthog/posthog-python",
+        "https://github.com/posthog/posthog-python"
+      ],
+      "sourceUrl": "https://pypi.org/pypi/posthog/json",
+      "checkedAt": "2026-10-10T04:06:03.518Z"
+    },
+    {
+      "companyId": "posthog",
+      "kind": "github",
+      "repository": "PostHog/posthog",
+      "sourceUrl": "https://github.com/PostHog/posthog",
+      "checkedAt": "2026-10-10T04:06:03.518Z"
+    }
+  ]
+}

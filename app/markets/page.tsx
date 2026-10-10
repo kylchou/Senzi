@@ -1,21 +1,26 @@
 import type { Metadata } from "next";
-import { Suspense } from "react";
 import { io } from "next/cache";
 import { Search } from "lucide-react";
 import { MarketCard } from "@/components/MarketCard";
-import { Button, ButtonLink } from "@/components/ui/Button";
+import { Button, buttonStyles } from "@/components/ui/Button";
 import { Container } from "@/components/ui/Container";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Input, Label, Select } from "@/components/ui/Field";
-import { FilterForm } from "@/components/ui/FilterForm";
+import { ChipGroup } from "@/components/ui/ChipGroup";
+import { ClearFiltersLink, FilterForm } from "@/components/ui/FilterForm";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Pagination } from "@/components/ui/Pagination";
-import { Skeleton } from "@/components/ui/Skeleton";
-import { parseMarketParams } from "@/lib/discovery/params";
+import { CardGridSkeleton } from "@/components/ui/Skeleton";
+import { parseMarketParams, type MarketQuery } from "@/lib/discovery/params";
 import { listIndustries } from "@/lib/discovery/queries";
 import { listMarkets } from "@/lib/market-view/queries";
+import { PageTransition, StreamIn } from "@/components/ui/Transitions";
 
-export const metadata: Metadata = { title: "Markets" };
+export const metadata: Metadata = {
+  title: "Markets",
+  description:
+    "YES or NO questions on measurable startup milestones, with community allocation shares, opening baselines, and deadlines.",
+};
 
 const statusOptions = [
   { value: "", label: "All" },
@@ -33,59 +38,73 @@ const sortOptions = [
 
 export default function MarketsPage({ searchParams }: PageProps<"/markets">) {
   return (
-    <main id="main" className="flex-1">
-      <PageHeader title="Markets" subtitle="YES or NO questions on measurable startup milestones.">
-        <Suspense fallback={<Skeleton className="h-10 w-full" />}>
-          <Filters searchParams={searchParams} />
-        </Suspense>
-      </PageHeader>
-      <Container className="py-10">
-        <Suspense fallback={<ResultsSkeleton />}>
-          <Results searchParams={searchParams} />
-        </Suspense>
-      </Container>
-    </main>
+    <PageTransition>
+      <main id="main" className="flex-1">
+        <PageHeader title="Markets" subtitle="YES or NO questions on measurable startup milestones.">
+          <StreamIn fallback={<FiltersView params={parseMarketParams({})} industries={[]} />}>
+            <Filters searchParams={searchParams} />
+          </StreamIn>
+        </PageHeader>
+        <Container className="py-10">
+          <StreamIn fallback={<CardGridSkeleton count={6} />}>
+            <Results searchParams={searchParams} />
+          </StreamIn>
+        </Container>
+      </main>
+    </PageTransition>
   );
 }
 
 async function Filters({ searchParams }: Pick<PageProps<"/markets">, "searchParams">) {
   const params = parseMarketParams(await searchParams);
   const industries = await listIndustries();
+  return <FiltersView params={params} industries={industries} />;
+}
 
+/** The filter form. Also rendered with defaults while loading, so the page does not shift. */
+function FiltersView({ params, industries }: { params: MarketQuery; industries: string[] }) {
   return (
-    <FilterForm action="/markets">
-      <div className="relative flex-1">
-        <Label htmlFor="q" className="sr-only">
-          Search markets
-        </Label>
-        <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-500" aria-hidden />
-        <Input id="q" name="q" type="search" placeholder="Search questions or startups" defaultValue={params.q} className="pl-9" />
-      </div>
-      <div className="grid grid-cols-3 gap-3 sm:flex">
-        <div className="flex flex-col gap-1">
-          <Label htmlFor="status">Status</Label>
-          <Select id="status" name="status" defaultValue={params.status ?? ""}>
-            {statusOptions.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </Select>
+    <FilterForm action="/markets" className="sm:flex-col sm:items-stretch">
+      <ChipGroup name="status" label="Status" options={statusOptions} value={params.status ?? ""} />
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+        <div className="relative flex-1">
+          <Label htmlFor="q" className="sr-only">
+            Search markets
+          </Label>
+          <Search
+            className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-ink-500"
+            aria-hidden
+          />
+          <Input
+            id="q"
+            name="q"
+            type="search"
+            placeholder="Search questions or startups"
+            defaultValue={params.q}
+            className="h-11 rounded-full pl-10"
+          />
         </div>
-        <div className="flex flex-col gap-1">
-          <Label htmlFor="industry">Industry</Label>
-          <Select id="industry" name="industry" defaultValue={params.industry ?? ""}>
-            <option value="">All</option>
+        <div className="grid grid-cols-2 gap-3 sm:flex">
+          <Label htmlFor="industry" className="sr-only">
+            Industry
+          </Label>
+          <Select
+            id="industry"
+            name="industry"
+            defaultValue={params.industry ?? ""}
+            className="h-11 rounded-full sm:w-44"
+          >
+            <option value="">All industries</option>
             {industries.map((industry) => (
               <option key={industry} value={industry}>
                 {industry}
               </option>
             ))}
           </Select>
-        </div>
-        <div className="flex flex-col gap-1">
-          <Label htmlFor="sort">Sort</Label>
-          <Select id="sort" name="sort" defaultValue={params.sort}>
+          <Label htmlFor="sort" className="sr-only">
+            Sort
+          </Label>
+          <Select id="sort" name="sort" defaultValue={params.sort} className="h-11 rounded-full sm:w-44">
             {sortOptions.map((option) => (
               <option key={option.value} value={option.value}>
                 {option.label}
@@ -93,10 +112,10 @@ async function Filters({ searchParams }: Pick<PageProps<"/markets">, "searchPara
             ))}
           </Select>
         </div>
+        <Button type="submit" size="lg" className="h-11">
+          Search
+        </Button>
       </div>
-      <Button type="submit" className="sm:self-end">
-        Search
-      </Button>
     </FilterForm>
   );
 }
@@ -109,18 +128,20 @@ async function Results({ searchParams }: Pick<PageProps<"/markets">, "searchPara
 
   return (
     <>
+      <h2 className="sr-only">Results</h2>
       <p className="mb-5 text-sm text-ink-600" aria-live="polite">
         {result.total} {result.total === 1 ? "market" : "markets"}
       </p>
       {result.items.length === 0 ? (
         <EmptyState
+          illustration="markets"
           title={filtered ? "No matching markets" : "No markets yet"}
           body={filtered ? "Try a different search or filter." : "New questions appear here as soon as they open."}
           action={
             filtered ? (
-              <ButtonLink href="/markets" variant="outline" size="sm">
+              <ClearFiltersLink path="/markets" className={buttonStyles({ variant: "outline", size: "sm" })}>
                 Clear filters
-              </ButtonLink>
+              </ClearFiltersLink>
             ) : undefined
           }
         />
@@ -143,15 +164,5 @@ async function Results({ searchParams }: Pick<PageProps<"/markets">, "searchPara
         nextCursor={result.nextCursor}
       />
     </>
-  );
-}
-
-function ResultsSkeleton() {
-  return (
-    <div role="status" aria-label="Loading" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-      {Array.from({ length: 6 }, (_, index) => (
-        <Skeleton key={index} className="h-60 rounded-[var(--radius-card)]" />
-      ))}
-    </div>
   );
 }

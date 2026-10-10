@@ -4,9 +4,9 @@
 //
 //   npx tsx lib/model/cli/refresh.ts
 
-import { refreshBaseline } from '../index.js';
-import { resolveQuestion } from '../questions.js';
-import { FileModelStore } from '../store.js';
+import { refreshBaseline } from '../index';
+import { resolveQuestion } from '../questions';
+import { FileModelStore } from '../store';
 
 const store = new FileModelStore();
 const now = new Date();
