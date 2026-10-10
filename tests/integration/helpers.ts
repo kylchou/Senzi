@@ -54,7 +54,7 @@ export async function makeStartup() {
       name: `Startup ${tag}`,
       tagline: "Test startup",
       description: "A startup used in tests.",
-      sector: "Testing",
+      industry: "Testing",
       stage: StartupStage.SEED,
       isPublished: true,
     },
@@ -63,7 +63,7 @@ export async function makeStartup() {
 
 export async function makeMarket(
   admin: SessionUser,
-  opts: { open?: boolean; private?: string; startupId?: string } = {},
+  opts: { open?: boolean; private?: string; restricted?: boolean; startupId?: string } = {},
 ) {
   const startupId = opts.startupId ?? (await makeStartup()).id;
   const now = Date.now();
@@ -71,13 +71,16 @@ export async function makeMarket(
     slug: `market-${randomUUID().slice(0, 8)}`,
     startupId,
     question: "Will this test market resolve YES?",
-    resolutionCriteria: "Resolves YES if the integration test says so before the deadline.",
+    yesCriteria: "Resolves YES if the integration test says so before the deadline.",
+    noCriteria: "Resolves NO if the integration test says otherwise by the deadline.",
     openingBaseline: 0.4,
-    visibility: opts.private ? "PRIVATE" : "PUBLIC",
+    baselineMethodology: "Test fixture",
+    visibility: opts.private ? (opts.restricted ? "RESTRICTED" : "ORGANIZATION") : "PUBLIC",
     organizationId: opts.private ?? null,
     opensAt: new Date(now - DAY),
     closesAt: new Date(now + 30 * DAY),
     resolvesBy: null,
+    sources: [{ title: "Test source", url: "https://example.com/source" }],
     openImmediately: opts.open ?? true,
   });
 }
@@ -86,8 +89,18 @@ export async function makeMarket(
 export async function placeForecast(user: SessionUser, marketId: string, credits = 100) {
   const { applyCreditTransaction } = await import("@/lib/credits");
   return db.$transaction(async (tx) => {
+    const { forecastCount } = await tx.market.findUniqueOrThrow({ where: { id: marketId }, select: { forecastCount: true } });
     const forecast = await tx.forecast.create({
-      data: { userId: user.id, marketId, side: "YES", credits, idempotencyKey: randomUUID() },
+      data: {
+        userId: user.id,
+        marketId,
+        sequence: forecastCount + 1,
+        side: "YES",
+        credits,
+        idempotencyKey: randomUUID(),
+        requestHash: "test",
+        entry: {},
+      },
     });
     await applyCreditTransaction(tx, {
       userId: user.id,
