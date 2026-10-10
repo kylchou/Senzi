@@ -11,6 +11,7 @@ export function AllocationBar({
   size = "md",
   tone = "light",
   knob = false,
+  kind = "allocation",
   className,
 }: {
   share: number | null;
@@ -20,12 +21,18 @@ export function AllocationBar({
   tone?: "light" | "dark";
   /** Show a handle at the current share, like a slider (detail pages). */
   knob?: boolean;
+  /** What the bar shows: the market probability, or how credits are split. */
+  kind?: "probability" | "allocation";
   className?: string;
 }) {
   const label =
     share === null
-      ? "No credits allocated yet"
-      : `YES allocation ${formatShare(share)}, NO allocation ${formatShare(1 - share)}` +
+      ? kind === "probability"
+        ? "No market probability yet"
+        : "No credits allocated yet"
+      : (kind === "probability"
+          ? `Market probability ${formatShare(share)}`
+          : `YES allocation ${formatShare(share)}, NO allocation ${formatShare(1 - share)}`) +
         (baseline != null ? `, opening baseline ${formatShare(baseline)}` : "");
 
   return (

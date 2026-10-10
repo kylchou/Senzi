@@ -46,7 +46,7 @@ function boxFor(width: number): ChartBox {
 }
 
 /**
- * Community YES allocation share over time, with the calibrated probability
+ * Market probability (the price of a YES share) over time, with the calibrated probability
  * (when the engine provides one) and the opening baseline drawn as separate,
  * labeled lines. Drawn like a stock chart: straight moves between trades and an
  * axis zoomed to where the values are, with the current value and change on top.
@@ -198,7 +198,7 @@ export function ProbabilityChart({
           onBlur={() => setActive(null)}
         >
           <title id={titleId}>
-            {`YES allocation share from ${formatShare(points[0].point.share)} to ${formatShare(last.point.share)}` +
+            {`Market probability from ${formatShare(points[0].point.share)} to ${formatShare(last.point.share)}` +
               (openingBaseline !== null ? `. Opening baseline ${formatShare(openingBaseline)}.` : ".")}
           </title>
           <defs>
@@ -345,7 +345,7 @@ export function ProbabilityChart({
             style={{ left: `${Math.min(85, Math.max(15, (current.x / box.width) * 100))}%` }}
           >
             <p className="text-ink-300">{formatDateTime(current.point.at)}</p>
-            <p className="mt-0.5 font-semibold tabular-nums">{formatShare(current.point.share)} YES allocation</p>
+            <p className="mt-0.5 font-semibold tabular-nums">{formatShare(current.point.share)} market probability</p>
             {current.point.calibrated !== null && (
               <p className="tabular-nums">{formatShare(current.point.calibrated)} calibrated</p>
             )}
@@ -378,7 +378,7 @@ export function ProbabilityChart({
                 <span className="mt-1 block font-semibold leading-snug">{event.title}</span>
                 {impact && (
                   <span className="mt-2 block tabular-nums text-ink-300">
-                    YES allocation {formatShare(impact.before)} to {formatShare(impact.after)} over the next 3 days (
+                    Market probability {formatShare(impact.before)} to {formatShare(impact.after)} over the next 3 days (
                     {formatPointChange(impact.delta)})
                   </span>
                 )}
@@ -391,7 +391,7 @@ export function ProbabilityChart({
       <figcaption className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-ink-600">
         <span className="inline-flex items-center gap-2">
           <LineSwatch style={allocationStyle} mode={mode} />
-          YES allocation share
+          Market probability
         </span>
         {calibratedPath && (
           <span className="inline-flex items-center gap-2">
@@ -427,7 +427,7 @@ export function ProbabilityChart({
                   Recorded
                 </th>
                 <th scope="col" className="px-3 py-2 text-right font-medium">
-                  YES allocation
+                  Market probability
                 </th>
                 {calibratedPath && (
                   <th scope="col" className="px-3 py-2 text-right font-medium">

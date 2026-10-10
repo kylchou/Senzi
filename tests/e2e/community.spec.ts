@@ -54,14 +54,14 @@ test.describe("pages", () => {
     await page.goto(await firstMarketHref(page));
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
     for (const [target, label] of [
-      ["allocation", "YES allocation"],
+      ["allocation", "Market probability"],
       ["calibrated", "Calibrated"],
       ["baseline", "Opening baseline"],
     ]) {
       await expect(page.locator(`[data-tour="${target}"]`)).toContainText(label);
     }
     await expect(page.getByRole("heading", { name: "Timeline" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Community allocation over time" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Market probability over time" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Share" })).toBeVisible();
     await expectAccessible(page);
   });
@@ -82,7 +82,7 @@ test.describe("pages", () => {
     const dialog = page.getByRole("dialog");
     await expect(dialog.getByRole("heading", { name: "Opening baseline" })).toBeVisible();
     await dialog.getByRole("button", { name: "Next" }).click();
-    await expect(dialog.getByRole("heading", { name: "YES allocation" })).toBeVisible();
+    await expect(dialog.getByRole("heading", { name: "Market probability" })).toBeVisible();
     await dialog.getByRole("button", { name: "Next" }).click();
     await dialog.getByRole("button", { name: "Got it" }).click();
     await expect(dialog).toBeHidden();

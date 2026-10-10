@@ -5,7 +5,8 @@ import { db } from "@/lib/db";
 import type { MarketQuery } from "@/lib/discovery/params";
 import { PUBLIC_MARKET_WHERE, PUBLIC_STARTUP_WHERE } from "@/lib/permissions";
 import { rankMoves, type MarketMove } from "./insights";
-import { cleanShare, marketDetailSelect, marketSummarySelect, toHistoryPoint, toMarketDetail, toMarketSummary } from "./mappers";
+import { cleanShare, marketDetailSelect, marketSummarySelect, toMarketDetail, toMarketSummary } from "./mappers";
+import { openingPrice, pricesAfterTrades } from "./probability";
 import type { CursorPage, HistoryPoint, MarketDetail, MarketSummary } from "./types";
 
 const HISTORY_LIMIT = 1000;
@@ -39,6 +40,47 @@ export function marketOrder(sort: MarketQuery["sort"]): Prisma.MarketOrderByWith
   }
 }
 
+interface Replayed {
+  /** Price right after each forecast, by forecast id. */
+  byForecast: Map<string, number>;
+  /** Current price. */
+  last: number;
+}
+
+/**
+ * Market probability from the trades themselves, for markets whose snapshots
+ * predate the engine storing it (see ./probability.ts).
+ */
+async function replayPrices(marketIds: string[]): Promise<Map<string, Replayed>> {
+  if (marketIds.length === 0) return new Map();
+  const [markets, forecasts] = await Promise.all([
+    db.market.findMany({ where: { id: { in: marketIds } }, select: { id: true, openingBaseline: true } }),
+    db.forecast.findMany({
+      where: { marketId: { in: marketIds } },
+      orderBy: [{ marketId: "asc" }, { sequence: "asc" }],
+      select: { id: true, marketId: true, side: true, credits: true },
+    }),
+  ]);
+  const result = new Map<string, Replayed>();
+  for (const market of markets) {
+    const trades = forecasts.filter((f) => f.marketId === market.id);
+    const prices = pricesAfterTrades(market.openingBaseline, trades);
+    result.set(market.id, {
+      byForecast: new Map(trades.map((trade, index) => [trade.id, prices[index]!])),
+      last: prices.at(-1) ?? openingPrice(market.openingBaseline),
+    });
+  }
+  return result;
+}
+
+/** Fills in market probability where the latest snapshot didn't store it. */
+async function withProbabilities<T extends MarketSummary>(items: T[]): Promise<T[]> {
+  const missing = items.filter((item) => item.probability === null).map((item) => item.id);
+  if (missing.length === 0) return items;
+  const replayed = await replayPrices(missing);
+  return items.map((item) => (item.probability === null ? { ...item, probability: replayed.get(item.id)?.last ?? null } : item));
+}
+
 export async function listMarkets(params: MarketQuery): Promise<CursorPage<MarketSummary>> {
   const where = publicMarketFilter(params);
   const [rows, total] = await Promise.all([
@@ -51,7 +93,7 @@ export async function listMarkets(params: MarketQuery): Promise<CursorPage<Marke
     }),
     db.market.count({ where }),
   ]);
-  const items = rows.slice(0, params.limit).map(toMarketSummary);
+  const items = await withProbabilities(rows.slice(0, params.limit).map(toMarketSummary));
   return {
     items,
     nextCursor: rows.length > params.limit ? items[items.length - 1].id : null,
@@ -68,18 +110,43 @@ export async function listFeaturedMarkets(limit = 6): Promise<MarketSummary[]> {
 /** A single public market by slug. VC markets and drafts return null. */
 export const getMarket = cache(async (slug: string): Promise<MarketDetail | null> => {
   const row = await db.market.findFirst({ where: { AND: [{ slug }, PUBLIC_MARKET_WHERE] }, select: marketDetailSelect });
-  return row ? toMarketDetail(row) : null;
+  return row ? (await withProbabilities([toMarketDetail(row)]))[0]! : null;
 });
 
-/** MarketSnapshot rows written by the forecasting engine, oldest first. */
+/** Market probability over time from MarketSnapshot rows, oldest first. */
 export async function getMarketHistory(marketId: string): Promise<HistoryPoint[]> {
-  const rows = await db.marketSnapshot.findMany({
-    where: { marketId, market: PUBLIC_MARKET_WHERE },
-    orderBy: { sequence: "desc" },
-    take: HISTORY_LIMIT,
-    select: { recordedAt: true, allocationShare: true, calibratedProbability: true, forecasterCount: true },
+  const rows = (
+    await db.marketSnapshot.findMany({
+      where: { marketId, market: PUBLIC_MARKET_WHERE },
+      orderBy: { sequence: "desc" },
+      take: HISTORY_LIMIT,
+      select: {
+        recordedAt: true,
+        generalEstimate: true,
+        calibratedProbability: true,
+        forecasterCount: true,
+        forecastId: true,
+        trigger: true,
+        openingBaseline: true,
+      },
+    })
+  ).reverse();
+  const replayed = rows.some((row) => row.generalEstimate === null) ? (await replayPrices([marketId])).get(marketId) : undefined;
+
+  let previous: number | null = null;
+  return rows.map((row) => {
+    const share =
+      cleanShare(row.generalEstimate) ??
+      (row.forecastId ? (replayed?.byForecast.get(row.forecastId) ?? null) : null) ??
+      (row.trigger === "OPENING" ? openingPrice(row.openingBaseline) : previous);
+    previous = share ?? previous;
+    return {
+      at: row.recordedAt.toISOString(),
+      share,
+      calibrated: cleanShare(row.calibratedProbability),
+      forecasterCount: row.forecasterCount,
+    };
   });
-  return rows.reverse().map(toHistoryPoint);
 }
 
 export async function listMarketsForStartup(startupId: string): Promise<MarketSummary[]> {
@@ -89,7 +156,7 @@ export async function listMarketsForStartup(startupId: string): Promise<MarketSu
     orderBy: marketOrder("closing"),
     take: 50,
   });
-  return rows.map(toMarketSummary);
+  return withProbabilities(rows.map(toMarketSummary));
 }
 
 export async function getPublicCounts(): Promise<{ openMarkets: number; startups: number }> {
@@ -101,8 +168,8 @@ export async function getPublicCounts(): Promise<{ openMarkets: number; startups
 }
 
 /**
- * Open markets whose YES allocation moved most over the last week, or the
- * last month when nothing moved this week. Compares the current allocation
+ * Open markets whose market probability moved most over the last week, or the
+ * last month when nothing moved this week. Compares the current probability
  * with the latest snapshot recorded before the window started.
  */
 export async function listBiggestMoves(now: number, limit = 4): Promise<{ days: number; moves: MarketMove[] }> {
@@ -111,18 +178,25 @@ export async function listBiggestMoves(now: number, limit = 4): Promise<{ days: 
     select: marketSummarySelect,
     take: 300,
   });
-  const markets = rows.map(toMarketSummary);
+  const markets = await withProbabilities(rows.map(toMarketSummary));
   const ids = markets.map((market) => market.id);
   if (ids.length === 0) return { days: 7, moves: [] };
+  let replayed: Map<string, Replayed> | null = null;
 
   for (const days of [7, 30]) {
     const past = await db.marketSnapshot.findMany({
       where: { marketId: { in: ids }, recordedAt: { lte: new Date(now - days * 86_400_000) } },
       orderBy: [{ marketId: "asc" }, { sequence: "desc" }],
       distinct: ["marketId"],
-      select: { marketId: true, allocationShare: true },
+      select: { marketId: true, generalEstimate: true, forecastId: true, trigger: true, openingBaseline: true },
     });
-    const from = new Map(past.map((row) => [row.marketId, cleanShare(row.allocationShare)]));
+    if (!replayed && past.some((row) => row.generalEstimate === null)) {
+      replayed = await replayPrices([...new Set(past.filter((row) => row.generalEstimate === null).map((row) => row.marketId))]);
+    }
+    const priceOf = (row: (typeof past)[number]) =>
+      cleanShare(row.generalEstimate) ??
+      (row.forecastId ? (replayed?.get(row.marketId)?.byForecast.get(row.forecastId) ?? null) : openingPrice(row.openingBaseline));
+    const from = new Map(past.map((row) => [row.marketId, priceOf(row)]));
     const moves = rankMoves(
       markets.map((market) => ({ market, from: from.get(market.id) ?? null })),
       limit,

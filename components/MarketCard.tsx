@@ -9,7 +9,7 @@ import { formatDate, formatDeadline, formatShare } from "@/lib/market-view/forma
 import type { MarketSummary } from "@/lib/market-view/types";
 
 export function MarketCard({ market }: { market: MarketSummary }) {
-  const { allocation, openingBaseline } = market;
+  const { allocation, openingBaseline, probability } = market;
   const isLive = market.status === "OPEN";
 
   return (
@@ -46,9 +46,9 @@ export function MarketCard({ market }: { market: MarketSummary }) {
         <div className="mb-2.5 flex items-end justify-between gap-2">
           <div>
             <p className="font-display text-3xl font-semibold tracking-tight tabular-nums text-ink-900">
-              {allocation.share === null ? "N/A" : formatShare(allocation.share)}
+              {probability === null ? "N/A" : formatShare(probability)}
             </p>
-            <p className="text-xs text-ink-500">YES allocation</p>
+            <p className="text-xs text-ink-500">Market probability</p>
           </div>
           <span data-focus-hide="">
             <CardSparkline slug={market.slug} />
@@ -60,7 +60,7 @@ export function MarketCard({ market }: { market: MarketSummary }) {
             </div>
           )}
         </div>
-        <AllocationBar share={allocation.share} baseline={openingBaseline} size="sm" />
+        <AllocationBar share={probability} baseline={openingBaseline} size="sm" kind="probability" />
 
         <div className="mt-4 flex items-center justify-between gap-3 border-t border-ink-100 pt-3 text-xs text-ink-600">
           <span className="inline-flex items-center gap-1.5">
