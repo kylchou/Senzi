@@ -61,17 +61,33 @@ export async function submitVerificationAction(_: VerificationFormState, fd: For
   redirect("/onboarding");
 }
 
-/** Demo only: a code from DEMO_VC_BYPASS_CODE skips the admin review. Disabled when the variable is unset. */
+/** Why a demo bypass attempt didn't go through; shown on /onboarding via ?bypass=. */
+export type BypassOutcome = "invalid" | "rate_limited" | "error";
+
+/**
+ * Demo only: a code from DEMO_VC_BYPASS_CODE skips the admin review. Disabled when the variable is unset.
+ * Never throws: every failure redirects back with a reason, so the page shows a message instead of crashing.
+ */
 export async function bypassVerificationAction(fd: FormData) {
-  const expected = process.env.DEMO_VC_BYPASS_CODE;
-  const code = fd.get("code");
-  const user = await requireUser();
-  await rateLimit(`verification:${user.id}`, RATE_LIMITS.verificationSubmit);
-  const a = Buffer.from(typeof code === "string" ? code : "");
-  const b = Buffer.from(expected ?? "");
-  if (!expected || a.length !== b.length || !timingSafeEqual(a, b)) redirect("/onboarding?bypass=invalid");
-  await bypassVcVerification(user);
-  redirect("/onboarding");
+  const expected = process.env.DEMO_VC_BYPASS_CODE?.trim();
+  const raw = fd.get("code");
+  const code = typeof raw === "string" ? raw.trim() : "";
+  let outcome: BypassOutcome | null = null;
+  try {
+    const user = await requireUser();
+    // Its own budget, sized for code guesses, so it never eats into firm-detail submissions (or vice versa).
+    await rateLimit(`verification-bypass:${user.id}`, RATE_LIMITS.accessCodeRedeem);
+    const a = Buffer.from(code);
+    const b = Buffer.from(expected ?? "");
+    if (!expected || a.length !== b.length || !timingSafeEqual(a, b)) outcome = "invalid";
+    else await bypassVcVerification(user);
+  } catch (error) {
+    const e = toApiError(error);
+    outcome = e.code === "RATE_LIMITED" ? "rate_limited" : "error";
+    // Shows up in the server logs with the real cause.
+    if (outcome === "error") console.error("[onboarding] demo bypass failed", error);
+  }
+  redirect(outcome ? `/onboarding?bypass=${outcome}` : "/onboarding");
 }
 
 export async function switchToTraderAction() {
