@@ -1,0 +1,614 @@
+// Senzi database schema.
+//
+// Owned by Engineer 1 (Backend, Database & Security). Other engineers: request
+// changes through Engineer 1 rather than editing this file directly.
+//
+// Conventions
+// - IDs are cuids (strings). Timestamps are UTC.
+// - Credits are virtual whole-number units with no cash value (Int).
+// - Probabilities are stored as fractions in [0, 1] (Float).
+// - Opening baselines, community credit-allocation shares, and calibrated
+//   probabilities are distinct measurements and live in distinct columns.
+// - CHECK constraints that Prisma cannot express are added by hand in the
+//   migration SQL (see prisma/migrations/*_init/migration.sql).
+
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ---------------------------------------------------------------------------
+// Enums
+// ---------------------------------------------------------------------------
+
+/// Platform-wide role. ADMIN can manage startups/markets and resolve markets.
+enum PlatformRole {
+  USER
+  ADMIN
+}
+
+/// Role inside a VC organization. Ordered from most to least privileged.
+enum OrgRole {
+  OWNER
+  ADMIN
+  ANALYST
+  VIEWER
+}
+
+enum StartupStage {
+  PRE_SEED
+  SEED
+  SERIES_A
+  SERIES_B
+  SERIES_C
+  GROWTH
+  PUBLIC
+  ACQUIRED
+  SHUT_DOWN
+}
+
+enum MarketStatus {
+  DRAFT // being authored; not visible outside admin tools
+  OPEN // accepting forecasts
+  CLOSED // past deadline or manually closed; awaiting resolution
+  RESOLVED // resolution recorded (see Resolution.settlementStatus)
+  CANCELLED // voided; stakes are refunded by settlement
+}
+
+enum MarketVisibility {
+  PUBLIC // listed in the community platform
+  UNLISTED // reachable by direct link only, excluded from listings/search
+  PRIVATE // only members of Market.organization
+}
+
+enum ForecastSide {
+  YES
+  NO
+}
+
+enum ForecastStatus {
+  ACTIVE
+  SETTLED
+  REFUNDED
+}
+
+enum ResolutionOutcome {
+  YES
+  NO
+  CANCELLED
+}
+
+enum SettlementStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  FAILED
+}
+
+enum CreditTransactionType {
+  SIGNUP_GRANT
+  ADMIN_GRANT
+  ADMIN_ADJUSTMENT
+  FORECAST_STAKE
+  SETTLEMENT_PAYOUT
+  MARKET_REFUND
+  ACHIEVEMENT_REWARD
+}
+
+enum SnapshotTrigger {
+  OPENING
+  FORECAST
+  SCHEDULED
+  RESOLUTION
+}
+
+enum StudyStatus {
+  DRAFT
+  ACTIVE
+  ARCHIVED
+}
+
+/// ORGANIZATION: every member of the owning org can read the study.
+/// RESTRICTED: only org OWNER/ADMIN plus explicit StudyMembership rows.
+enum StudyAccess {
+  ORGANIZATION
+  RESTRICTED
+}
+
+enum StudyRole {
+  LEAD
+  CONTRIBUTOR
+  VIEWER
+}
+
+enum NewsVerification {
+  UNVERIFIED
+  VERIFIED
+  DISPUTED
+}
+
+enum NotificationType {
+  MARKET_CLOSING
+  MARKET_RESOLVED
+  FORECAST_SETTLED
+  CREDITS_GRANTED
+  WATCHLIST_ALERT
+  STUDY_INVITE
+  ORG_INVITE
+  ACHIEVEMENT_EARNED
+  SYSTEM
+}
+
+// ---------------------------------------------------------------------------
+// Identity & organizations
+// ---------------------------------------------------------------------------
+
+model User {
+  id            String       @id @default(cuid())
+  /// Subject ID from the auth provider (Clerk user id).
+  authId        String       @unique
+  email         String       @unique
+  username      String?      @unique
+  displayName   String
+  avatarUrl     String?
+  bio           String?
+  platformRole  PlatformRole @default(USER)
+  /// Cached balance. The CreditTransaction ledger is authoritative; this
+  /// column is only ever changed together with a ledger row (lib/credits.ts).
+  /// CHECK (creditBalance >= 0).
+  creditBalance Int          @default(0)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  memberships        OrganizationMembership[]
+  forecasts          Forecast[]
+  creditTransactions CreditTransaction[]      @relation("CreditTransactionUser")
+  creditActions      CreditTransaction[]      @relation("CreditTransactionActor")
+  studyMemberships   StudyMembership[]
+  watchlists         Watchlist[]
+  notifications      Notification[]
+  achievements       UserAchievement[]
+  createdStartups    Startup[]
+  createdMarkets     Market[]                 @relation("MarketCreatedBy")
+  resolutions        Resolution[]
+  createdStudies     ResearchStudy[]
+  addedStudyStartups StudyStartup[]
+  addedStudyMarkets  StudyMarket[]
+  createdNews        NewsItem[]
+  invitedMembers     OrganizationMembership[] @relation("MembershipInvitedBy")
+}
+
+model Organization {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique
+  description String?
+  website     String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  memberships OrganizationMembership[]
+  studies     ResearchStudy[]
+  watchlists  Watchlist[]
+  markets     Market[]
+}
+
+model OrganizationMembership {
+  id             String   @id @default(cuid())
+  organizationId String
+  userId         String
+  role           OrgRole  @default(VIEWER)
+  invitedById    String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  invitedBy    User?        @relation("MembershipInvitedBy", fields: [invitedById], references: [id], onDelete: SetNull)
+
+  @@unique([organizationId, userId])
+  @@index([userId])
+}
+
+// ---------------------------------------------------------------------------
+// Startups & markets
+// ---------------------------------------------------------------------------
+
+model Startup {
+  id           String       @id @default(cuid())
+  slug         String       @unique
+  name         String
+  tagline      String
+  description  String
+  website      String?
+  logoUrl      String?
+  sector       String
+  stage        StartupStage
+  foundedYear  Int?
+  headquarters String?
+  /// Unpublished startups are visible only in admin tools.
+  isPublished  Boolean      @default(false)
+  createdById  String?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  createdBy      User?           @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  markets        Market[]
+  news           NewsItem[]
+  studyStartups  StudyStartup[]
+  watchlistItems WatchlistItem[]
+
+  @@index([sector])
+  @@index([isPublished, name])
+}
+
+model Market {
+  id                 String           @id @default(cuid())
+  slug               String           @unique
+  startupId          String
+  /// The YES/NO question, e.g. "Will Acme announce a Series B by 2027-06-30?"
+  question           String
+  description        String?
+  /// Measurable criteria that decide YES vs NO. Required before opening.
+  resolutionCriteria String
+  /// Where the resolver will look for evidence (e.g. "SEC filings, company press").
+  resolutionSource   String?
+  category           String?
+  /// Admin-set starting probability of YES, in (0, 1). Not a community signal.
+  openingBaseline    Float
+  status             MarketStatus     @default(DRAFT)
+  visibility         MarketVisibility @default(PUBLIC)
+  /// Required when visibility = PRIVATE (CHECK constraint).
+  organizationId     String?
+  opensAt            DateTime
+  /// Forecasting deadline. CHECK (closesAt > opensAt).
+  closesAt           DateTime
+  /// Date by which the market is expected to be resolved.
+  resolvesBy         DateTime?
+  /// Aggregates maintained by the forecasting engine (Engineer 2) in the same
+  /// transaction as each forecast. Community allocation share =
+  /// yesCredits / (yesCredits + noCredits).
+  yesCredits         Int              @default(0)
+  noCredits          Int              @default(0)
+  forecastCount      Int              @default(0)
+  createdById        String?
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+
+  startup        Startup               @relation(fields: [startupId], references: [id], onDelete: Restrict)
+  organization   Organization?         @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  createdBy      User?                 @relation("MarketCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  forecasts      Forecast[]
+  snapshots      ProbabilitySnapshot[]
+  resolution     Resolution?
+  creditTxns     CreditTransaction[]
+  news           NewsItem[]
+  studyMarkets   StudyMarket[]
+  watchlistItems WatchlistItem[]
+
+  @@index([status, visibility, closesAt])
+  @@index([startupId])
+  @@index([organizationId])
+}
+
+model Forecast {
+  id                String         @id @default(cuid())
+  userId            String
+  marketId          String
+  side              ForecastSide
+  /// Credits staked. CHECK (credits > 0).
+  credits           Int
+  /// Optional probability of YES the forecaster states, in [0, 1].
+  /// Used for calibration/accuracy scoring, not for payouts.
+  statedProbability Float?
+  status            ForecastStatus @default(ACTIVE)
+  /// Credits returned at settlement (0 for a losing forecast).
+  payout            Int?
+  settledAt         DateTime?
+  /// Client-supplied key; resubmitting the same key returns the original forecast.
+  idempotencyKey    String
+  createdAt         DateTime       @default(now())
+
+  user       User                @relation(fields: [userId], references: [id], onDelete: Restrict)
+  market     Market              @relation(fields: [marketId], references: [id], onDelete: Restrict)
+  creditTxns CreditTransaction[]
+
+  @@unique([userId, idempotencyKey])
+  @@index([marketId, createdAt])
+  @@index([userId, createdAt])
+  @@index([marketId, status])
+}
+
+/// Point-in-time record of a market's community state. Each measurement has
+/// its own column so they are never conflated.
+model ProbabilitySnapshot {
+  id                       String          @id @default(cuid())
+  marketId                 String
+  trigger                  SnapshotTrigger
+  /// Copied from Market.openingBaseline for convenience.
+  openingBaseline          Float
+  yesCredits               Int
+  noCredits                Int
+  /// yesCredits / (yesCredits + noCredits); null when no credits allocated.
+  communityAllocationShare Float?
+  /// Model-calibrated probability of YES (Engineer 2); null until computed.
+  calibratedProbability    Float?
+  forecastCount            Int
+  uniqueForecasters        Int
+  capturedAt               DateTime        @default(now())
+
+  market Market @relation(fields: [marketId], references: [id], onDelete: Cascade)
+
+  @@index([marketId, capturedAt])
+}
+
+model Resolution {
+  id               String            @id @default(cuid())
+  marketId         String            @unique
+  outcome          ResolutionOutcome
+  /// Human-readable explanation of why the criteria were (not) met.
+  evidenceSummary  String
+  /// Links to the documented evidence. At least one is required by validation.
+  evidenceUrls     String[]
+  resolvedById     String?
+  resolvedAt       DateTime          @default(now())
+  settlementStatus SettlementStatus  @default(PENDING)
+  settledAt        DateTime?
+  settlementError  String?
+
+  market     Market              @relation(fields: [marketId], references: [id], onDelete: Restrict)
+  resolvedBy User?               @relation(fields: [resolvedById], references: [id], onDelete: SetNull)
+  creditTxns CreditTransaction[]
+
+  @@index([settlementStatus])
+}
+
+// ---------------------------------------------------------------------------
+// Virtual credit ledger (append-only)
+// ---------------------------------------------------------------------------
+
+/// Every change to User.creditBalance has exactly one row here. Rows are never
+/// updated or deleted. Credits are virtual and have no cash value.
+model CreditTransaction {
+  id             String                @id @default(cuid())
+  /// Insert order. Assigned while the user's row lock is held, so for any one
+  /// user it matches the order balances were applied (unlike createdAt).
+  sequence       Int                   @unique @default(autoincrement())
+  userId         String
+  /// Signed amount: positive credits the user, negative debits. CHECK (amount <> 0).
+  amount         Int
+  /// User.creditBalance immediately after this row was applied. CHECK (>= 0).
+  balanceAfter   Int
+  type           CreditTransactionType
+  /// Globally unique key that makes the write idempotent, e.g.
+  /// "forecast:<forecastId>" or "settlement:<resolutionId>:<forecastId>".
+  idempotencyKey String                @unique
+  marketId       String?
+  forecastId     String?
+  resolutionId   String?
+  /// Admin who initiated the transaction, when applicable.
+  actorId        String?
+  memo           String?
+  createdAt      DateTime              @default(now())
+
+  user       User        @relation("CreditTransactionUser", fields: [userId], references: [id], onDelete: Restrict)
+  actor      User?       @relation("CreditTransactionActor", fields: [actorId], references: [id], onDelete: Restrict)
+  market     Market?     @relation(fields: [marketId], references: [id], onDelete: Restrict)
+  forecast   Forecast?   @relation(fields: [forecastId], references: [id], onDelete: Restrict)
+  resolution Resolution? @relation(fields: [resolutionId], references: [id], onDelete: Restrict)
+
+  @@index([userId, sequence])
+  @@index([marketId])
+  @@index([forecastId])
+  @@index([resolutionId])
+  @@index([type, createdAt])
+}
+
+// ---------------------------------------------------------------------------
+// VC Intelligence
+// ---------------------------------------------------------------------------
+
+model ResearchStudy {
+  id             String      @id @default(cuid())
+  organizationId String
+  slug           String
+  title          String
+  summary        String?
+  thesis         String?
+  status         StudyStatus @default(DRAFT)
+  access         StudyAccess @default(ORGANIZATION)
+  createdById    String?
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  organization Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdBy    User?             @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  members      StudyMembership[]
+  startups     StudyStartup[]
+  markets      StudyMarket[]
+
+  @@unique([organizationId, slug])
+  @@index([organizationId, status])
+}
+
+/// Explicit study access. A member must also belong to the study's org;
+/// lib/permissions.ts enforces this on every write and read.
+model StudyMembership {
+  id        String    @id @default(cuid())
+  studyId   String
+  userId    String
+  role      StudyRole @default(VIEWER)
+  createdAt DateTime  @default(now())
+
+  study ResearchStudy @relation(fields: [studyId], references: [id], onDelete: Cascade)
+  user  User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([studyId, userId])
+  @@index([userId])
+}
+
+model StudyStartup {
+  id        String   @id @default(cuid())
+  studyId   String
+  startupId String
+  note      String?
+  addedById String?
+  createdAt DateTime @default(now())
+
+  study   ResearchStudy @relation(fields: [studyId], references: [id], onDelete: Cascade)
+  startup Startup       @relation(fields: [startupId], references: [id], onDelete: Cascade)
+  addedBy User?         @relation(fields: [addedById], references: [id], onDelete: SetNull)
+
+  @@unique([studyId, startupId])
+  @@index([startupId])
+}
+
+model StudyMarket {
+  id        String   @id @default(cuid())
+  studyId   String
+  marketId  String
+  note      String?
+  addedById String?
+  createdAt DateTime @default(now())
+
+  study   ResearchStudy @relation(fields: [studyId], references: [id], onDelete: Cascade)
+  market  Market        @relation(fields: [marketId], references: [id], onDelete: Cascade)
+  addedBy User?         @relation(fields: [addedById], references: [id], onDelete: SetNull)
+
+  @@unique([studyId, marketId])
+  @@index([marketId])
+}
+
+/// A personal watchlist (organizationId null) or one shared with an org.
+model Watchlist {
+  id             String   @id @default(cuid())
+  ownerId        String
+  organizationId String?
+  name           String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  owner        User            @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  organization Organization?   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  items        WatchlistItem[]
+
+  @@index([ownerId])
+  @@index([organizationId])
+}
+
+/// Exactly one of startupId / marketId is set (CHECK constraint).
+model WatchlistItem {
+  id             String   @id @default(cuid())
+  watchlistId    String
+  startupId      String?
+  marketId       String?
+  note           String?
+  /// Alert when the community allocation share moves by at least this much
+  /// (absolute, in [0, 1]) between snapshots. Null = no movement alerts.
+  alertThreshold Float?
+  createdAt      DateTime @default(now())
+
+  watchlist Watchlist @relation(fields: [watchlistId], references: [id], onDelete: Cascade)
+  startup   Startup?  @relation(fields: [startupId], references: [id], onDelete: Cascade)
+  market    Market?   @relation(fields: [marketId], references: [id], onDelete: Cascade)
+
+  @@unique([watchlistId, startupId])
+  @@unique([watchlistId, marketId])
+  @@index([startupId])
+  @@index([marketId])
+}
+
+// ---------------------------------------------------------------------------
+// Content, engagement & audit
+// ---------------------------------------------------------------------------
+
+model NewsItem {
+  id           String           @id @default(cuid())
+  startupId    String?
+  marketId     String?
+  title        String
+  summary      String?
+  sourceName   String
+  sourceUrl    String
+  publishedAt  DateTime
+  /// Whether an admin has verified the reported facts against the source.
+  verification NewsVerification @default(UNVERIFIED)
+  createdById  String?
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  startup   Startup? @relation(fields: [startupId], references: [id], onDelete: Cascade)
+  market    Market?  @relation(fields: [marketId], references: [id], onDelete: SetNull)
+  createdBy User?    @relation(fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([startupId, publishedAt])
+  @@index([marketId])
+  @@index([publishedAt])
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  type      NotificationType
+  title     String
+  body      String?
+  /// Relative in-app link, e.g. "/markets/acme-series-b".
+  link      String?
+  data      Json?
+  readAt    DateTime?
+  createdAt DateTime         @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt, createdAt])
+}
+
+model Achievement {
+  id           String   @id @default(cuid())
+  key          String   @unique
+  name         String
+  description  String
+  icon         String?
+  /// Virtual credits granted when earned (via the ledger). CHECK (>= 0).
+  creditReward Int      @default(0)
+  createdAt    DateTime @default(now())
+
+  awards UserAchievement[]
+}
+
+model UserAchievement {
+  id            String   @id @default(cuid())
+  userId        String
+  achievementId String
+  awardedAt     DateTime @default(now())
+
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  achievement Achievement @relation(fields: [achievementId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, achievementId])
+}
+
+/// Append-only record of security-relevant and administrative actions.
+/// actorId / organizationId are deliberately plain columns (no foreign keys)
+/// so the trail survives deletion of the user or organization it refers to.
+model AuditLog {
+  id             String   @id @default(cuid())
+  actorId        String?
+  organizationId String?
+  /// Dotted verb, e.g. "market.create", "market.resolve", "credits.grant".
+  action         String
+  entityType     String
+  entityId       String
+  data           Json?
+  ipAddress      String?
+  createdAt      DateTime @default(now())
+
+  @@index([entityType, entityId, createdAt])
+  @@index([actorId, createdAt])
+  @@index([organizationId, createdAt])
+  @@index([action, createdAt])
+}
