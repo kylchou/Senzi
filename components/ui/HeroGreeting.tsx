@@ -28,8 +28,8 @@ export function HeroGreeting() {
   if (!isSignedIn || !me) return null;
   const firstName = me.user.displayName.split(/\s+/)[0];
   return (
-    <p className="mb-5 inline-flex animate-[rise-in_360ms_var(--ease-out-soft)] items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3.5 py-1.5 text-sm text-mist-300">
-      <span className="text-white">
+    <p className="mb-5 inline-flex animate-[rise-in_360ms_var(--ease-out-soft)] items-center gap-2 rounded-full border border-hairline bg-surface px-3.5 py-1.5 text-sm text-ink-500 shadow-[var(--shadow-card)]">
+      <span className="font-medium text-ink-900">
         {greeting(me.hour)}, {firstName}
       </span>
       <span aria-hidden>·</span>
