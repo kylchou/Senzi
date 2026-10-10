@@ -3,8 +3,10 @@
  * prototyping. Behavior mirrors the Prisma repository (compare-and-set
  * versions, alert dedupe, idempotent watchlist items).
  */
-import type { ForecastingGateway, NewAlert, PlatformGateway, VcDeps, VcRepository } from "../ports";
+import type { CreatedAlert, PersonalNotification } from "../alert-delivery";
+import type { ForecastingGateway, IndicatorGateway, NewAlert, PlatformGateway, VcDeps, VcRepository } from "../ports";
 import type {
+  CompareIndicators,
   EstimatePoint,
   MarketEstimate,
   MarketSummary,
@@ -176,7 +178,7 @@ export function createMemoryRepository(now: () => Date = () => new Date()): VcRe
     },
 
     async createAlerts(newAlerts: NewAlert[]) {
-      let count = 0;
+      const created: CreatedAlert[] = [];
       for (const a of newAlerts) {
         if (alerts.some((x) => x.organizationId === a.organizationId && x.dedupeKey === a.dedupeKey)) continue;
         alerts.push({
@@ -192,9 +194,9 @@ export function createMemoryRepository(now: () => Date = () => new Date()): VcRe
           dedupeKey: a.dedupeKey,
           createdAt: now(),
         });
-        count++;
+        created.push(clone(alerts[alerts.length - 1]));
       }
-      return count;
+      return created;
     },
     async listAlerts(organizationId, userId, options) {
       return clone(
@@ -249,6 +251,7 @@ export interface FakePlatformState {
   markets: (MarketSummary & { visibility: string; studyId?: string })[];
   createdMarkets: { studyId: string; marketId: string }[];
   closedMarketStudyIds: string[];
+  notifications: (PersonalNotification & { readAt: Date | null })[];
 }
 
 const toStartupSummary = (x: StartupSummary): StartupSummary => ({
@@ -269,6 +272,7 @@ export function createFakePlatform(state: Partial<FakePlatformState> = {}): Plat
     markets: [],
     createdMarkets: [],
     closedMarketStudyIds: [],
+    notifications: [],
     ...state,
   };
   return {
@@ -306,6 +310,19 @@ export function createFakePlatform(state: Partial<FakePlatformState> = {}): Plat
       s.createdMarkets.push({ studyId: input.studyId, marketId });
       return { marketId };
     },
+    async listOrgMembers(organizationId) {
+      return [...s.memberships]
+        .flatMap(([userId, ms]) => ms.filter((m) => m.organizationId === organizationId).map((m) => ({ userId, role: m.role })));
+    },
+    async notifyUsers(notifications) {
+      s.notifications.push(...notifications.map((n) => ({ ...n, readAt: null })));
+      return notifications.length;
+    },
+    async markAlertNotificationsRead(userId, alertIds, at) {
+      for (const n of s.notifications) {
+        if (n.userId === userId && !n.readAt && alertIds.includes(n.data.vcAlertId)) n.readAt = at;
+      }
+    },
     async closeMarketForStudy(input) {
       if (s.createdMarkets.some((m) => m.studyId === input.studyId)) s.closedMarketStudyIds.push(input.studyId);
     },
@@ -329,18 +346,32 @@ export function createFakeForecasting(
   };
 }
 
+/** Indicators keyed by startup slug; anything else is "not tracked". */
+export function createFakeIndicators(bySlug: Map<string, CompareIndicators> = new Map()): IndicatorGateway & {
+  bySlug: Map<string, CompareIndicators>;
+} {
+  return {
+    bySlug,
+    async getIndicators(startup) {
+      return bySlug.get(startup.slug) ?? { status: "not_tracked", rows: [] };
+    },
+  };
+}
+
 export function createTestDeps(now: Date = new Date("2026-10-01T12:00:00Z")) {
   let current = now;
   const clock = () => current;
   const repo = createMemoryRepository(clock);
   const platform = createFakePlatform();
   const forecasting = createFakeForecasting();
-  const deps: VcDeps = { repo, platform, forecasting, now: clock };
+  const indicators = createFakeIndicators();
+  const deps: VcDeps = { repo, platform, forecasting, indicators, now: clock };
   return {
     deps,
     repo,
     platform,
     forecasting,
+    indicators,
     setNow: (d: Date) => {
       current = d;
     },

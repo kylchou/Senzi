@@ -71,6 +71,8 @@ export interface StartupSummary {
 
 export interface MarketSummary {
   id: string;
+  /** Public market page slug (/markets/[slug]), when known. */
+  slug?: string;
   startupId: string;
   question: string;
   status: MarketStatus;
@@ -298,4 +300,78 @@ export interface StudyReport {
   uncertainty: string[];
   limitations: string[];
   disclaimer: string;
+}
+
+// ---------------------------------------------------------------------------
+// Startup comparison
+// ---------------------------------------------------------------------------
+
+/** One forecasting question about a startup, as shown in a comparison. */
+export interface CompareQuestion {
+  marketId: string;
+  question: string;
+  /** "study" when the market was opened from a study the viewer can see. */
+  kind: "study" | "market";
+  studyId: string | null;
+  /** In-app link: the study page for study questions, the public market page otherwise. */
+  href: string | null;
+  status: MarketStatus;
+  closesAt: Date | null;
+  openingBaseline: number | null;
+  /** Community YES credit-allocation share. Not a calibrated probability. */
+  allocationShare: number | null;
+  calibratedProbability: number | null;
+  forecasters: number;
+  forecastCount: number;
+  /** Change in allocation share over 7 days; open questions only. */
+  change7d: number | null;
+  outcome: ResolvedOutcome | null;
+}
+
+export interface TrackRecord {
+  /** Resolved questions with a YES or NO outcome. VOID ones are counted separately. */
+  decided: number;
+  yes: number;
+  voided: number;
+  yesRate: number | null;
+  /** 95% Wilson interval for the YES rate. */
+  yesRateInterval: [number, number] | null;
+  /** Brier score of the opening baseline against outcomes (lower is better). */
+  baselineBrier: number | null;
+  /** Brier score of the final allocation share against outcomes. Measures accuracy; the share is still not a probability. */
+  allocationShareBrier: number | null;
+  /** Plain-language caveats, e.g. small samples. */
+  limitations: string[];
+}
+
+export interface CompareIndicator {
+  metricId: string;
+  label: string;
+  unit: string;
+  value: number | null;
+  asOf: string | null;
+  change4w: number | null;
+  sourceUrl: string | null;
+  provenanceLabel: string;
+  missingReason: string | null;
+}
+
+export interface CompareIndicators {
+  status: "ok" | "not_tracked" | "unavailable";
+  rows: CompareIndicator[];
+}
+
+export interface CompareColumn {
+  startup: StartupSummary;
+  open: CompareQuestion[];
+  closed: CompareQuestion[];
+  resolved: CompareQuestion[];
+  trackRecord: TrackRecord;
+  indicators: CompareIndicators;
+}
+
+export interface StartupComparison {
+  generatedAt: Date;
+  columns: CompareColumn[];
+  limitations: string[];
 }
