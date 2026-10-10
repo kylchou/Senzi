@@ -39,7 +39,6 @@ interface SourceDraft {
   publishedAt: string;
 }
 
-type Mode = "outcome" | "words";
 type Priced = { link: MetricLink; question: string; yesCriteria: string; noCriteria: string };
 
 /** `YYYY-MM-DDTHH:mm` in the browser's local time for datetime-local inputs. */
@@ -80,10 +79,10 @@ function Step({ n, title, children, hint }: { n: number; title: string; hint?: s
 }
 
 /**
- * Asking a question: pick the company and a binary outcome from dropdowns (the
- * wording comes from a template, so it's always well formed), or describe it
- * in words and let the AI match it to an outcome. The model sets the opening
- * price; the firm chooses who may trade and the prize pool.
+ * Asking a question: pick the company and a binary outcome from dropdowns. The
+ * wording comes from a template, so it's always well formed and resolves from
+ * a named public source. The model sets the opening price; the firm chooses
+ * who may trade and the prize pool.
  */
 export function StudyForm({ initial, catalog }: { initial?: StudyFormInitial; catalog: QuestionCatalogEntry[] }) {
   const router = useRouter();
@@ -91,17 +90,12 @@ export function StudyForm({ initial, catalog }: { initial?: StudyFormInitial; ca
 
   const [startupId, setStartupId] = useState(initial?.startup?.id ?? "");
   const [deadline, setDeadline] = useState(toLocalInput(initial?.deadline));
-  const [mode, setMode] = useState<Mode>(initial && !initialLink ? "words" : "outcome");
   const [draft, setDraft] = useState<MetricLink>(initialLink ?? { metricId: "", threshold: 0, targetDate: "" });
   const [priced, setPriced] = useState<Priced | null>(
     initial && initialLink ? { link: initialLink, question: initial.question, yesCriteria: initial.yesCriteria, noCriteria: initial.noCriteria } : null,
   );
   const [estimate, setEstimate] = useState<OpeningLinePreview["estimate"] | null>(null);
-  const [suggestionNote, setSuggestionNote] = useState<string | null>(null);
   const [firmFigureCount, setFirmFigureCount] = useState(0);
-  const [question, setQuestion] = useState(initial && !initialLink ? initial.question : "");
-  const [yesCriteria, setYes] = useState(initial && !initialLink ? initial.yesCriteria : "");
-  const [noCriteria, setNo] = useState(initial && !initialLink ? initial.noCriteria : "");
   const [openToPublic, setOpenToPublic] = useState(initial?.openToPublic ?? true);
   const [openToVerified, setOpenToVerified] = useState(initial?.openToVerified ?? false);
   const [prizePool, setPrizePool] = useState(initial ? String(initial.prizePoolCredits || "") : "");
@@ -134,18 +128,16 @@ export function StudyForm({ initial, catalog }: { initial?: StudyFormInitial; ca
     return options;
   }, [catalog, initial]);
 
-  async function preview(link: MetricLink | null, text: string) {
+  async function preview(link: MetricLink) {
     setPricing(true);
     setErrors({});
     setFormError(null);
-    setSuggestionNote(null);
     try {
       const result = await vcFetch<OpeningLinePreview>("/api/vc/opening-line", {
         method: "POST",
-        json: { startupId, question: text, deadline: deadline ? new Date(deadline).toISOString() : "", link },
+        json: { startupId, deadline: deadline ? new Date(deadline).toISOString() : "", link },
       });
       setEstimate(result.estimate);
-      setSuggestionNote(result.suggestionNote);
       setFirmFigureCount(result.firmFigureCount);
       return result;
     } catch (err) {
@@ -159,23 +151,10 @@ export function StudyForm({ initial, catalog }: { initial?: StudyFormInitial; ca
 
   async function priceOutcome() {
     if (!metric) return;
-    const result = await preview(effectiveLink, `Will ${startupName} meet this outcome?`);
+    const result = await preview(effectiveLink);
     const e = result?.estimate;
     if (e?.link && e.question && e.yesCriteria && e.noCriteria) {
       setPriced({ link: e.link, question: e.question, yesCriteria: e.yesCriteria, noCriteria: e.noCriteria });
-    }
-  }
-
-  async function matchWords() {
-    const result = await preview(null, question);
-    const link = result?.estimate.link;
-    if (link && result?.suggestion) {
-      // The AI found a measurable form: show it as an outcome the firm can check and save.
-      setDraft(link);
-      setMode("outcome");
-      const e = result.estimate;
-      if (e.question && e.yesCriteria && e.noCriteria) setPriced({ link, question: e.question, yesCriteria: e.yesCriteria, noCriteria: e.noCriteria });
-      setSuggestionNote(result.suggestion.reason);
     }
   }
 
@@ -185,16 +164,16 @@ export function StudyForm({ initial, catalog }: { initial?: StudyFormInitial; ca
     setFormError(null);
     if (!startupId) return setErrors({ startupId: "Choose a company" });
     if (!openToPublic && !openToVerified) return setErrors({ openToPublic: "Choose who can trade" });
-    if (mode === "outcome" && !fresh) return setFormError("Price the question first, so you can see the opening line it will start at.");
+    if (!priced || !fresh) return setFormError("Choose an outcome and price it first, so you can see the opening line it will start at.");
 
-    const wording = mode === "outcome" && priced ? priced : { question, yesCriteria, noCriteria };
     const payload = {
       startupId,
-      question: wording.question,
-      yesCriteria: wording.yesCriteria,
-      noCriteria: wording.noCriteria,
+      // The server words the question from the outcome; these are what was shown here.
+      question: priced.question,
+      yesCriteria: priced.yesCriteria,
+      noCriteria: priced.noCriteria,
       context: context.trim() || null,
-      modelLink: mode === "outcome" && priced ? priced.link : null,
+      modelLink: priced.link,
       deadline: deadline ? new Date(deadline).toISOString() : "",
       openToPublic,
       openToVerified,
@@ -282,28 +261,7 @@ export function StudyForm({ initial, catalog }: { initial?: StudyFormInitial; ca
       </Step>
 
       <Step n={3} title="The question">
-        <div role="tablist" aria-label="How to ask" className="inline-flex rounded-md border border-slate-300 p-0.5 text-sm dark:border-slate-700">
-          {(
-            [
-              ["outcome", "Pick an outcome"],
-              ["words", "Describe it in words"],
-            ] as const
-          ).map(([key, label]) => (
-            <button
-              key={key}
-              type="button"
-              role="tab"
-              aria-selected={mode === key}
-              onClick={() => setMode(key)}
-              className={`rounded px-3 py-1.5 ${mode === key ? "bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900" : "text-slate-600 dark:text-slate-300"}`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-
-        {mode === "outcome" ? (
-          <div className="space-y-3">
+        <div className="space-y-3">
             {!startupId ? (
               <p className={hintClass}>Choose a company first.</p>
             ) : (
@@ -374,7 +332,6 @@ export function StudyForm({ initial, catalog }: { initial?: StudyFormInitial; ca
               </button>
             )}
 
-            {suggestionNote && fresh && <p className={hintClass}>Matched from your words: {suggestionNote}</p>}
 
             {priced && fresh && (
               <div className="space-y-2 rounded-md border border-slate-200 p-3 text-sm dark:border-slate-800">
@@ -405,55 +362,10 @@ export function StudyForm({ initial, catalog }: { initial?: StudyFormInitial; ca
               </div>
             )}
             {priced && !fresh && metric && <p className={hintClass}>You changed the outcome. Price it again to see the new opening line.</p>}
-          </div>
-        ) : (
-          <div className="space-y-3">
-            <div>
-              <label htmlFor="question" className={labelClass}>
-                YES/NO question
-              </label>
-              <input
-                id="question"
-                className={`${inputClass} mt-1`}
-                value={question}
-                onChange={(e) => setQuestion(e.target.value)}
-                placeholder="Will Stripe's npm downloads pass 4M a week by January?"
-                maxLength={300}
-                aria-invalid={!!errors.question}
-              />
-              {err("question")}
-            </div>
-            <button type="button" className={buttonSecondary} onClick={matchWords} disabled={!ready || pricing || question.trim().length < 5}>
-              {pricing ? "Checking…" : "Check with AI"}
-            </button>
-            <p className={hintClass}>
-              The AI checks whether one of {startupName}&apos;s outcomes measures your question and, if so, turns it into a well-formed one the model
-              can price.
-            </p>
-            {suggestionNote && estimate?.status === "NOT_MEASURABLE" && (
-              <div role="status" className="rounded-md border border-amber-200 bg-amber-50 p-2.5 text-sm text-amber-950 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-100">
-                <p className="font-semibold">Not enough data</p>
-                <p>{suggestionNote} You can still save it with your own criteria below, but forecasting can&apos;t open until it can be measured.</p>
-              </div>
+            {initial && !initialLink && !priced && (
+              <p className={hintClass}>This draft was written in words before questions were built from outcomes. Pick an outcome to keep editing it.</p>
             )}
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div>
-                <label htmlFor="yes" className={labelClass}>
-                  Resolves YES if…
-                </label>
-                <textarea id="yes" rows={3} className={`${inputClass} mt-1`} value={yesCriteria} onChange={(e) => setYes(e.target.value)} aria-invalid={!!errors.yesCriteria} />
-                {err("yesCriteria")}
-              </div>
-              <div>
-                <label htmlFor="no" className={labelClass}>
-                  Resolves NO if…
-                </label>
-                <textarea id="no" rows={3} className={`${inputClass} mt-1`} value={noCriteria} onChange={(e) => setNo(e.target.value)} aria-invalid={!!errors.noCriteria} />
-                {err("noCriteria")}
-              </div>
-            </div>
           </div>
-        )}
       </Step>
 
       <Step n={4} title="Who can trade" hint="Choose one or both.">

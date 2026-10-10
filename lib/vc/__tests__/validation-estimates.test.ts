@@ -32,7 +32,7 @@ describe("validation", () => {
     expect(parse({ ...link, threshold: 0 })).toBe(false);
     const parsed = createStudyInput.parse({ ...validStudyInput(), modelLink: { ...link, observations: [{ metricId: "x", value: 1 }] } });
     expect(parsed.modelLink).not.toHaveProperty("observations");
-    expect(createStudyInput.safeParse({ ...validStudyInput(), modelLink: null }).success).toBe(true);
+    expect(createStudyInput.safeParse({ ...validStudyInput(), modelLink: null }).success).toBe(false);
   });
 
   it("rejects non-http source links", () => {
