@@ -7,6 +7,8 @@ import type { CreatedAlert, PersonalNotification } from "../alert-delivery";
 import type { ForecastingGateway, IndicatorGateway, NewAlert, PlatformGateway, VcDeps, VcRepository } from "../ports";
 import type {
   CompareIndicators,
+  StartupFactView,
+  StartupNewsView,
   EstimatePoint,
   MarketEstimate,
   MarketSummary,
@@ -63,6 +65,7 @@ export function createMemoryRepository(now: () => Date = () => new Date()): VcRe
       if (f.ids) list = list.filter((s) => f.ids!.includes(s.id));
       if (f.startupIds) list = list.filter((s) => f.startupIds!.includes(s.startupId));
       if (f.hasMarket) list = list.filter((s) => !!s.marketId);
+      if (f.resolvedSince) list = list.filter((s) => !!s.resolvedAt && s.resolvedAt >= f.resolvedSince!);
       if (f.participantUserId) list = list.filter((s) => s.participantIds.includes(f.participantUserId!));
       return clone(list.slice(0, f.limit ?? list.length));
     },
@@ -252,6 +255,8 @@ export interface FakePlatformState {
   createdMarkets: { studyId: string; marketId: string }[];
   closedMarketStudyIds: string[];
   notifications: (PersonalNotification & { readAt: Date | null })[];
+  facts: StartupFactView[];
+  news: StartupNewsView[];
 }
 
 const toStartupSummary = (x: StartupSummary): StartupSummary => ({
@@ -273,6 +278,8 @@ export function createFakePlatform(state: Partial<FakePlatformState> = {}): Plat
     createdMarkets: [],
     closedMarketStudyIds: [],
     notifications: [],
+    facts: [],
+    news: [],
     ...state,
   };
   return {
@@ -309,6 +316,14 @@ export function createFakePlatform(state: Partial<FakePlatformState> = {}): Plat
       const marketId = `mkt_${input.studyId}`;
       s.createdMarkets.push({ studyId: input.studyId, marketId });
       return { marketId };
+    },
+    async getStartupEvidence(startupIds) {
+      const published = new Set(s.startups.filter((x) => x.isPublished !== false).map((x) => x.id));
+      const ok = (id: string) => startupIds.includes(id) && published.has(id);
+      return {
+        facts: s.facts.filter((f) => ok(f.startupId)),
+        news: s.news.filter((n) => ok(n.startupId)),
+      };
     },
     async listOrgMembers(organizationId) {
       return [...s.memberships]
