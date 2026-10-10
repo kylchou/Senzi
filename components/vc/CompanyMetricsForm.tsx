@@ -21,7 +21,7 @@ export function CompanyMetricsForm({ startupId, metrics, demo }: {startupId: str
     e.preventDefault(); setBusy(true); setMessage(""); setError(false);
     try {
       await vcFetch(`/api/vc/companies/${startupId}/metrics`, {method: "PUT", json: {observations: [{metricId, value: Number(value), periodStart: weekly ? start : end, periodEnd: end, note, simulated}]}});
-      setMessage("Saved privately to your organization. Recalculate a draft to use this history; existing opening prices stay fixed.");
+      setMessage("Saved privately to your organization. Drafts use it the next time they're estimated, and open markets' model lines pick it up on the next refresh.");
       router.refresh();
     } catch(e) { setError(true); setMessage(e instanceof Error ? e.message : "Save failed"); }
     finally {setBusy(false);}

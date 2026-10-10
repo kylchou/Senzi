@@ -27,7 +27,8 @@ export default async function StudyPage({ params }: { params: Promise<{ studyId:
   const ctx = await requirePageContext(`/vc/studies/${studyId}`);
   const services = getVcServices();
   const detail = await orNotFound(services.studies.get(ctx, studyId));
-  const { study, permissions, estimate, history, events, participants, startup, evidence } = detail;
+  const { study, permissions, estimate, history, events, participants, startup, evidence, openingLine } = detail;
+  const preOpen = study.status === "DRAFT" || study.status === "SUBMITTED" || study.status === "APPROVED";
   const full = permissions.viewLevel === "full";
   const now = new Date();
 
@@ -102,6 +103,44 @@ export default async function StudyPage({ params }: { params: Promise<{ studyId:
               {url}
             </a>
           ))}
+        </Section>
+      )}
+
+      {preOpen && (
+        <Section
+          id="opening-line"
+          title="Opening line"
+          description="Set by our model from the startup's data when forecasting opens, not by the proposing firm."
+        >
+          {openingLine?.status === "OK" ? (
+            <div className="space-y-1 text-sm">
+              <p className="text-2xl font-semibold tabular-nums">{Math.round(openingLine.probability! * 100)}%</p>
+              <p className="text-slate-600 dark:text-slate-300">
+                Model uncertainty {Math.round(openingLine.low! * 100)}–{Math.round(openingLine.high! * 100)}% · {openingLine.confidence}{" "}
+                confidence · estimated {formatDateTime(openingLine.asOf)}
+              </p>
+              {openingLine.link && (
+                <p className="text-slate-600 dark:text-slate-300">
+                  Measured with {openingLine.metricLabel ?? openingLine.link.metricId}: at least{" "}
+                  {openingLine.link.threshold.toLocaleString("en-US")} by {openingLine.link.targetDate}.
+                </p>
+              )}
+              <p className="text-xs text-slate-500">
+                The model estimates again with the latest data when forecasting opens, so the opening price can differ slightly.
+              </p>
+            </div>
+          ) : (
+            <div role="status" className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-100">
+              <p className="font-semibold">Not enough data</p>
+              <p className="mt-1">
+                {openingLine?.status === "INSUFFICIENT_DATA"
+                  ? `The model can't estimate ${openingLine.metricLabel ?? "this metric"} yet. ${openingLine.notes.at(-1) ?? ""}`
+                  : "None of the model's metrics for this startup measures this question."}{" "}
+                Forecasting can&apos;t open until the model has enough data to set an opening line.
+              </p>
+              {permissions.canEdit && <p className="mt-1">Edit the draft to link the question to a metric, or add your firm&apos;s figures.</p>}
+            </div>
+          )}
         </Section>
       )}
 
