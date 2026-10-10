@@ -64,6 +64,8 @@ Visibility is `PUBLIC`, `ORGANIZATION` (members of `Market.organization`), or `R
 
 ## Felix: forecasting and settlement
 
+**Team decision (2026-10-09):** the community estimate is the credit allocation share (YES credits ÷ all credits), and payouts are pari-mutuel. Winners get their stake back plus a share of the losing side's credits, split in proportion to their stakes and rounded down to whole credits. VOID refunds every stake. These go into your `CommunityEstimateRule` and `SettlementModel`. Any credits lost to rounding just stay unpaid.
+
 The schema now has the fields your ports use. Here's how they map:
 
 | Your type | Database |
@@ -80,12 +82,21 @@ The schema now has the fields your ports use. Here's how they map:
 
 Use `db` from `lib/db.ts` in your `ForecastRepository` adapter. For `LockManager`, use `SELECT ... FOR UPDATE` on the market row inside the same transaction. `(userId, idempotencyKey)` and `(marketId, sequence)` are both unique.
 
-`CreditLedger` adapter. `applyCreditTransaction(tx, input)` in `lib/credits.ts` does atomic, idempotent debits and credits inside your transaction, and throws `INSUFFICIENT_CREDITS` when the balance is too low. Your keys work as they are. Use these transaction types:
-- `forecast:<id>` → `FORECAST_STAKE`
-- `forecast-reversal:<id>` → `FORECAST_REVERSAL`
-- `settlement:<marketId>:<forecastId>` → `SETTLEMENT_PAYOUT`, or `MARKET_REFUND` for VOID outcomes
+`CreditLedger`: done. `createCreditLedger()` in `lib/credit-ledger.ts` implements your port on top of the real ledger. Pass it a transaction client (`createCreditLedger(tx)`) to put the debit and the forecast insert in one transaction, so a failed insert rolls the stake back without the compensating refund. It accepts exactly the reasons your engine uses and records them as:
+- `forecast_stake` → `FORECAST_STAKE`
+- `forecast_stake_reversal` → `FORECAST_REVERSAL`
+- `forecast_payout` → `SETTLEMENT_PAYOUT`
+- `forecast_refund_void` → `MARKET_REFUND`
 
-You can put the debit and the forecast insert in one transaction, so you no longer need the compensating refund.
+It throws your `InsufficientBalanceError`, and `ForecastingError("IDEMPOTENCY_CONFLICT")` if a key is reused with a different amount. Any other reason is rejected. The `reference` you pass is stored in the ledger memo.
+
+Model tables: done, as proposed in `docs/model-schema-proposal.md`. `ModelDataPoint`, `ModelQuestionSpec`, `ModelBaselineSnapshot` and `ModelRun` exist, along with the rules from the proposal:
+- provenance is tied to source and org;
+- periods have to be in order;
+- probabilities stay between 0 and 1;
+- the question's resolution source locks once the market opens (a database trigger).
+
+The data point unique key is `NULLS NOT DISTINCT`, so scraped rows dedupe even with no org. Kept `resolutionSourceUrl` on the spec, because the machine-checkable source should stay locked separately from the market's display sources. Read sponsor data with `visibleModelDataPointsWhere(userId)` from `lib/permissions.ts`. `SEC_USER_AGENT`, `GITHUB_TOKEN`, and the `scrape` / `model:*` npm scripts are added. Before anyone runs the SEC collector, the team still needs to pick a real contact email for `SEC_USER_AGENT`.
 
 Settlement. Implement `SettlementService.settleResolution(resolutionId)` from `lib/types.ts`:
 

@@ -146,6 +146,31 @@ enum VcAlertType {
   STUDY_STATUS_CHANGED
 }
 
+/// Where a model data point came from (Felix's baseline model).
+enum ModelSource {
+  NPM
+  PYPISTATS
+  GITHUB
+  SEC_EDGAR
+  GREENHOUSE
+  ASHBY
+  WORKABLE
+  TRANCO
+  HN_ALGOLIA
+  SPONSOR
+}
+
+enum DataProvenance {
+  SCRAPED
+  SPONSOR_PROVIDED
+}
+
+enum BaselineStatus {
+  OK
+  INSUFFICIENT_DATA
+  OBSERVED
+}
+
 enum NewsVerification {
   UNVERIFIED
   VERIFIED
@@ -184,26 +209,27 @@ model User {
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
 
-  memberships         OrganizationMembership[]
-  invitedMembers      OrganizationMembership[] @relation("MembershipInvitedBy")
-  forecasts           Forecast[]
-  creditTransactions  CreditTransaction[]      @relation("CreditTransactionUser")
-  creditActions       CreditTransaction[]      @relation("CreditTransactionActor")
-  notifications       Notification[]
-  achievements        UserAchievement[]
-  createdStartups     Startup[]
-  createdMarkets      Market[]                 @relation("MarketCreatedBy")
-  resolutions         Resolution[]
-  createdNews         NewsItem[]
-  createdStudies      ResearchStudy[]          @relation("StudyCreatedBy")
-  studyParticipations StudyParticipant[]       @relation("StudyParticipantUser")
-  addedParticipants   StudyParticipant[]       @relation("StudyParticipantAddedBy")
-  studyEvents         StudyEvent[]
-  studyNotes          StudyNote[]
-  createdWatchlists   Watchlist[]
-  watchlistItemsAdded WatchlistItem[]
-  alertReceipts       VcAlertReceipt[]
-  createdReports      VcReport[]
+  memberships            OrganizationMembership[]
+  invitedMembers         OrganizationMembership[] @relation("MembershipInvitedBy")
+  forecasts              Forecast[]
+  creditTransactions     CreditTransaction[]      @relation("CreditTransactionUser")
+  creditActions          CreditTransaction[]      @relation("CreditTransactionActor")
+  notifications          Notification[]
+  achievements           UserAchievement[]
+  createdStartups        Startup[]
+  createdMarkets         Market[]                 @relation("MarketCreatedBy")
+  resolutions            Resolution[]
+  createdNews            NewsItem[]
+  createdStudies         ResearchStudy[]          @relation("StudyCreatedBy")
+  studyParticipations    StudyParticipant[]       @relation("StudyParticipantUser")
+  addedParticipants      StudyParticipant[]       @relation("StudyParticipantAddedBy")
+  studyEvents            StudyEvent[]
+  studyNotes             StudyNote[]
+  createdWatchlists      Watchlist[]
+  watchlistItemsAdded    WatchlistItem[]
+  alertReceipts          VcAlertReceipt[]
+  createdReports         VcReport[]
+  modelDataPointsEntered ModelDataPoint[]
 }
 
 model Organization {
@@ -215,13 +241,14 @@ model Organization {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  memberships OrganizationMembership[]
-  markets     Market[]
-  studies     ResearchStudy[]
-  studyNotes  StudyNote[]
-  watchlists  Watchlist[]
-  alerts      VcAlert[]
-  reports     VcReport[]
+  memberships     OrganizationMembership[]
+  markets         Market[]
+  studies         ResearchStudy[]
+  studyNotes      StudyNote[]
+  watchlists      Watchlist[]
+  alerts          VcAlert[]
+  reports         VcReport[]
+  modelDataPoints ModelDataPoint[]
 }
 
 model OrganizationMembership {
@@ -263,12 +290,13 @@ model Startup {
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
 
-  createdBy      User?           @relation(fields: [createdById], references: [id], onDelete: SetNull)
-  facts          StartupFact[]
-  markets        Market[]
-  news           NewsItem[]
-  studies        ResearchStudy[]
-  watchlistItems WatchlistItem[]
+  createdBy       User?            @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  facts           StartupFact[]
+  markets         Market[]
+  news            NewsItem[]
+  studies         ResearchStudy[]
+  watchlistItems  WatchlistItem[]
+  modelDataPoints ModelDataPoint[]
 
   @@index([industry])
   @@index([isPublished, name])
@@ -335,17 +363,19 @@ model Market {
   createdAt           DateTime         @default(now())
   updatedAt           DateTime         @updatedAt
 
-  startup      Startup             @relation(fields: [startupId], references: [id], onDelete: Restrict)
-  organization Organization?       @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  createdBy    User?               @relation("MarketCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  startup                Startup                 @relation(fields: [startupId], references: [id], onDelete: Restrict)
+  organization           Organization?           @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  createdBy              User?                   @relation("MarketCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   /// The private research study this market was opened from, if any.
-  study        ResearchStudy?
-  sources      MarketSource[]
-  forecasts    Forecast[]
-  snapshots    MarketSnapshot[]
-  resolution   Resolution?
-  creditTxns   CreditTransaction[]
-  news         NewsItem[]
+  study                  ResearchStudy?
+  sources                MarketSource[]
+  forecasts              Forecast[]
+  snapshots              MarketSnapshot[]
+  resolution             Resolution?
+  creditTxns             CreditTransaction[]
+  news                   NewsItem[]
+  modelQuestionSpec      ModelQuestionSpec?
+  modelBaselineSnapshots ModelBaselineSnapshot[]
 
   @@index([status, visibility, closesAt])
   @@index([startupId])
@@ -704,6 +734,113 @@ model VcReport {
   createdBy    User          @relation(fields: [createdById], references: [id], onDelete: Restrict)
 
   @@index([organizationId, createdAt])
+}
+
+// ---------------------------------------------------------------------------
+// Baseline model (Felix). Proposal: docs/model-schema-proposal.md
+// ---------------------------------------------------------------------------
+
+/// One observed value for a startup metric. Scraped rows are public; sponsor
+/// rows are private to organizationId (see lib/permissions.ts) and never
+/// resolve a market. CHECK constraints tie provenance to source and org.
+model ModelDataPoint {
+  id             String         @id @default(cuid())
+  startupId      String
+  /// e.g. "npm_downloads:@supabase/supabase-js", "open_jobs", "sponsor_arr"
+  metricId       String
+  source         ModelSource
+  value          Float
+  periodStart    DateTime       @db.Date
+  periodEnd      DateTime       @db.Date
+  /// When the value became publicly knowable. Backtests filter on this.
+  availableAt    DateTime
+  fetchedAt      DateTime
+  sourceUrl      String
+  provenance     DataProvenance
+  /// True for made-up demo values. Always false for scraped data.
+  simulated      Boolean        @default(false)
+  note           String?
+  /// Sponsor-provided rows only: the sponsor org that entered it.
+  organizationId String?
+  /// Sponsor-provided rows only.
+  enteredById    String?
+  createdAt      DateTime       @default(now())
+
+  startup      Startup       @relation(fields: [startupId], references: [id], onDelete: Cascade)
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  enteredBy    User?         @relation(fields: [enteredById], references: [id], onDelete: SetNull)
+
+  /// Re-fetching the same period updates the row. The migration makes this
+  /// NULLS NOT DISTINCT so scraped rows (organizationId null) dedupe too.
+  @@unique([startupId, metricId, source, periodStart, periodEnd, organizationId])
+  @@index([startupId, metricId, periodEnd])
+  @@index([availableAt])
+}
+
+/// Makes a Market machine-resolvable: "Will <metric> in the <windowDays> days
+/// ending <windowEnd> be at least <threshold>?" The resolution source can't
+/// change once the market has opened (database trigger).
+model ModelQuestionSpec {
+  id                  String      @id @default(cuid())
+  marketId            String      @unique
+  metricId            String
+  threshold           Float
+  /// Last day (inclusive, UTC) of the window.
+  windowEnd           DateTime    @db.Date
+  windowDays          Int         @default(7)
+  resolutionSource    ModelSource
+  resolutionSourceUrl String
+  createdAt           DateTime    @default(now())
+
+  market Market @relation(fields: [marketId], references: [id], onDelete: Cascade)
+}
+
+/// A computed baseline. A new row is written only when inputsHash changes.
+/// The latest row is the model line.
+model ModelBaselineSnapshot {
+  id           String         @id @default(cuid())
+  marketId     String
+  status       BaselineStatus
+  /// Null when status = INSUFFICIENT_DATA.
+  probability  Float?
+  low          Float?
+  high         Float?
+  /// "low" | "medium" | "high"
+  confidence   String?
+  asOf         DateTime
+  /// Last day of data the result is based on.
+  dataThrough  DateTime?      @db.Date
+  modelName    String
+  modelVersion String
+  inputsHash   String
+  /// Full method details: mu, sigma, weeks used, horizon, seed, ...
+  method       Json
+  /// [{ metricId, source, provenance, simulated, role, points, periodStart, periodEnd }]
+  inputsUsed   Json
+  /// [{ source, url, fetchedAt }]
+  sources      Json
+  missing      String[]
+  notes        String[]
+  createdAt    DateTime       @default(now())
+
+  market Market @relation(fields: [marketId], references: [id], onDelete: Cascade)
+
+  @@unique([marketId, inputsHash])
+  @@index([marketId, createdAt])
+}
+
+/// Audit trail for collection and backtest runs.
+model ModelRun {
+  id           String    @id @default(cuid())
+  /// "collect" | "backtest"
+  kind         String
+  modelVersion String?
+  startedAt    DateTime  @default(now())
+  finishedAt   DateTime?
+  /// Collection report (counts, missing data, errors) or backtest results.
+  report       Json
+
+  @@index([kind, startedAt])
 }
 
 // ---------------------------------------------------------------------------
