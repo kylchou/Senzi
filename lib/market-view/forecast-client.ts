@@ -20,8 +20,10 @@ export const receiptSchema = z.object({
   createdAt: z.string(),
   /** YES allocation share at entry, if the server returns it. */
   entryAllocationShare: z.number().min(0).max(1).nullable().optional(),
-  /** Balance after the stake, if the server returns it. */
-  balanceAfter: z.number().optional(),
+  /** Balance after the stake. Null or absent when the server does not report it. */
+  balanceAfter: z.number().nullable().optional(),
+  /** General Users estimate (all forecasters) just after this forecast, from the pricing rule. */
+  priceAfter: z.number().min(0).max(1).nullable().optional(),
 });
 export type ForecastReceiptData = z.infer<typeof receiptSchema>;
 
