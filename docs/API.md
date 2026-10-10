@@ -112,6 +112,8 @@ Changes for `platform-adapter.ts`:
 | `startup.industry` | `startup.industry` (unchanged) |
 | `createMarketForStudy` from `@/lib/admin/markets` | `createMarketForStudy` from `@/lib/admin` |
 
+When a study is closed early, call `closeMarketForStudy({ studyId, closedById, reason? })` from `@/lib/admin` in the same step so forecasting stops. It's safe to call twice and returns null if the study never opened a market.
+
 `createMarketForStudy(input)` takes your `CreateMarketForStudyInput` unchanged and returns the market (use `.id`). It's idempotent on `studyId` and safe to call concurrently. It checks that the study is `APPROVED` or `OPEN` and that the org and startup match. It does not write to the study, so set `ResearchStudy.marketId` in your open transition. Restricted-market visibility depends on that link.
 
 Use `requireOrgRole` from `lib/permissions.ts` for org checks. Study and watchlist rules are yours in `lib/vc/permissions.ts`. Record changes to org data with `recordAudit(...)` from `lib/audit.ts`. For the cron, add your path to `vercel.json` next to the existing one.
