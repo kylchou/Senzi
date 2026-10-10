@@ -1,6 +1,6 @@
 # Community UI (Sahil)
 
-Public Senzi pages: homepage, markets, market detail, startups, startup profiles, search, news (`/news`), and the forecast panel. Market pages also have a generated share image (`app/markets/[slug]/opengraph-image.tsx`). Setup and environment variables are in the README and `.env.example`; this UI needs nothing extra.
+Public Senzi pages: homepage, markets, market detail, startups, startup profiles, search, news (`/news`), and the forecast panel. Market pages also have a generated share image (`app/markets/[slug]/opengraph-image.tsx`). Setup and environment variables are in the README and `.env.example`; the only optional variable is `SENZI_REPLAY_DEMO` (see Market Replay).
 
 ## Privacy rules
 
@@ -34,6 +34,7 @@ Same envelope as `docs/API.md`: `{ data, meta }` and `{ error: { code, message }
 | `GET /api/markets` | `q`, `status`, `industry`, `sort` (`closing`, `active`, `newest`), `cursor`, `limit` | `MarketSummary[]` |
 | `GET /api/markets/:slug` | | `MarketDetail` |
 | `GET /api/markets/:slug/history` | | `{ marketId, openingBaseline, points: HistoryPoint[] }` |
+| `GET /api/markets/:slug/replay` | | `ReplayData` (see Market Replay) |
 | `GET /api/startups` | `q`, `industry`, `cursor`, `limit` | `StartupSummary[]` |
 | `GET /api/startups/:slug` | | `StartupProfile` |
 
@@ -47,9 +48,34 @@ Types: `lib/market-view/types.ts`.
 { "marketId": "...", "side": "YES", "credits": 25, "idempotencyKey": "uuid" }
 ```
 
-Expected success: `201 { "data": { "id", "marketId", "side", "credits", "createdAt", "entryAllocationShare"?, "balanceAfter"? } }`. The two optional fields are shown on the receipt when present.
+Expected success: `201 { "data": { "id", "marketId", "side", "credits", "createdAt", "entryAllocationShare"?, "balanceAfter"?, "priceAfter"? } }`. Optional fields may be null or absent and are shown on the receipt only when set: `priceAfter` as "General Users estimate after", `balanceAfter` as "Balance after". Other LMSR receipt fields (`shares`, `averagePrice`, `digest`, and so on) are accepted and ignored. When `balanceAfter` is null the panel refetches the balance from `/api/users/me`.
 
 Error codes the panel handles: `UNAUTHENTICATED` (sign-in prompt), `INSUFFICIENT_CREDITS`, `INVALID_STATE` (market closed, form locks), `NOT_FOUND`, `CONFLICT`, `VALIDATION_ERROR` (shows the server message), `FORBIDDEN`. The same idempotency key is resent when a user retries after a network failure, and a new one is made when the forecast changes. The browser never computes balances.
+
+## Market Replay
+
+A Replay button beside the market chart opens a dialog that plays the market's history back. Code: `components/ui/replay/` (UI), `lib/market-view/replay.ts` (pure logic, unit tested), `lib/market-view/replay-data.ts` (server query).
+
+Signals, all read from existing `MarketSnapshot` rows (ordered by `sequence`, forward-filled between rows):
+
+| Label | Column |
+| --- | --- |
+| Senzi Model | `modelValue` |
+| General Users | `generalEstimate` |
+| Verified Users | `specializedEstimate` |
+
+`ReplayData` is `{ source, market, start, end, points, events, activity, resolution }`.
+
+- `points`: `{ at, model, general, verified, forecasts, credits }`, values 0 to 1 or null when a signal has not been recorded.
+- `events`: `{ id, at, kind, title, detail?, url?, origin }`. `origin` is `real` (market opened, opening baseline, linked news, resolution), `derived` (computed from the history: large moves and wide gaps), or `demo`.
+- `activity`: forecasts grouped into about 60 time buckets with YES and NO counts and credits only. No user ids.
+- `resolution`: outcome, date, and first evidence URL, only once resolved.
+
+Replay needs at least two recorded moments of one signal; otherwise it shows "Not enough history to replay yet." Biggest move, Biggest divergence, and Compare moments are computed from the numbers only.
+
+Demo data: with `SENZI_REPLAY_DEMO=1`, markets without enough history get generated history from `lib/market-view/replay-demo.ts`. The response has `source: "demo"`, the dialog shows a "Demo data" badge, and every demo event is titled "Demo event: ...". Real history always wins. Leave the variable unset in production.
+
+Keyboard: Space plays or pauses, arrow keys step between recorded moments and events, Home and End jump to the ends of the slider, Escape leaves presentation mode and then closes.
 
 ## Theme, motion, and app chrome
 
@@ -57,6 +83,7 @@ Error codes the panel handles: `UNAUTHENTICATED` (sign-in prompt), `INSUFFICIENT
 - `ThemeScript` applies the saved or system theme before first paint; `ThemeToggle` switches it.
 - `AppOverlays` mounts the mobile tab bar, the Command-K palette (also `/`), and toasts once.
 - `NotificationsBell` reads `GET /api/users/me/notifications` and uses `PATCH` with `{ ids: "all" }`, and badges the tab icon while anything is unread.
+- Tooltips (`InfoTip`, chart and replay markers) are removed from layout while hidden and shift to stay on screen, so they never widen the page on phones.
 - Motion uses CSS keyframes and React `ViewTransition`; everything is disabled under `prefers-reduced-motion`.
 - Preferences kept in `localStorage`: `senzi-theme`, `senzi-last-credits`, `senzi-recent-searches`, `senzi-filters:<path>`, and `senzi-tour-market-v1`.
 

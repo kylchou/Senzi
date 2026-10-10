@@ -91,3 +91,15 @@ export function formatRelative(iso: string, now: Date = new Date()): string {
 export function isPastDeadline(iso: string, now: Date = new Date()): boolean {
   return new Date(iso).getTime() <= now.getTime();
 }
+
+/** "October 12, 2026" (UTC) for headings. */
+export function formatLongDate(time: number | string): string {
+  return new Intl.DateTimeFormat("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: "UTC" }).format(
+    new Date(time),
+  );
+}
+
+/** "Oct 12" (UTC) for compact timeline labels. */
+export function formatShortDate(time: number | string): string {
+  return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", timeZone: "UTC" }).format(new Date(time));
+}

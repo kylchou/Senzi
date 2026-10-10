@@ -123,7 +123,7 @@ export function ForecastPanel({
     setReceipt(null);
     setTouched(false);
     idempotencyKey.current = null;
-    if (session.state === "ready" && receipt?.balanceAfter === undefined) {
+    if (session.state === "ready" && receipt?.balanceAfter == null) {
       fetchBalance()
         .then((value) => setSession({ state: "ready", balance: value }))
         .catch(() => undefined);
@@ -294,7 +294,8 @@ function Receipt({ receipt, onReset }: { receipt: ForecastReceiptData; onReset: 
     ["Allocation", `${formatCredits(receipt.credits)} credits`],
   ];
   if (receipt.entryAllocationShare != null) rows.push(["YES allocation at entry", formatShare(receipt.entryAllocationShare)]);
-  if (receipt.balanceAfter !== undefined) rows.push(["Balance after", `${formatCredits(receipt.balanceAfter)} credits`]);
+  if (receipt.priceAfter != null) rows.push(["General Users estimate after", formatShare(receipt.priceAfter)]);
+  if (receipt.balanceAfter != null) rows.push(["Balance after", `${formatCredits(receipt.balanceAfter)} credits`]);
   rows.push(["Recorded", formatDateTime(receipt.createdAt)]);
 
   return (
