@@ -3,11 +3,11 @@
 // sample is small. The leaderboard is the prize mechanism for the prototype;
 // no payouts are computed here.
 
-import type { EngineDeps } from './deps.js';
-import type { CalibrationEvidence, EstimateLine } from './estimates.js';
-import { snapshotAt } from './history.js';
-import { brierScore, calibrationBins, expectedCalibrationError, wilsonInterval, type Bin } from './stats.js';
-import type { Forecast, Market, MarketSnapshot, SettlementRecord } from './types.js';
+import type { EngineDeps } from './deps';
+import type { CalibrationEvidence, EstimateLine } from './estimates';
+import { snapshotAt } from './history';
+import { brierScore, calibrationBins, expectedCalibrationError, wilsonInterval, type Bin } from './stats';
+import type { Forecast, Market, MarketSnapshot, SettlementRecord } from './types';
 
 // ---------------------------------------------------------------------------
 // Shared loading

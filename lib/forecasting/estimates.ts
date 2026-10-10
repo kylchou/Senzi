@@ -5,9 +5,9 @@
 // separate fields. An estimate is only labeled a calibrated probability when a
 // calibration report backs it up.
 
-import type { EngineConfig } from './config.js';
-import { ForecastingError } from './errors.js';
-import type { CommunityEstimateRule, EstimateEntry } from './ports.js';
+import type { EngineConfig } from './config';
+import { ForecastingError } from './errors';
+import type { CommunityEstimateRule, EstimateEntry } from './ports';
 import type {
   Baseline,
   BaselineView,
@@ -17,7 +17,7 @@ import type {
   Forecast,
   Market,
   MarketEstimates,
-} from './types.js';
+} from './types';
 
 export type EstimateLine = 'general' | 'specialized';
 

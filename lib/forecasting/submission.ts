@@ -8,13 +8,13 @@
 // sequence numbers and before/after estimates are consistent.
 
 import { createHash } from 'node:crypto';
-import { marketLockKey, requireRule, requireUser, type EngineDeps } from './deps.js';
-import { checkEligibility } from './eligibility.js';
-import { ForecastingError, InsufficientBalanceError } from './errors.js';
-import { computeLine, toEstimateEntries, verifiedOnly } from './estimates.js';
-import { buildSnapshot, nextSnapshotSequence } from './history.js';
-import type { AuthContext } from './ports.js';
-import type { EntrySnapshot, Forecast, Side } from './types.js';
+import { marketLockKey, requireRule, requireUser, type EngineDeps } from './deps';
+import { checkEligibility } from './eligibility';
+import { ForecastingError, InsufficientBalanceError } from './errors';
+import { computeLine, toEstimateEntries, verifiedOnly } from './estimates';
+import { buildSnapshot, nextSnapshotSequence } from './history';
+import type { AuthContext } from './ports';
+import type { EntrySnapshot, Forecast, Side } from './types';
 
 export interface SubmitForecastInput {
   marketId: string;

@@ -11,7 +11,7 @@ import type {
   SettlementRecord,
   EstimateKind,
   Side,
-} from './types.js';
+} from './types';
 
 // ---------------------------------------------------------------------------
 // Auth
