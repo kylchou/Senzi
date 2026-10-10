@@ -99,29 +99,6 @@ export const COMPANIES: Company[] = [
   },
 ];
 
-/**
- * Basket of large, mature npm packages unrelated to the demo companies. Their
- * downloads measure npm-wide changes (counting changes, automated traffic), so
- * the model can separate those from a company's own growth. Fast-growing
- * app-layer packages (zod, vite, dotenv) are left out: they would absorb real
- * category growth. Equal-weighted in log space, so no single package dominates.
- */
-export const NPM_INDEX_PACKAGES = [
-  'react',
-  'lodash',
-  'typescript',
-  'express',
-  'axios',
-  'chalk',
-  'semver',
-  'tslib',
-  'debug',
-  'commander',
-  'uuid',
-  '@types/node',
-] as const;
-export const NPM_INDEX_ID = 'npm-index';
-
 export function getCompany(id: string): Company {
   const c = COMPANIES.find((x) => x.id === id);
   if (!c) throw new Error(`Unknown company "${id}"`);

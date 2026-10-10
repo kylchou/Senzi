@@ -5,7 +5,6 @@
 //   sponsor/<companyId>.json     sponsor-provided points (simulated in the demo)
 //   questions.json               threshold questions
 //   baselines.jsonl              baseline snapshots, appended only when inputs change
-//   npm-index.jsonl              daily downloads of the npm index basket (catalog.NPM_INDEX_PACKAGES)
 
 import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -14,8 +13,6 @@ import type { BaselineResult, DataPoint, ThresholdQuestion } from './types';
 export interface ModelStore {
   readPoints(companyId?: string): DataPoint[];
   readSponsorPoints(companyId?: string): DataPoint[];
-  /** Daily downloads of the npm index basket. Empty when not collected. */
-  readNpmIndexPoints(): DataPoint[];
   readQuestions(): ThresholdQuestion[];
   readBaselineSnapshots(): BaselineResult[];
   appendBaselineSnapshot(result: BaselineResult): void;
@@ -61,16 +58,6 @@ export class FileModelStore implements ModelStore {
     });
   }
 
-  readNpmIndexPoints(): DataPoint[] {
-    return readJsonl<DataPoint>(join(this.dir, 'npm-index.jsonl'));
-  }
-
-  writeNpmIndexPoints(points: readonly DataPoint[]): void {
-    const file = join(this.dir, 'npm-index.jsonl');
-    mkdirSync(dirname(file), { recursive: true });
-    writeFileSync(file, points.map((p) => JSON.stringify(p)).join('\n') + (points.length ? '\n' : ''));
-  }
-
   readQuestions(): ThresholdQuestion[] {
     const file = join(this.dir, 'questions.json');
     return existsSync(file) ? (JSON.parse(readFileSync(file, 'utf8')) as ThresholdQuestion[]) : [];
@@ -94,11 +81,7 @@ export class MemoryModelStore implements ModelStore {
     public points: DataPoint[] = [],
     public sponsor: DataPoint[] = [],
     public questions: ThresholdQuestion[] = [],
-    public npmIndex: DataPoint[] = [],
   ) {}
-  readNpmIndexPoints() {
-    return this.npmIndex;
-  }
   readPoints(companyId?: string) {
     return this.points.filter((p) => !companyId || p.companyId === companyId);
   }

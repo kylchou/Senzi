@@ -75,8 +75,8 @@ export interface InputUsed {
   source: SourceId;
   provenance: Provenance;
   simulated: boolean;
-  /** What the input did: fit the trend, fill weeks the scraped data lacked, or remove npm-wide moves. */
-  role: 'trend' | 'sponsor_fill' | 'market_index';
+  /** What the input did: fit the trend, or fill weeks the scraped data lacked. */
+  role: 'trend' | 'sponsor_fill';
   points: number;
   periodStart: string | null;
   periodEnd: string | null;
@@ -115,27 +115,7 @@ export interface MethodInfo {
     bootstrapReplicates: number;
     seed: number | null;
     inputsHash: string;
-    /** Set when the forecast is relative to the npm-wide index (lib/model/npm-index.ts). */
-    npmIndex?: NpmIndexDetails | null;
   };
-}
-
-export interface NpmIndexDetails {
-  packages: string[];
-  /** Latest week with a complete index; the adjusted series is at this week's npm level. */
-  referenceWeek: string;
-  /** How strongly the package moves with the index week to week (1 = one for one). */
-  beta: number;
-  /** Trend of the company's downloads relative to npm, per week (e.g. 0.01 = +1%). */
-  relativeWeeklyGrowth: number;
-  /** The index's own trend per week, and its change to the reference week from about 4 and 12 weeks before. */
-  indexWeeklyTrend: number | null;
-  indexMoves: Array<{ since: string; change: number }>;
-  /** Log-scale mean and spread of the index move from the reference week to the question window. */
-  indexMean: number;
-  indexSd: number;
-  /** Weeks with missing days that were valued relative to npm instead of left out. */
-  recoveredWeeks: string[];
 }
 
 export interface BaselineResult {

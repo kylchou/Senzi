@@ -8,9 +8,7 @@
 
 import { fromDayNumber, toDayNumber } from './dates';
 import { forecastSigma, forecastTotals, forecastWeekly, probabilityAtLeast } from './forecast';
-import { NPM_INDEX_PACKAGES } from './catalog';
 import { hashString, seedFrom } from './math';
-import { addIndexTerm, adjustWeekly, buildBasket, indexOutlook, NPM_INDEX_METRIC, type IndexAdjusted, type IndexOutlook } from './npm-index';
 import { defaultParams, MODEL_NAME, MODEL_VERSION, type ModelParams } from './params';
 import { buildDailySeries, weeklySeries, windowTotal } from './series';
 import type {
@@ -19,7 +17,6 @@ import type {
   InputUsed,
   MethodInfo,
   ModelConfidence,
-  NpmIndexDetails,
   SourceRef,
   ThresholdQuestion,
 } from './types';
@@ -33,16 +30,9 @@ export const METHOD_DESCRIPTION =
   'the band widens. The band is model uncertainty (10th–90th percentile across refits on resampled data), not a range ' +
   'for the outcome. Trades never feed the model.';
 
-export const NPM_INDEX_DESCRIPTION =
-  "For npm questions the trend is fitted on the company's downloads relative to an npm-wide index (12 large, unrelated packages), " +
-  'so changes that hit all of npm at once (counting changes, automated traffic) are not read as company growth. How far the index ' +
-  'may move before the question window is added as separate uncertainty, sized from its moves over the last two years.';
-
 export interface BaselineOptions {
   params?: ModelParams;
   sponsorPoints?: readonly DataPoint[];
-  /** Daily downloads of the npm index basket. Without them npm questions fit raw downloads. */
-  npmIndexPoints?: readonly DataPoint[];
 }
 
 function emptyMethod(inputsHash: string, params: ModelParams): MethodInfo {
@@ -120,36 +110,9 @@ export function computeBaseline(
   }
   const sponsorTotals = new Map([...sponsorByWeek].map(([k, p]) => [k, p.value]));
 
-  // npm questions: fit relative to the npm-wide index when its data covers the fit window.
-  const ixParams = params.npmIndex;
-  const wantsIndex = ixParams !== null && question.metricId.startsWith('npm_downloads:');
-  let index: { adjusted: IndexAdjusted; outlook: IndexOutlook; points: number; firstDay: string; lastDay: string } | null = null;
-  if (ixParams && wantsIndex && options.npmIndexPoints?.length) {
-    const basket = buildBasket(options.npmIndexPoints, asOf);
-    const adjusted = adjustWeekly(series, basket, weekly, ixParams.minShareDays, ixParams.betaWeeks);
-    const outlook = adjusted && indexOutlook(basket, question.windowEnd, adjusted.reference.t, ixParams, params.fitWeeks, params.minWeeks);
-    if (adjusted && outlook) {
-      index = {
-        adjusted,
-        outlook,
-        points: basket.packages.reduce((a, p) => a + p.points, 0),
-        firstDay: fromDayNumber(Math.max(...basket.packages.map((p) => p.firstDay!))),
-        lastDay: fromDayNumber(Math.min(...basket.packages.map((p) => p.lastDay!))),
-      };
-    }
-  }
-
   const weeklyKey = weekly.weeks.map((w) => `${w.windowEnd}:${w.total ?? sponsorTotals.get(w.windowEnd) ?? '-'}`).join(',');
-  const indexKey = index
-    ? [
-        index.adjusted.weekly.weeks.map((w) => (w.total === null ? '-' : w.total.toFixed(0))).join(','),
-        index.outlook.sd.toFixed(8),
-        index.adjusted.beta.toFixed(8),
-        index.outlook.slope?.toFixed(8) ?? '-',
-      ].join(';')
-    : 'no-index';
   const inputsHash = hashString(
-    [MODEL_VERSION, JSON.stringify(params), question.id, question.metricId, question.threshold, question.windowEnd, weeklyKey, indexKey].join('|'),
+    [MODEL_VERSION, JSON.stringify(params), question.id, question.metricId, question.threshold, question.windowEnd, weeklyKey].join('|'),
   );
 
   const sources: SourceRef[] = series.sourceUrls.slice(0, 5).map((url) => ({
@@ -207,31 +170,8 @@ export function computeBaseline(
   }
 
   const seed = seedFrom(question.id, inputsHash);
-  // In index mode the fit runs on adjusted totals with the index-mode settings.
-  const fitParams: ModelParams =
-    index && ixParams
-      ? { ...params, sigmaScale: ixParams.sigmaScale, driftPerWeek: ixParams.driftPerWeek, trendDamping: ixParams.trendDamping, tailShrink: ixParams.tailShrink }
-      : params;
-  let fitExtra: ReadonlyMap<string, number> = sponsorTotals;
-  if (index) {
-    // Sponsor totals fill adjusted weeks only where that week's index level is known.
-    const { levels, reference, weekly: adjustedWeekly } = index.adjusted;
-    const levelByWeek = new Map(adjustedWeekly.weeks.map((w) => [w.windowEnd, levels.get(w.t)]));
-    fitExtra = new Map(
-      [...sponsorTotals].flatMap(([end, v]): Array<[string, number]> => {
-        const level = levelByWeek.get(end);
-        return level === undefined ? [] : [[end, v * Math.exp(index!.adjusted.beta * (reference.level - level))]];
-      }),
-    );
-  }
-  let fc = forecastWeekly(index ? index.adjusted.weekly : weekly, fitParams, seed, fitExtra);
-  // The index term scales with beta: a company that moves half as much as npm carries half its moves.
-  const beta = index?.adjusted.beta ?? 1;
-  const indexMean = index && ixParams ? beta * ixParams.indexTrendDamping * (index.outlook.slope ?? 0) * index.outlook.horizonWeeks : 0;
-  const indexSd = index && ixParams ? beta * ixParams.indexSigmaScale * index.outlook.sd : 0;
-  if (index) fc = addIndexTerm(fc, indexMean, indexSd);
+  const fc = forecastWeekly(weekly, params, seed, sponsorTotals);
   if (fc.missingWeeks.length) missing.push(`Incomplete weeks left out of the fit: ${fc.missingWeeks.join(', ')}.`);
-  if (wantsIndex && !index) notes.push('npm-wide index unavailable for this date, so the trend is fitted on raw downloads.');
 
   const inputsUsed: InputUsed[] = series.points ? [trendInput] : [];
   if (sponsorByWeek.size) {
@@ -248,18 +188,6 @@ export function computeBaseline(
     });
     notes.push(`Sponsor-provided totals filled ${sponsorByWeek.size} week(s) missing from scraped data.`);
   }
-  if (index) {
-    inputsUsed.push({
-      metricId: NPM_INDEX_METRIC,
-      source: 'npm',
-      provenance: 'scraped',
-      simulated: false,
-      role: 'market_index',
-      points: index.points,
-      periodStart: index.firstDay,
-      periodEnd: index.lastDay,
-    });
-  }
 
   if (fc.status !== 'ok') {
     missing.push(
@@ -272,47 +200,14 @@ export function computeBaseline(
     return { ...base, status: 'insufficient_data', probability: null, low: null, high: null, confidence: null, method, inputsUsed };
   }
 
-  const prob = probabilityAtLeast(fc, question.threshold, fitParams);
-  const rangeSigma = Math.hypot(
-    forecastSigma(fc.fit!.scale, fc.fit!, fc.horizonWeeks, {
-      ...params,
-      sigmaScale: params.rangeSigmaScale,
-      driftPerWeek: params.rangeDriftPerWeek,
-    }),
-    indexSd,
-  );
+  const prob = probabilityAtLeast(fc, question.threshold, params);
+  const rangeSigma = forecastSigma(fc.fit!.scale, fc.fit!, fc.horizonWeeks, {
+    ...params,
+    sigmaScale: params.rangeSigmaScale,
+    driftPerWeek: params.rangeDriftPerWeek,
+  });
   const totals = forecastTotals(fc.mu!, rangeSigma);
   const last = fc.used[fc.used.length - 1]!;
-  // In index mode the fitted totals are adjusted; report the latest raw week as observed.
-  const lastRaw = [...weekly.weeks].reverse().find((w) => w.total !== null);
-  const lastObserved = index && lastRaw ? { windowEnd: lastRaw.windowEnd, total: lastRaw.total! } : { windowEnd: last.windowEnd, total: last.total };
-  let npmIndexDetails: NpmIndexDetails | null = null;
-  if (index) {
-    const o = index.outlook;
-    const pct = (x: number) => `${x > 0 ? '+' : ''}${(x * 100).toFixed(0)}%`;
-    npmIndexDetails = {
-      packages: [...NPM_INDEX_PACKAGES],
-      referenceWeek: index.adjusted.reference.windowEnd,
-      beta,
-      relativeWeeklyGrowth: Math.expm1(fc.fit!.slope),
-      indexWeeklyTrend: o.slope === null ? null : Math.expm1(o.slope),
-      indexMoves: o.moves,
-      indexMean,
-      indexSd,
-      recoveredWeeks: index.adjusted.recoveredWeeks,
-    };
-    const moves = o.moves.map((m) => `${pct(m.change)} since the week ending ${m.since}`).join(', ');
-    notes.push(
-      `npm-wide downloads (index of ${NPM_INDEX_PACKAGES.length} large packages) to the week ending ${index.adjusted.reference.windowEnd}: ${moves || 'no earlier weeks to compare'}. ` +
-        (ixParams?.betaWeeks
-          ? `This package moves ${beta.toFixed(2)}× as much as npm week to week, so the trend is fitted with that share of npm-wide moves removed (${pct(Math.expm1(fc.fit!.slope))} per week); `
-          : `The trend is fitted on downloads relative to npm (${pct(Math.expm1(fc.fit!.slope))} per week); `) +
-        `npm-wide moves over the next ${o.horizonWeeks} week(s) count as uncertainty (±${(indexSd * 100).toFixed(0)}% at 1 SD).`,
-    );
-    if (index.adjusted.recoveredWeeks.length) {
-      notes.push(`Weeks with counter outages valued relative to npm on the days that were counted: ${index.adjusted.recoveredWeeks.join(', ')}.`);
-    }
-  }
   const recentSpike = fc.spikes.some((s) => toDayNumber(s) >= toDayNumber(last.windowEnd) - 7);
   if (fc.levelShift) {
     const pctChange = `${fc.levelShift.change > 0 ? '+' : ''}${(fc.levelShift.change * 100).toFixed(0)}%`;
@@ -348,7 +243,7 @@ export function computeBaseline(
     method: {
       name: MODEL_NAME,
       version: MODEL_VERSION,
-      description: index ? `${METHOD_DESCRIPTION} ${NPM_INDEX_DESCRIPTION}` : METHOD_DESCRIPTION,
+      description: METHOD_DESCRIPTION,
       details: {
         dataThrough,
         weeksUsed: fc.used.length,
@@ -356,16 +251,15 @@ export function computeBaseline(
         weeklyGrowth: Math.expm1(fc.fit!.slope),
         forecastMedian: totals.median,
         forecastRange80: totals.range80,
-        lastObservedWeek: lastObserved,
+        lastObservedWeek: { windowEnd: last.windowEnd, total: last.total },
         mu: fc.mu,
         sigma: fc.sigma,
         rawProbability: prob.rawProbability,
         shrinkWeight: fc.shrinkWeight,
-        tailShrink: fitParams.tailShrink,
+        tailShrink: params.tailShrink,
         bootstrapReplicates: params.bootstrapReplicates,
         seed,
         inputsHash,
-        npmIndex: npmIndexDetails,
       },
     },
     inputsUsed,

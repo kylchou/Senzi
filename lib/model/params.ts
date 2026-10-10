@@ -42,34 +42,10 @@ export interface ModelParams {
   levelShiftThreshold: number | null;
   /** Residuals beyond this many robust SDs are reported as spikes. */
   spikeThreshold: number;
-  /**
-   * npm questions: fit the company's downloads relative to an npm-wide index
-   * (lib/model/npm-index.ts) and treat npm-wide moves as their own uncertainty.
-   * Null disables it; the model then fits raw downloads.
-   */
-  npmIndex: NpmIndexParams | null;
-}
-
-export interface NpmIndexParams {
-  /** Spread settings for the index-adjusted fit (replace sigmaScale, driftPerWeek, trendDamping, tailShrink). */
-  sigmaScale: number;
-  driftPerWeek: number;
-  trendDamping: number;
-  tailShrink: number;
-  /** Share of the index's own recent trend carried into the forecast (0 = npm stays at its current level). */
-  indexTrendDamping: number;
-  /** Multiplier on the historical spread of h-week index changes. */
-  indexSigmaScale: number;
-  /** Weeks of index history used to measure that spread. */
-  volatilityWeeks: number;
-  /** A week with at least this many usable days gets a relative-to-npm value even if some days are missing. */
-  minShareDays: number;
-  /** Weeks used to estimate how strongly the company moves with the index (beta). Null fixes beta at 1. */
-  betaWeeks: number | null;
 }
 
 export const MODEL_NAME = 'log-trend-theil-sen';
-export const MODEL_VERSION = '1.3.0';
+export const MODEL_VERSION = '1.2.0';
 
 export const defaultParams: ModelParams = {
   fitWeeks: 16,
@@ -94,18 +70,4 @@ export const defaultParams: ModelParams = {
   // KNOWN ISSUE: 0.5 misses the Databricks PyPI drop; 0.4 scored the same on older
   // data. See "Known issues" in docs/model.md before changing it.
   levelShiftThreshold: 0.5,
-  // Tuned on the backtest calibration period (as-of dates before 2025-10-01);
-  // see "npm index" in docs/model-backtest.md. An estimated beta (betaWeeks: 52)
-  // was tested and scored about the same as a fixed beta of 1, with noisy estimates.
-  npmIndex: {
-    sigmaScale: 1.25,
-    driftPerWeek: 0.03,
-    trendDamping: 0.75,
-    tailShrink: 0.05,
-    indexTrendDamping: 1,
-    indexSigmaScale: 1,
-    volatilityWeeks: 104,
-    minShareDays: 4,
-    betaWeeks: null,
-  },
 };

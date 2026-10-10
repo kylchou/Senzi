@@ -9,7 +9,7 @@ import { computeBaseline, type BaselineOptions } from './baseline';
 import { FileModelStore, type ModelStore } from './store';
 import type { BaselineResult } from './types';
 
-export interface GetBaselineOptions extends Omit<BaselineOptions, 'sponsorPoints' | 'npmIndexPoints'> {
+export interface GetBaselineOptions extends Omit<BaselineOptions, 'sponsorPoints'> {
   asOf?: Date;
   store?: ModelStore;
 }
@@ -28,7 +28,6 @@ export function getBaseline(questionId: string, options: GetBaselineOptions = {}
   return computeBaseline(question, store.readPoints(question.companyId), options.asOf ?? new Date(), {
     ...(options.params ? { params: options.params } : {}),
     sponsorPoints: store.readSponsorPoints(question.companyId),
-    npmIndexPoints: store.readNpmIndexPoints(),
   });
 }
 
@@ -97,12 +96,11 @@ export function toMarketModelFields(result: BaselineResult): {
   };
 }
 
-export { computeBaseline, METHOD_DESCRIPTION, NPM_INDEX_DESCRIPTION } from './baseline';
+export { computeBaseline, METHOD_DESCRIPTION } from './baseline';
 export { getCompanyIndicators, getIndicatorHistory, type Indicator, type IndicatorHistory } from './indicators';
 export { crossCheckSponsor, sponsorPoint, sponsorLabel, type SponsorEntry } from './sponsor';
 export { makeQuestion, questionText, resolveQuestion, type Resolution } from './questions';
-export { COMPANIES, getCompany, metricIds, metricsFor, NPM_INDEX_PACKAGES } from './catalog';
-export { npmAdjustedHistory, type NpmAdjustedWeek } from './npm-index';
+export { COMPANIES, getCompany, metricIds, metricsFor } from './catalog';
 export { defaultParams, MODEL_NAME, MODEL_VERSION, type ModelParams } from './params';
 export { FileModelStore, MemoryModelStore, type ModelStore } from './store';
 export type * from './types';

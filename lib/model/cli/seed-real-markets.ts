@@ -10,11 +10,13 @@
 // - Open questions of several kinds (lib/model/question-kinds.ts): npm
 //   downloads, web traffic rank, hiring and SEC funding filings. Each opens at
 //   the model's baseline as of its open date, and only once its data was public.
-//   Download markets also record the model's latest value afterwards.
+//   Download and traffic markets record each model change at the time its data was published.
 // - One past download question per company, resolved from the real npm counts
 //   and settled through the LMSR settlement function.
 // - Simulated traders (labelled "Simulated trader") whose trades go through
 //   the real forecasting engine, so prices, snapshots and fills are genuine.
+//   They read the same public data as the model, so the crowd stays near the
+//   model line and follows it, with a lag, when new data moves the model.
 //
 // It TRUNCATES every table first (local development only; refuses non-local
 // databases). Run Ky's `npm run db:seed` to get his demo data back.
@@ -57,7 +59,7 @@ const TRAFFIC_MULTIPLE = 0.95;
 const HIRING_DAY = "2026-11-08";
 const HIRING_MULTIPLE = 1.05;
 const FUNDING_BY = "2026-12-31";
-const TRADERS = 40;
+const TRADERS = 80;
 
 /**
  * Starter data for the shared demo VC firm (Demo Ventures): every PostHog question, plus
@@ -268,29 +270,93 @@ async function createQuestionMarket(admin: SessionUser, startupId: string, q: Ma
   return { market: opened, baseline };
 }
 
-/** Simulated trades through the real engine, spread between `from` and `to`. */
-async function simulateTrades(marketId: string, baseline: number, traders: SessionUser[], from: Date, to: Date, count: number, rand: () => number) {
+/** The model's value over a market's life: the opening baseline, then each change as new data was published. */
+type ModelStep = { at: Date; result: BaselineResult };
+
+/**
+ * Replays the model at every time new data for the question became public, from `opensAt` to `until`,
+ * keeping only the times its inputs changed. Trades never feed it.
+ */
+function modelTimeline(q: MarketQuestion, points: DataPoint[], opening: BaselineResult, opensAt: Date, until: Date): ModelStep[] {
+  const steps: ModelStep[] = [{ at: opensAt, result: opening }];
+  const times = [...new Set(points.filter((p) => p.metricId === q.metricId).map((p) => Date.parse(p.availableAt)))]
+    .filter((t) => t > opensAt.getTime() && t <= until.getTime())
+    .sort((a, b) => a - b);
+  for (const t of times) {
+    const r = baselineFor(q, points, new Date(t));
+    if (r.status !== "ok" || r.probability === null || r.method.details.inputsHash === steps.at(-1)!.result.method.details.inputsHash) continue;
+    steps.push({ at: new Date(t), result: r });
+  }
+  return steps;
+}
+
+function modelValueAt(timeline: ModelStep[], at: number): number {
+  let value = timeline[0]!.result.probability!;
+  for (const s of timeline) if (s.at.getTime() <= at) value = s.result.probability!;
+  return value;
+}
+
+/**
+ * Simulated trades through the real engine, spread between `from` and `to`, interleaved in time
+ * with the model's updates (which go through recordModelValue, as the real model service would).
+ *
+ * Simulated traders read the same public data the model does, so their beliefs sit near the model:
+ * each trader anchors on the model value they last saw (they notice new data 0-24 hours after it is
+ * published), plus a small market-wide lean and personal noise. Bets are sized by conviction: a trader
+ * moves the price part of the way to their belief, so the crowd catches up after the model moves.
+ */
+async function simulateTrades(marketId: string, timeline: ModelStep[], traders: SessionUser[], from: Date, to: Date, count: number, rand: () => number) {
   const gauss = () => Math.sqrt(-2 * Math.log(Math.max(rand(), 1e-12))) * Math.cos(2 * Math.PI * rand());
-  // The crowd leans away from the model by a market-specific amount, so the lines can differ.
-  const crowdCenter = Math.min(0.95, Math.max(0.05, baseline + 0.1 * gauss()));
-  let placed = 0;
+  const clampP = (p: number) => Math.min(0.97, Math.max(0.03, p));
+  // A market-specific lean keeps the crowd line near the model, not on top of it.
+  const lean = 0.04 * gauss();
+  type Event = { at: Date; run: () => Promise<boolean> };
+  const events: Event[] = timeline.slice(1).map((step) => ({
+    at: step.at,
+    run: async () => {
+      await writeBaselineSnapshot(marketId, step.result);
+      await db.$transaction((tx) =>
+        engineFor(tx, new ManualClock(step.at)).recordModelValue({ kind: "service", serviceId: "model-service" }, marketId, {
+          value: step.result.probability!,
+          asOf: step.at,
+          modelVersion: `${step.result.method.name}@${step.result.method.version}`,
+          inputsNote: `data through ${step.result.method.details.dataThrough}`,
+        }),
+      );
+      return false;
+    },
+  }));
   for (let i = 0; i < count; i++) {
     const at = new Date(from.getTime() + ((i + 0.5 + 0.4 * (rand() - 0.5)) / count) * (to.getTime() - from.getTime()));
     const trader = traders[Math.floor(rand() * traders.length)]!;
-    const belief = Math.min(0.98, Math.max(0.02, crowdCenter + 0.12 * gauss()));
-    const credits = 20 + Math.floor(rand() * 130);
-    try {
-      await db.$transaction(async (tx) => {
-        const engine = engineFor(tx, new ManualClock(at));
-        const quote = await engine.quoteForecast({ marketId, side: "YES", amount: credits });
-        const side = belief > (quote.fill.priceBefore ?? baseline) ? "YES" : "NO";
-        await engine.submitForecast({ kind: "user", userId: trader.id }, { marketId, side, amount: credits, idempotencyKey: `sim-${marketId}-${i}` });
-      });
-      placed++;
-    } catch (err) {
-      if ((err as { code?: string }).code !== "INSUFFICIENT_BALANCE") throw err;
-    }
+    const seen = modelValueAt(timeline, at.getTime() - rand() * 24 * 3_600_000);
+    const belief = clampP(seen + lean + 0.05 * gauss());
+    const conviction = 0.35 + 0.5 * rand();
+    events.push({
+      at,
+      run: async () => {
+        try {
+          await db.$transaction(async (tx) => {
+            const engine = engineFor(tx, new ManualClock(at));
+            const { fill } = await engine.quoteForecast({ marketId, side: "YES", amount: 1 });
+            const price = fill.priceBefore ?? seen;
+            const side = belief > price ? "YES" : "NO";
+            // LMSR cost of moving the price exactly to the belief; the trader buys part of the way.
+            const toBelief = side === "YES" ? fill.b * Math.log((1 - price) / (1 - belief)) : fill.b * Math.log(price / belief);
+            const amount = Math.round(Math.min(300, Math.max(10, conviction * toBelief)));
+            await engine.submitForecast({ kind: "user", userId: trader.id }, { marketId, side, amount, idempotencyKey: `sim-${marketId}-${i}` });
+          });
+          return true;
+        } catch (err) {
+          if ((err as { code?: string }).code !== "INSUFFICIENT_BALANCE") throw err;
+          return false;
+        }
+      },
+    });
   }
+  events.sort((a, b) => a.at.getTime() - b.at.getTime());
+  let placed = 0;
+  for (const e of events) if (await e.run()) placed++;
   return placed;
 }
 
@@ -496,23 +562,9 @@ async function main() {
       const until = new Date(Math.min(NOW.getTime() - 5 * 60_000, made.market.closesAt.getTime() - 3_600_000));
       const span = until.getTime() - from.getTime();
       const count = span < 30 * 60_000 ? 0 : span < 24 * 3_600_000 ? 4 : 9 + Math.floor(rand() * 6);
-      const placed = count ? await simulateTrades(made.market.id, made.baseline.probability!, verifiedOnly ? invited : traders, from, until, count, rand) : 0;
-
-      // Download and traffic-rank markets: the model refreshes on newer data (trades never feed it).
-      if (refreshModel) {
-        const latest = baselineFor(q, points, NOW);
-        if (latest.status === "ok" && latest.probability !== null && latest.method.details.inputsHash !== made.baseline.method.details.inputsHash) {
-          await writeBaselineSnapshot(made.market.id, latest);
-          await db.$transaction((tx) =>
-            engineFor(tx, new ManualClock(NOW)).recordModelValue({ kind: "service", serviceId: "model-service" }, made.market.id, {
-              value: latest.probability!,
-              asOf: NOW,
-              modelVersion: `${latest.method.name}@${latest.method.version}`,
-              inputsNote: `${q.category} data through ${latest.method.details.dataThrough}`,
-            }),
-          );
-        }
-      }
+      // Download and traffic-rank markets: the model refreshes as new data is published (trades never feed it).
+      const timeline = refreshModel ? modelTimeline(q, points, made.baseline, opensAt, NOW) : [{ at: opensAt, result: made.baseline }];
+      const placed = await simulateTrades(made.market.id, timeline, verifiedOnly ? invited : traders, from, until, count, rand);
       summary.push(`${company.name} [${q.kind}] ${q.text} -> opened at ${pct(made.baseline.probability)}, ${placed} trades`);
     }
 
@@ -533,7 +585,8 @@ async function main() {
     }
     const past = await createQuestionMarket(admin, startup.id, pastQ, points, PAST_OPEN_AT);
     if (!past) continue;
-    const placed = await simulateTrades(past.market.id, past.baseline.probability!, traders, new Date(PAST_OPEN_AT.getTime() + 3_600_000), new Date(past.market.closesAt.getTime() - 3_600_000), 8 + Math.floor(rand() * 5), rand);
+    const pastTimeline = modelTimeline(pastQ, points, past.baseline, PAST_OPEN_AT, past.market.closesAt);
+    const placed = await simulateTrades(past.market.id, pastTimeline, traders, new Date(PAST_OPEN_AT.getTime() + 3_600_000), new Date(past.market.closesAt.getTime() - 3_600_000), 8 + Math.floor(rand() * 5), rand);
     await db.market.update({ where: { id: past.market.id }, data: { status: "CLOSED" } });
     const r = await db.resolution.create({
       data: {

@@ -6,7 +6,7 @@ The tables follow the conventions in `prisma/schema.prisma` on `dev`: `cuid()` s
 
 ## What the model needs to store
 
-1. **Data points**, scraped or sponsor-provided, each with its source, period, and the time it became publicly available. The backtest depends on that last field. The npm index basket (`data/model/npm-index.jsonl`, about 16.5k daily rows for 12 packages) belongs to no startup: either make `startupId` optional, where null means a market-wide series, or keep the index in a separate table with the same columns minus `startupId`.
+1. **Data points**, scraped or sponsor-provided, each with its source, period, and the time it became publicly available. The backtest depends on that last field.
 2. **Question specs** that make a market machine-resolvable: metric, threshold, and 7-day window.
 3. **Baseline snapshots**: probability, band, inputs, sources and as-of time. A new row is written only when the inputs change.
 4. **Run logs** for collection and backtests, so we can show where every number came from.

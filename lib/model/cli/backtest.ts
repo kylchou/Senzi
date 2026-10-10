@@ -12,46 +12,31 @@ import {
   calibrationTable,
   caseProbability,
   expectedCalibrationError,
-  indexCaseProbability,
-  indexMedianApe,
-  indexRangeCoverage,
   medianApe,
   rangeCoverage,
   PERSISTENCE,
   score,
-  tuneIndexSettings,
   tuneRangeSigma,
   tuneSettings,
   uniqueFits,
   type BacktestCase,
   type CalibrationBin,
-  type IndexBacktestInput,
-  type IndexTunedSettings,
   type Scores,
   type TunedSettings,
 } from '../backtest';
-import { COMPANIES, NPM_INDEX_PACKAGES } from '../catalog';
 import { defaultParams, type ModelParams } from '../params';
 import { DEFAULT_DATA_DIR, FileModelStore } from '../store';
 
 /** Tune on as-of dates before this day; score on dates from it on. */
 const SPLIT = '2025-10-01';
-/** Start of the 2026 npm-wide shift, reported separately. */
-const SHIFT_FROM = '2026-07-01';
 
 const store = new FileModelStore();
-// Only the selected demo companies; files left from earlier selections are ignored.
-const companyIds = new Set(COMPANIES.map((c) => c.id));
-const points = store.readPoints().filter((p) => companyIds.has(p.companyId));
-const npmIndexPoints = store.readNpmIndexPoints();
+const points = store.readPoints();
 const metrics = [...new Set(points.map((p) => p.metricId))].filter((m) => /^(npm|pypi)_downloads:/.test(m)).sort();
-const indexInput = (betaWeeks: number | null): IndexBacktestInput | undefined =>
-  defaultParams.npmIndex && npmIndexPoints.length ? { points: npmIndexPoints, params: { ...defaultParams.npmIndex, betaWeeks }, cache: new Map() } : undefined;
 
 console.log(`Building cases for ${metrics.length} series...`);
 const t0 = Date.now();
-// npm cases also carry an index-adjusted fit (case.adj); the raw-model results below ignore it.
-const all: BacktestCase[] = metrics.flatMap((m) => buildCases(points, m, defaultParams, undefined, indexInput(defaultParams.npmIndex?.betaWeeks ?? null)));
+const all: BacktestCase[] = metrics.flatMap((m) => buildCases(points, m, defaultParams));
 console.log(`${all.length} cases (${uniqueFits(all).length} fits) in ${((Date.now() - t0) / 1000).toFixed(1)}s`);
 
 const calib = all.filter((c) => c.dataThrough < SPLIT);
@@ -151,65 +136,6 @@ const levelShift = [null, 0.2, 0.3, 0.4, 0.5].map((levelShiftThreshold) => {
   return { levelShiftThreshold, calibrationLogLoss: tuned.logLoss, test: score(probs(tst, tuned, params), ys(tst)) };
 });
 
-// npm index: the same npm cases fitted relative to the npm-wide index.
-// Tuned on calibration cases, compared with the shipped raw settings on the same test cases.
-console.log('npm index...');
-const npmIndex = evaluateIndex();
-
-function evaluateIndex() {
-  const withIndex = all.filter((c) => c.adj);
-  if (!withIndex.length || !defaultParams.npmIndex) return null;
-  const cal = withIndex.filter((c) => c.dataThrough < SPLIT);
-  const tst = withIndex.filter((c) => c.dataThrough >= SPLIT);
-  const tuned = tuneIndexSettings(cal, defaultParams, shipped);
-  const ix = defaultParams.npmIndex;
-  const shippedIndex: IndexTunedSettings = { ...shipped, ...ix, levelAnchor: defaultParams.levelAnchor };
-  const compare = (cs: BacktestCase[]) => ({
-    n: cs.length,
-    raw: score(probs(cs, shipped), ys(cs)),
-    index: score(cs.map((c) => indexCaseProbability(c, shippedIndex, defaultParams, shipped)), ys(cs)),
-  });
-  const bins = (ps: number[], cs: BacktestCase[]) => expectedCalibrationError(calibrationTable(ps, ys(cs)));
-  // Alternatives on the test period, for information only (not used to choose settings).
-  const variants = ([[0, 1], [0.5, 1], [1, 1], [1, 2]] as const).map(([indexTrendDamping, indexSigmaScale]) => {
-    const v = { ...shippedIndex, indexTrendDamping, indexSigmaScale };
-    const sc = (cs: BacktestCase[]) => score(cs.map((c) => indexCaseProbability(c, v, defaultParams, shipped)), ys(cs));
-    return { indexTrendDamping, indexSigmaScale, test: sc(tst), shiftPeriod: sc(tst.filter((c) => c.dataThrough >= SHIFT_FROM)) };
-  });
-  // Estimated beta (how strongly each package moves with npm) instead of 1.
-  const betaCases = metrics.filter((m) => m.startsWith('npm_downloads:')).flatMap((m) => buildCases(points, m, defaultParams, undefined, indexInput(52))).filter((c) => c.adj);
-  const betaTuned = tuneIndexSettings(betaCases.filter((c) => c.dataThrough < SPLIT), defaultParams, shipped);
-  const betaTest = betaCases.filter((c) => c.dataThrough >= SPLIT);
-  const betaScore = (cs: BacktestCase[]) => score(cs.map((c) => indexCaseProbability(c, betaTuned, defaultParams, shipped)), ys(cs));
-  return {
-    packages: [...NPM_INDEX_PACKAGES],
-    cases: { calibration: cal.length, test: tst.length },
-    tunedOnCalibration: tuned,
-    rawCalibrationLogLoss: score(probs(cal, shipped), ys(cal)).logLoss,
-    shipped: shippedIndex,
-    test: compare(tst),
-    shiftPeriod: compare(tst.filter((c) => c.dataThrough >= SHIFT_FROM)),
-    byHorizon: [1, 2, 4, 8].map((h) => {
-      const cs = tst.filter((c) => c.horizon === h);
-      return {
-        horizon: h,
-        ...compare(cs),
-        medianApeRaw: medianApe(cs, shipped),
-        medianApeIndex: indexMedianApe(cs, shippedIndex),
-        coverageRaw: rangeCoverage(cs, shipped, defaultParams),
-        coverageIndex: indexRangeCoverage(cs, shippedIndex, defaultParams),
-      };
-    }),
-    bySeries: [...new Set(tst.map((c) => c.metricId))].sort().map((m) => ({ metricId: m, ...compare(tst.filter((c) => c.metricId === m)) })),
-    ece: {
-      raw: bins(probs(tst, shipped), tst),
-      index: bins(tst.map((c) => indexCaseProbability(c, shippedIndex, defaultParams, shipped)), tst),
-    },
-    variants,
-    estimatedBeta: { tuned: betaTuned, test: betaScore(betaTest), shiftPeriod: betaScore(betaTest.filter((c) => c.dataThrough >= SHIFT_FROM)) },
-  };
-}
-
 const results = {
   generatedAt: new Date().toISOString(),
   split: SPLIT,
@@ -228,7 +154,6 @@ const results = {
   fitWindow,
   levelShift,
   range: { tunedOnCalibration: rangeCalib, testCoverageByHorizon: rangeTestCoverage, shipped: rangeShipped },
-  npmIndex,
 };
 
 mkdirSync(join(DEFAULT_DATA_DIR, 'backtest'), { recursive: true });
@@ -269,39 +194,6 @@ function calibRows(bins: CalibrationBin[]) {
     .filter((b) => b.n)
     .map((b) => `| ${pct(b.lower)}–${pct(b.upper)} | ${b.n} | ${pct(b.meanPredicted, 1)} | ${pct(b.observed, 1)} |`)
     .join('\n');
-}
-
-function renderIndex(): string {
-  const ix = results.npmIndex;
-  if (!ix) return '## npm index\n\nNo npm index data (`data/model/npm-index.jsonl`); not evaluated.\n';
-  const cmp = (name: string, c: { n: number; raw: Scores; index: Scores }) =>
-    `| ${name} | ${c.n} | ${f(c.raw.brier)} | ${f(c.index.brier)} | ${f(c.raw.logLoss)} | ${f(c.index.logLoss)} |`;
-  const s = ix.shipped;
-  return `## npm index
-
-npm questions are fitted relative to an npm-wide index: the equal-weighted mean of log 7-day totals for ${ix.packages.length} large, unrelated packages (${ix.packages.join(', ')}). See \`lib/model/npm-index.ts\`. The rows below score the raw model (shipped settings) and the index model on the same npm cases (${ix.cases.calibration} calibration, ${ix.cases.test} test).
-
-Index settings tuned on the calibration period: index trend carried ${s.indexTrendDamping}, index spread × ${s.indexSigmaScale}, level anchor ${s.levelAnchor}, trend damping ${s.trendDamping}, tail shrink ${s.tailShrink}, σ scale ${s.sigmaScale}, drift ${s.driftPerWeek}. Calibration-period log loss: index ${f(ix.tunedOnCalibration.logLoss)}, raw ${f(ix.rawCalibrationLogLoss)}.
-
-| Cases | n | Brier (raw) | Brier (index) | Log loss (raw) | Log loss (index) |
-| --- | --- | --- | --- | --- | --- |
-${cmp('Test period', ix.test)}
-${cmp(`As-of ${SHIFT_FROM} on (npm-wide shift)`, ix.shiftPeriod)}
-${ix.byHorizon.map((h) => cmp(`${h.horizon} week(s) ahead`, h)).join('\n')}
-${ix.bySeries.map((x) => cmp(x.metricId, x)).join('\n')}
-
-Calibration error on the test period: raw ${f(ix.ece.raw)}, index ${f(ix.ece.index)}. Median absolute error of the median forecast at 1/2/4/8 weeks: raw ${ix.byHorizon.map((h) => pct(h.medianApeRaw, 1)).join(' / ')}, index ${ix.byHorizon.map((h) => pct(h.medianApeIndex, 1)).join(' / ')}. Actual totals inside the probability model's 80% range: raw ${ix.byHorizon.map((h) => pct(h.coverageRaw)).join(' / ')}, index ${ix.byHorizon.map((h) => pct(h.coverageIndex)).join(' / ')}.
-
-Alternatives, scored on the test period for information only (settings are chosen on the calibration period):
-
-| Index trend carried | Index spread × | Test Brier | Test log loss | Shift-period Brier |
-| --- | --- | --- | --- | --- |
-${ix.variants.map((v) => `| ${v.indexTrendDamping} | ${v.indexSigmaScale} | ${f(v.test.brier)} | ${f(v.test.logLoss)} | ${f(v.shiftPeriod.brier)} |`).join('\n')}
-
-Assuming npm stays at its current level (index trend 0) scores worst, including during the shift: npm kept growing after the jump. Estimating how strongly each package moves with npm (beta from 52 weeks, instead of 1) scored test Brier ${f(ix.estimatedBeta.test.brier)} and shift-period Brier ${f(ix.estimatedBeta.shiftPeriod.brier)}, about the same as beta = 1. The weekly estimates swing widely between dates, so the simpler beta = 1 is used.
-
-**Reading this.** The index model is better calibrated and better during the npm-wide shift, slightly worse over the whole test period, and worse on some series. Holiday weeks (Dec 20 – Jan 10) are left out of the index's spread unless the question's own span touches them.
-`;
 }
 
 function renderMarkdown(): string {
@@ -396,8 +288,6 @@ ${row('Without shrinkage', thin.withoutShrink)}
 ### Band
 
 Average width of the model-uncertainty band (10th–90th percentile) on a sample of test cases: ${f(bandWidth)}.
-
-${renderIndex()}
 
 ## Limits of this backtest
 
