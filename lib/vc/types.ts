@@ -84,6 +84,11 @@ export interface MarketSummary {
 
 
 export interface MarketEstimate {
+  /** Independent model and LMSR prices; absent on legacy estimates. */
+  modelValue?: number | null;
+  generalPrice?: number | null;
+  specializedPrice?: number | null;
+  specializedCount?: number;
   marketId: string;
   status: MarketStatus;
   /** Opening baseline set before any community forecasts. Not a forecast. */
@@ -121,9 +126,12 @@ export interface CalibratedProbability {
 }
 
 export interface EstimatePoint {
+  modelValue?: number | null;
+  specializedPrice?: number | null;
   /** Snapshot id, when the point comes from a stored snapshot. */
   id?: string;
   at: Date;
+  /** General LMSR price. Legacy property name retained for existing consumers. */
   yesShare: number | null;
   totalCredits: number;
   participantCount: number;
@@ -276,6 +284,7 @@ export interface StudyReport {
   };
   communityEstimate: {
     label: string;
+    /** Legacy document key; the accompanying label distinguishes LMSR from old allocation reports. */
     yesAllocationShare: number | null;
     yesCredits: number;
     noCredits: number;
@@ -320,7 +329,7 @@ export interface CompareQuestion {
   status: MarketStatus;
   closesAt: Date | null;
   openingBaseline: number | null;
-  /** Community YES credit-allocation share. Not a calibrated probability. */
+  /** General LMSR price; legacy property name retained for comparison consumers. */
   allocationShare: number | null;
   calibratedProbability: number | null;
   forecasters: number;
@@ -402,4 +411,81 @@ export interface StartupNewsView {
   url: string;
   publishedAt: Date;
   verification: "UNVERIFIED" | "VERIFIED" | "DISPUTED";
+}
+
+// ---------------------------------------------------------------------------
+// Opening line: the model sets every study's starting price
+// ---------------------------------------------------------------------------
+
+export type EstimateStatus = "OK" | "INSUFFICIENT_DATA" | "NOT_MEASURABLE";
+export type ModelConfidence = "low" | "medium" | "high";
+
+/** The measurable form of a question: "will <metric> be at least <threshold> by <targetDate>?" */
+export interface MetricLink {
+  metricId: string;
+  threshold: number;
+  /** YYYY-MM-DD (UTC). For weekly totals, the last day of the 7-day window. */
+  targetDate: string;
+}
+
+/**
+ * A figure the firm entered on its company page (ModelDataPoint, sponsor
+ * provided). Private to the firm; it can inform an estimate but never
+ * resolves a question.
+ */
+export interface FirmObservation {
+  metricId: string;
+  value: number;
+  /** YYYY-MM-DD. Equal to periodEnd for snapshot metrics (ARR, users). */
+  periodStart: string;
+  periodEnd: string;
+  note: string;
+  /** When the firm entered it (ISO). Defaults to the end of the period. */
+  availableAt?: string;
+  /** Made-up demo figures are labelled as such everywhere. */
+  simulated?: boolean;
+}
+
+/** A metric the model can forecast for a startup, with an independent public source that resolves it. */
+export interface OpeningLineMetric {
+  id: string;
+  label: string;
+  unit: string;
+  kind: "snapshot" | "weekly_total";
+  /** True when public history exists; false when only the firm's own figures can feed it. */
+  hasPublicData: boolean;
+}
+
+/** One model run for a study question. */
+export interface ModelEstimate {
+  status: EstimateStatus;
+  link: MetricLink | null;
+  /** In [0.01, 0.99] when status is OK; null otherwise. */
+  probability: number | null;
+  low: number | null;
+  high: number | null;
+  confidence: ModelConfidence | null;
+  modelName: string;
+  modelVersion: string;
+  inputsHash: string | null;
+  /** Public-safe method note; never contains the firm's raw figures. */
+  methodology: string | null;
+  /** Why the estimate is what it is, or what data is missing. */
+  notes: string[];
+  /** Data points used, including the firm's private figures. Never sent to other firms. */
+  inputsUsed: Record<string, unknown>[];
+  /** Precise question and criteria generated from the link; null when not measurable. */
+  question: string | null;
+  yesCriteria: string | null;
+  noCriteria: string | null;
+  /** The public source that resolves the linked question; added to the study's sources. */
+  resolutionSource: { url: string; title: string } | null;
+  asOf: Date;
+}
+
+/** A study's stored opening line. */
+export interface StudyModelEstimate extends ModelEstimate {
+  studyId: string;
+  observations: FirmObservation[];
+  calculatedById: string | null;
 }

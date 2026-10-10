@@ -1,6 +1,6 @@
 {
   "crons": [
-    { "path": "/api/admin/cron/close-markets", "schedule": "*/15 * * * *" },
-    { "path": "/api/vc/cron", "schedule": "*/15 * * * *" }
+    { "path": "/api/admin/cron/close-markets", "schedule": "0 5 * * *" },
+    { "path": "/api/vc/cron", "schedule": "0 6 * * *" }
   ]
 }

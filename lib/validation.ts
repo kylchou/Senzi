@@ -1,5 +1,7 @@
 import { z } from "zod";
 import {
+  AccountType,
+  VerificationStatus,
   CreditTransactionType,
   ForecastSide,
   MarketStatus,
@@ -106,6 +108,32 @@ export const updateProfileSchema = z
   .strict();
 
 export const setPlatformRoleSchema = z.object({ platformRole: z.enum(PlatformRole) }).strict();
+
+export const vcVerificationSchema = z
+  .object({
+    firmName: z.string().trim().min(2).max(120),
+    firmWebsite: httpUrlSchema,
+    jobTitle: z.string().trim().min(2).max(120),
+    workEmail: z.string().trim().toLowerCase().max(254).pipe(z.email()),
+    linkedinUrl: optionalUrl,
+    note: optionalText(1000),
+  })
+  .strict();
+
+export const reviewVerificationSchema = z
+  .object({
+    decision: z.enum([VerificationStatus.APPROVED, VerificationStatus.REJECTED]),
+    note: optionalText(1000),
+  })
+  .strict()
+  .refine((v) => v.decision === VerificationStatus.APPROVED || !!v.note, {
+    message: "Say why, so the applicant knows what to fix",
+    path: ["note"],
+  });
+
+export const setAccountTypeSchema = z
+  .object({ accountType: z.enum(AccountType), reason: z.string().trim().min(3).max(500) })
+  .strict();
 
 // ---------------------------------------------------------------------------
 // Organizations
@@ -270,11 +298,31 @@ export const createMarketForStudySchema = z
     noCriteria: criteriaSchema("NO"),
     closesAt: dateInputSchema,
     openingBaseline: z.object({ value: openingBaselineSchema, methodology: z.string().trim().min(3).max(1000) }),
+    /** The model estimate that set the opening baseline; becomes the market's model line. */
+    model: z
+      .object({
+        low: openingBaselineSchema,
+        high: openingBaselineSchema,
+        confidence: z.enum(["low", "medium", "high"]),
+        asOf: dateInputSchema,
+        modelName: z.string().trim().min(1).max(100),
+        modelVersion: z.string().trim().min(1).max(100),
+        inputsHash: z.string().trim().min(1).max(200),
+        inputsNote: z.string().trim().max(500),
+        /** Public-safe description of the inputs: no firm-entered values. */
+        inputsUsed: z.array(z.record(z.string(), z.unknown())).max(500),
+        notes: z.array(z.string().max(500)).max(50),
+      })
+      .strict(),
     visibility: z.enum(StudyVisibility),
     sources: z.array(z.object({ url: httpUrlSchema, title: z.string().trim().min(1).max(200) })).max(20),
     createdById: idSchema,
   })
-  .strict();
+  .strict()
+  .refine((v) => v.model.low <= v.openingBaseline.value && v.openingBaseline.value <= v.model.high, {
+    message: "The opening baseline must sit inside the model's band",
+    path: ["openingBaseline", "value"],
+  });
 
 export const marketStatusChangeSchema = z
   .object({
@@ -443,6 +491,8 @@ export const forecastSubmissionSchema = z
   .strict();
 
 export type UpdateProfileInput = z.output<typeof updateProfileSchema>;
+export type VcVerificationInput = z.output<typeof vcVerificationSchema>;
+export type ReviewVerificationInput = z.output<typeof reviewVerificationSchema>;
 export type CreateOrganizationInput = z.output<typeof createOrganizationSchema>;
 export type UpdateOrganizationInput = z.output<typeof updateOrganizationSchema>;
 export type AddMemberInput = z.output<typeof addMemberSchema>;

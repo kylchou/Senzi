@@ -22,10 +22,13 @@ export function StudyTable({ rows, showChange = false }: { rows: StudyRow[]; sho
           <tr className="border-b border-slate-200 dark:border-slate-800">
             <th className="px-4 py-2 font-medium sm:px-2">Question</th>
             <th className="px-2 py-2 font-medium">Status</th>
-            <th className="px-2 py-2 text-right font-medium">Baseline</th>
-            <th className="px-2 py-2 text-right font-medium" title="Community YES credit-allocation share — not a calibrated probability">
-              YES allocation
+            <th className="px-2 py-2 text-right font-medium">Model</th>
+            <th className="px-2 py-2 text-right font-medium" title="General LMSR price — not a calibrated probability">
+              General LMSR
             </th>
+            <th className="px-2 py-2 text-right font-medium">Verified LMSR</th>
+            <th className="px-2 py-2 text-right font-medium">Model − general / Verified − general</th>
+            <th className="px-2 py-2 font-medium">Outcome / evidence</th>
             {showChange && <th className="px-2 py-2 text-right font-medium">7d change</th>}
             <th className="px-2 py-2 text-right font-medium">Participants</th>
             <th className="px-4 py-2 text-right font-medium sm:px-2">Deadline</th>
@@ -50,13 +53,22 @@ export function StudyTable({ rows, showChange = false }: { rows: StudyRow[]; sho
                 <StatusBadge status={study.status} />
               </td>
               <td className="px-2 py-2 text-right tabular-nums">
-                {formatShare(baselineValue ?? estimate?.openingBaseline?.value ?? study.baselineValue)}
+                {(baselineValue ?? estimate?.openingBaseline?.value ?? study.baselineValue) == null && !study.marketId ? (
+                  <span className="text-xs text-amber-700 dark:text-amber-300" title="The model can't set an opening line yet, so forecasting can't open">
+                    Not enough data
+                  </span>
+                ) : (
+                  formatShare(estimate?.modelValue ?? baselineValue ?? estimate?.openingBaseline?.value ?? study.baselineValue)
+                )}
               </td>
               <td className="px-2 py-2 text-right font-medium tabular-nums text-slate-900 dark:text-slate-100">
-                {formatShare(estimate?.allocation.yesShare, 1)}
+                {formatShare(estimate?.generalPrice, 1)}
               </td>
+              <td className="px-2 py-2 text-right">{estimate?.specializedPrice == null ? <span className="text-xs text-slate-500">No verified-user data yet</span> : formatShare(estimate.specializedPrice,1)}</td>
+              <td className="px-2 py-2 text-right text-xs">{formatPointChange(estimate?.modelValue != null && estimate.generalPrice != null ? estimate.modelValue-estimate.generalPrice : null)} / {formatPointChange(estimate?.specializedPrice != null && estimate.generalPrice != null ? estimate.specializedPrice-estimate.generalPrice : null)}</td>
+              <td className="px-2 py-2 text-xs">{estimate?.resolution?.outcome ?? study.resolvedOutcome ?? "Pending"}{estimate?.resolution?.evidenceUrls.map((url,i)=><a key={url} className="block underline" href={url} target="_blank" rel="noreferrer">Evidence {i+1}</a>)}</td>
               {showChange && <td className="px-2 py-2 text-right tabular-nums">{formatPointChange(change7d)}</td>}
-              <td className="px-2 py-2 text-right tabular-nums">{estimate?.participantCount ?? "—"}</td>
+              <td className="px-2 py-2 text-right tabular-nums">{estimate?.participantCount ?? "—"}{estimate && estimate.participantCount < 10 && <span className="block text-xs text-amber-700">Low participation</span>}</td>
               <td className="px-4 py-2 text-right sm:px-2">{formatDate(study.deadline)}</td>
             </tr>
           ))}

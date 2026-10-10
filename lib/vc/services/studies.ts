@@ -1,3 +1,4 @@
+import { MAX_SOURCES } from "../constants";
 import { VcError, forbidden, notFound } from "../errors";
 import { TRANSITIONS, checkDeadline, getTransitionIssues, timestampPatchFor, type StudyAction } from "../lifecycle";
 import {
@@ -7,12 +8,19 @@ import {
   type StudyPermissions,
   type StudyView,
 } from "../permissions";
+import { marketModelInput } from "../opening-line";
 import type { NewAlert, StudyPatch, VcDeps } from "../ports";
 import { createAlertPublisher } from "./alert-publisher";
+import { createOpeningLineService, toEstimateView, type EstimateView } from "./opening-line";
 import {
   PUBLISHED_STATUSES,
   type EstimatePoint,
+  type FirmObservation,
   type MarketEstimate,
+  type MetricLink,
+  type ModelEstimate,
+  type StartupFactView,
+  type StartupNewsView,
   type Study,
   type StudyEvent,
   type StudyNote,
@@ -36,7 +44,16 @@ export interface StudyDetail {
   /** Full timeline for the firm; status-only timeline for limited viewers. */
   events: StudyEvent[];
   participants: UserSummary[] | null;
+  /** Public facts and news about the study's startup, newest first. */
+  evidence: { facts: StartupFactView[]; news: StartupNewsView[] };
+  /** The model's opening line. Null for studies created before the model set them. */
+  openingLine: (EstimateView & { metricLabel: string | null }) | null;
+  /** The firm's own figures behind the opening line; only for the owning firm's editors. */
+  firmObservations: FirmObservation[] | null;
 }
+
+/** Most facts and news items shown on a study page. */
+export const STUDY_EVIDENCE_LIMITS = { facts: 20, news: 10 } as const;
 
 export interface StudyListItem {
   study: StudyView;
@@ -56,6 +73,8 @@ const PENDING_STATUSES: readonly StudyStatus[] = ["SUBMITTED", "APPROVED"];
 export function createStudyService(deps: VcDeps) {
   const { repo, platform, forecasting, now } = deps;
   const alertPublisher = createAlertPublisher(deps);
+  // Pricing never needs the AI; it only proposes links in the draft preview.
+  const openingLine = createOpeningLineService(deps, null);
 
   /** Loads a study and enforces view access; hides existence from unauthorized callers. */
   async function loadVisible(ctx: VcContext, studyId: string) {
@@ -121,7 +140,7 @@ export function createStudyService(deps: VcDeps) {
     const { study, permissions } = await loadVisible(ctx, studyId);
     const full = permissions.viewLevel === "full";
 
-    const [startups, estimates, history, events, participants] = await Promise.all([
+    const [startups, estimates, history, events, participants, evidence, modelEstimate] = await Promise.all([
       platform.getStartups([study.startupId]),
       estimatesFor([study]),
       study.marketId ? forecasting.getHistory(study.marketId) : Promise.resolve([]),
@@ -129,8 +148,14 @@ export function createStudyService(deps: VcDeps) {
       full && study.participantIds.length > 0
         ? platform.getUsers(study.participantIds)
         : Promise.resolve(full ? [] : null),
+      platform.getStartupEvidence([study.startupId]),
+      repo.findModelEstimate(study.id),
     ]);
     const startup = startups[0];
+    const metricLabel =
+      modelEstimate?.link && startup
+        ? (openingLine.metricsFor(startup).find((m) => m.id === modelEstimate.link!.metricId)?.label ?? null)
+        : null;
 
     return {
       study: redactStudy(ctx, study, permissions),
@@ -141,40 +166,83 @@ export function createStudyService(deps: VcDeps) {
       // Limited viewers see when the status changed, not who changed it or why.
       events: full ? events : events.map((e) => ({ ...e, actorId: null, reason: null })),
       participants: participants as UserSummary[] | null,
+      evidence: {
+        facts: evidence.facts.slice(0, STUDY_EVIDENCE_LIMITS.facts),
+        news: evidence.news.slice(0, STUDY_EVIDENCE_LIMITS.news),
+      },
+      openingLine: modelEstimate ? { ...toEstimateView(modelEstimate), metricLabel } : null,
+      firmObservations: modelEstimate && permissions.canViewPrivate ? modelEstimate.observations : null,
     };
   }
 
-  async function assertStartupExists(startupId: string) {
+  /** The question, criteria and baseline fields that follow from an estimate. */
+  function fieldsFrom(estimate: ModelEstimate, typed: { question: string; yesCriteria: string; noCriteria: string }) {
+    const linked = estimate.status !== "NOT_MEASURABLE" && !!estimate.question;
+    return {
+      // A linked question is worded exactly as the model priced it, so it resolves the same way.
+      question: linked ? estimate.question! : typed.question,
+      yesCriteria: linked ? estimate.yesCriteria! : typed.yesCriteria,
+      noCriteria: linked ? estimate.noCriteria! : typed.noCriteria,
+      baselineValue: estimate.status === "OK" ? estimate.probability : null,
+      baselineMethodology: estimate.status === "OK" ? estimate.methodology : null,
+    };
+  }
+
+  /** A linked question resolves from a public source; make sure the study names it first. */
+  function withResolutionSource<T extends { url: string; title: string; publisher: string | null; publishedAt: Date | null }>(
+    sources: T[],
+    estimate: ModelEstimate,
+  ): (T | { url: string; title: string; publisher: string | null; publishedAt: Date | null })[] {
+    const source = estimate.status === "NOT_MEASURABLE" ? null : estimate.resolutionSource;
+    if (!source || sources.some((s) => s.url === source.url)) return sources;
+    return [{ url: source.url, title: source.title, publisher: "Public data source", publishedAt: null }, ...sources].slice(0, MAX_SOURCES);
+  }
+
+  const linkOf = (input: { metricId: string; threshold: number; targetDate: string }): MetricLink => ({
+    metricId: input.metricId,
+    threshold: input.threshold,
+    targetDate: input.targetDate,
+  });
+
+  async function startupOrThrow(startupId: string) {
     const [startup] = await platform.getStartups([startupId]);
     if (!startup) throw new VcError("VALIDATION_ERROR", "Unknown startup", [{ path: "startupId", message: "Startup not found" }]);
+    return startup;
   }
 
   async function create(ctx: VcContext, input: CreateStudyInput): Promise<StudyView> {
     if (!ctx.activeOrg) throw forbidden("Select a VC organization first");
     if (!canProposeInActiveOrg(ctx)) throw forbidden("Your role cannot propose studies");
-    await assertStartupExists(input.startupId);
+    const startup = await startupOrThrow(input.startupId);
     const deadlineIssue = checkDeadline(input.deadline, now());
     if (deadlineIssue) throw new VcError("VALIDATION_ERROR", deadlineIssue, [{ path: "deadline", message: deadlineIssue }]);
+
+    const { estimate, figures } = await openingLine.estimateFor(
+      ctx.activeOrg.organizationId,
+      startup,
+      input.modelLink ? linkOf(input.modelLink) : null,
+      input.deadline,
+    );
 
     const study = await repo.createStudy({
       organizationId: ctx.activeOrg.organizationId,
       createdById: ctx.user.id,
       startupId: input.startupId,
-      question: input.question,
-      yesCriteria: input.yesCriteria,
-      noCriteria: input.noCriteria,
+      ...fieldsFrom(estimate, input),
       context: input.context ?? null,
-      baselineValue: input.baselineValue ?? null,
-      baselineMethodology: input.baselineMethodology ?? null,
       deadline: input.deadline,
       visibility: input.visibility,
-      sources: (input.sources ?? []).map((s) => ({
-        url: s.url,
-        title: s.title,
-        publisher: s.publisher ?? null,
-        publishedAt: s.publishedAt ?? null,
-      })),
+      sources: withResolutionSource(
+        (input.sources ?? []).map((s) => ({
+          url: s.url,
+          title: s.title,
+          publisher: s.publisher ?? null,
+          publishedAt: s.publishedAt ?? null,
+        })),
+        estimate,
+      ),
     });
+    await openingLine.save(study, estimate, figures, ctx.user.id);
     return redactStudy(ctx, study, getStudyPermissions(ctx, study));
   }
 
@@ -183,36 +251,52 @@ export function createStudyService(deps: VcDeps) {
     if (!permissions.canEdit) {
       throw study.status === "DRAFT" ? forbidden() : new VcError("CONFLICT", "Only draft studies can be edited");
     }
-    const { expectedVersion, sources, ...fields } = input;
-    if (fields.startupId && fields.startupId !== study.startupId) await assertStartupExists(fields.startupId);
+    const { expectedVersion, sources, modelLink, ...fields } = input;
+    const startupId = fields.startupId ?? study.startupId;
+    const startup = await startupOrThrow(startupId);
     if (fields.deadline) {
       const issue = checkDeadline(fields.deadline, now());
       if (issue) throw new VcError("VALIDATION_ERROR", issue, [{ path: "deadline", message: issue }]);
-    }
-    const nextBaseline = fields.baselineValue !== undefined ? fields.baselineValue : study.baselineValue;
-    const nextMethod =
-      fields.baselineMethodology !== undefined ? fields.baselineMethodology : study.baselineMethodology;
-    if ((nextBaseline == null) !== (nextMethod == null)) {
-      throw new VcError("VALIDATION_ERROR", "Provide the baseline value and its methodology together", [
-        { path: "baselineMethodology", message: "Required together with the baseline value" },
-      ]);
     }
 
     const patch: StudyPatch = {};
     for (const [key, value] of Object.entries(fields)) {
       if (value !== undefined) (patch as Record<string, unknown>)[key] = value;
     }
-    if (sources) {
-      patch.sources = sources.map((s) => ({
-        url: s.url,
-        title: s.title,
-        publisher: s.publisher ?? null,
-        publishedAt: s.publishedAt ?? null,
-      }));
+
+    // Re-price whenever anything the estimate depends on changes. Undefined modelLink keeps the stored link.
+    const stored = await repo.findModelEstimate(study.id);
+    const link = modelLink === undefined ? (stored?.link ?? null) : modelLink && linkOf(modelLink);
+    const repriced =
+      modelLink !== undefined || !stored || startupId !== study.startupId || (!!fields.deadline && !!link);
+    const { estimate, figures } = repriced
+      ? await openingLine.estimateFor(study.organizationId, startup, link, fields.deadline ?? study.deadline)
+      : { estimate: stored!, figures: stored!.observations };
+    if (repriced) {
+      Object.assign(
+        patch,
+        fieldsFrom(estimate, {
+          question: fields.question ?? study.question,
+          yesCriteria: fields.yesCriteria ?? study.yesCriteria,
+          noCriteria: fields.noCriteria ?? study.noCriteria,
+        }),
+      );
+    } else if (stored?.link) {
+      // Still linked: the wording stays exactly what the model priced.
+      patch.question = study.question;
+      patch.yesCriteria = study.yesCriteria;
+      patch.noCriteria = study.noCriteria;
+    }
+    if (sources || repriced) {
+      const next = sources
+        ? sources.map((s) => ({ url: s.url, title: s.title, publisher: s.publisher ?? null, publishedAt: s.publishedAt ?? null }))
+        : study.sources.map(({ url, title, publisher, publishedAt }) => ({ url, title, publisher, publishedAt }));
+      patch.sources = withResolutionSource(next, estimate);
     }
 
     const updated = await repo.updateStudy(studyId, expectedVersion, patch);
     if (!updated) throw new VcError("CONFLICT", "This study was changed by someone else. Reload and try again.");
+    if (repriced) await openingLine.save(updated, estimate, figures, ctx.user.id);
     return redactStudy(ctx, updated, getStudyPermissions(ctx, updated));
   }
 
@@ -286,24 +370,41 @@ export function createStudyService(deps: VcDeps) {
     }
 
     let extra: StudyPatch = {};
-    if (input.action === "open") {
-      // Idempotent on retry: the market service keys on studyId.
-      const { marketId } = study.marketId
-        ? { marketId: study.marketId }
-        : await platform.createMarketForStudy({
-            studyId: study.id,
-            organizationId: study.organizationId,
-            startupId: study.startupId,
-            question: study.question,
-            yesCriteria: study.yesCriteria,
-            noCriteria: study.noCriteria,
-            closesAt: study.deadline,
-            openingBaseline: { value: study.baselineValue!, methodology: study.baselineMethodology! },
-            visibility: study.visibility,
-            sources: study.sources.map((s) => ({ url: s.url, title: s.title })),
-            createdById: ctx.user.id,
-          });
-      extra = { marketId };
+    if (input.action === "open" && study.marketId) {
+      // Retry after a market was created but the study update failed: the market service keys on studyId.
+      extra = { marketId: study.marketId };
+    } else if (input.action === "open") {
+      // The model sets the opening price, from data current at the moment forecasting opens.
+      const stored = await repo.findModelEstimate(study.id);
+      const startup = await startupOrThrow(study.startupId);
+      const { estimate, figures } = await openingLine.estimateFor(study.organizationId, startup, stored?.link ?? null, study.deadline);
+      await openingLine.save(study, estimate, figures, ctx.user.id);
+      if (estimate.status !== "OK" || estimate.probability == null || !estimate.methodology) {
+        const why = estimate.notes.at(-1) ?? "";
+        throw new VcError(
+          "VALIDATION_ERROR",
+          estimate.status === "NOT_MEASURABLE"
+            ? "Not enough data: this question isn't linked to a metric the model can measure, so forecasting can't open."
+            : `Not enough data for the model to set an opening line, so forecasting can't open yet. ${why}`.trim(),
+          [{ path: "openingLine", message: "Not enough data" }],
+        );
+      }
+      const metricLabel = openingLine.metricsFor(startup).find((m) => m.id === estimate.link?.metricId)?.label ?? "model";
+      const { marketId } = await platform.createMarketForStudy({
+        studyId: study.id,
+        organizationId: study.organizationId,
+        startupId: study.startupId,
+        question: study.question,
+        yesCriteria: study.yesCriteria,
+        noCriteria: study.noCriteria,
+        closesAt: study.deadline,
+        openingBaseline: { value: estimate.probability, methodology: estimate.methodology },
+        model: marketModelInput(estimate, metricLabel),
+        visibility: study.visibility,
+        sources: study.sources.map((s) => ({ url: s.url, title: s.title })),
+        createdById: ctx.user.id,
+      });
+      extra = { marketId, baselineValue: estimate.probability, baselineMethodology: estimate.methodology };
     }
 
     const updated = await applyTransition(study, input.action, ctx.user.id, input.reason ?? null, extra);
@@ -318,7 +419,7 @@ export function createStudyService(deps: VcDeps) {
     const foundEmails = new Set(byEmail.map((u) => u.email?.toLowerCase()));
     const unknownEmails = input.emails.filter((e) => !foundEmails.has(e));
     if (unknownEmails.length > 0) {
-      throw new VcError("VALIDATION_ERROR", "Some emails do not belong to VentureCast users", { unknownEmails });
+      throw new VcError("VALIDATION_ERROR", "Some emails do not belong to Senzi users", { unknownEmails });
     }
     const byId = input.userIds.length > 0 ? await platform.getUsers(input.userIds) : [];
     if (byId.length !== new Set(input.userIds).size) {

@@ -92,6 +92,7 @@ describe("compare service", () => {
       makeEstimate("m_yes", {
         status: "RESOLVED",
         openingBaseline: { value: 0.4, methodology: "Base rate" },
+        generalPrice: 0.8,
         allocation: { yesCredits: 80, noCredits: 20, totalCredits: 100, yesShare: 0.8 },
         resolution: { outcome: "YES", resolvedAt: new Date(), evidenceUrls: [], evidenceSummary: "Announced" },
       }),

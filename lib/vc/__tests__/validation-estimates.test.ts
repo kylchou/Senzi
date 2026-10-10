@@ -17,10 +17,22 @@ describe("validation", () => {
     expect(parsed.deadline).toBeInstanceOf(Date);
   });
 
-  it("requires YES/NO phrasing and paired baseline fields", () => {
+  it("requires YES/NO phrasing, and drops any baseline typed by the client", () => {
     expect(createStudyInput.safeParse({ ...validStudyInput(), question: "Acme raises a Series B soon" }).success).toBe(false);
-    expect(createStudyInput.safeParse({ ...validStudyInput(), baselineMethodology: null }).success).toBe(false);
-    expect(createStudyInput.safeParse({ ...validStudyInput(), baselineValue: 1 }).success).toBe(false);
+    const typed = createStudyInput.parse({ ...validStudyInput(), baselineValue: 0.9, baselineMethodology: "Gut feeling" });
+    expect(typed).not.toHaveProperty("baselineValue");
+    expect(typed).not.toHaveProperty("baselineMethodology");
+  });
+
+  it("checks the model link: real dates and a positive threshold; firm figures are never taken from the payload", () => {
+    const link = validStudyInput().modelLink!;
+    const parse = (modelLink: object) => createStudyInput.safeParse({ ...validStudyInput(), modelLink }).success;
+    expect(parse(link)).toBe(true);
+    expect(parse({ ...link, targetDate: "2027-02-30" })).toBe(false);
+    expect(parse({ ...link, threshold: 0 })).toBe(false);
+    const parsed = createStudyInput.parse({ ...validStudyInput(), modelLink: { ...link, observations: [{ metricId: "x", value: 1 }] } });
+    expect(parsed.modelLink).not.toHaveProperty("observations");
+    expect(createStudyInput.safeParse({ ...validStudyInput(), modelLink: null }).success).toBe(true);
   });
 
   it("rejects non-http source links", () => {

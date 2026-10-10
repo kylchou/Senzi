@@ -5,7 +5,7 @@
  *
  * The three measurements are kept distinct everywhere:
  *  - opening baseline (set before forecasting, with methodology)
- *  - community YES credit-allocation share (YES credits / total credits)
+ *  - general LMSR price (YES credits / total credits)
  *  - calibrated probability (only when the forecasting engine records one)
  */
 import {
@@ -68,7 +68,7 @@ export function sortPoints(points: EstimatePoint[]): EstimatePoint[] {
 }
 
 /**
- * Change in YES allocation share over a trailing window. Returns null if there
+ * Change in General LMSR price over a trailing window. Returns null if there
  * is no comparable earlier point (e.g. the market is newer than the window).
  */
 export function shareChangeOverWindow(
@@ -153,11 +153,11 @@ export function describeUncertainty(
     return notes;
   }
   if (estimate.allocation.totalCredits === 0) {
-    notes.push("No credits have been allocated yet, so there is no community allocation share.");
+    notes.push("No credits have been allocated yet; the general LMSR price still reflects the opening model baseline.");
   }
   if (estimate.participantCount < LOW_PARTICIPATION_THRESHOLD) {
     notes.push(
-      `Only ${estimate.participantCount} participant${estimate.participantCount === 1 ? "" : "s"} have forecast; the allocation share can move sharply with a single new forecast.`,
+      `Only ${estimate.participantCount} participant${estimate.participantCount === 1 ? "" : "s"} have forecast; the LMSR price can move sharply with a single new forecast.`,
     );
   }
   if (!estimate.calibratedProbability) {
@@ -172,7 +172,7 @@ export function describeUncertainty(
   const range = shareRange(points);
   if (range && range.max - range.min >= 0.3) {
     notes.push(
-      `The allocation share has ranged from ${formatShare(range.min)} to ${formatShare(range.max)}, indicating unsettled community views.`,
+      `The LMSR price has ranged from ${formatShare(range.min)} to ${formatShare(range.max)}, indicating unsettled community views.`,
     );
   }
   if (freshness.isStale) {

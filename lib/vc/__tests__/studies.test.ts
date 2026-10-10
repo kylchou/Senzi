@@ -51,13 +51,14 @@ describe("study creation and editing", () => {
     );
   });
 
-  it("keeps baseline and methodology paired on edit", async () => {
+  it("ignores a baseline typed by the client: only the model sets it", async () => {
     const s = setup();
-    const draft = await s.services.studies.create(users.analystA, validStudyInput());
-    await expectCode(
-      s.services.studies.update(users.analystA, draft.id, { baselineMethodology: null, expectedVersion: 1 }),
-      "VALIDATION_ERROR",
-    );
+    const draft = await s.services.studies.create(users.analystA, {
+      ...validStudyInput(),
+      ...({ baselineValue: 0.9, baselineMethodology: "My gut feeling about this one" } as object),
+    });
+    expect(draft.baselineValue).toBe(0.4);
+    expect(draft.baselineMethodology).toMatch(/Fake model/);
   });
 });
 
@@ -161,17 +162,7 @@ describe("full lifecycle", () => {
     expect((await s.repo.findStudy(draft.id))!).toMatchObject({ status: "CANCELLED", cancellationReason: "Superseded" });
   });
 
-  it("blocks submitting incomplete studies", async () => {
-    const s = setup();
-    const draft = await s.services.studies.create(
-      users.analystA,
-      validStudyInput({ baselineValue: null, baselineMethodology: null }),
-    );
-    await expectCode(
-      s.services.studies.transition(users.analystA, draft.id, { action: "submit", expectedVersion: 1 }),
-      "VALIDATION_ERROR",
-    );
-  });
+
 });
 
 describe("access control through the service", () => {
@@ -252,5 +243,35 @@ describe("access control through the service", () => {
     await s.services.studies.transition(users.analystA, draft.id, { action: "submit", expectedVersion: 1 });
     expect((await s.services.studies.listReviewQueue(users.admin)).map((r) => r.study.id)).toEqual([draft.id]);
     await expectCode(s.services.studies.listReviewQueue(users.ownerA), "FORBIDDEN");
+  });
+});
+
+describe("study page evidence", () => {
+  it("includes the startup's public facts and news with their verification status", async () => {
+    const s = setup();
+    const study = await openStudy(s);
+    s.platform.state.facts.push({
+      id: "f1", startupId: study.startupId, label: "Series B", value: "$40M", sourceName: "TechCrunch",
+      sourceUrl: "https://example.com/b", asOf: new Date(NOW.getTime() - 200 * DAY), verified: true,
+    });
+    s.platform.state.news.push({
+      id: "n1", startupId: study.startupId, title: "Contract signed", summary: null, publisher: "Wire",
+      url: "https://example.com/n", publishedAt: new Date(NOW.getTime() - 3 * DAY), verification: "DISPUTED",
+    });
+    const detail = await s.services.studies.get(users.analystA, study.id);
+    expect(detail.evidence.facts.map((f) => [f.id, f.verified])).toEqual([["f1", true]]);
+    expect(detail.evidence.news.map((n) => [n.id, n.verification])).toEqual([["n1", "DISPUTED"]]);
+  });
+
+  it("shows nothing about unpublished startups and nothing to people who can't view the study", async () => {
+    const s = setup();
+    const study = await openStudy(s, { visibility: "ORGANIZATION" });
+    s.platform.state.facts.push({
+      id: "f1", startupId: study.startupId, label: "Series B", value: "$40M", sourceName: "TechCrunch",
+      sourceUrl: "https://example.com/b", asOf: NOW, verified: true,
+    });
+    await expectCode(s.services.studies.get(users.analystB, study.id), "NOT_FOUND");
+    s.platform.state.startups.find((x) => x.id === study.startupId)!.isPublished = false;
+    expect((await s.services.studies.get(users.analystA, study.id)).evidence.facts).toEqual([]);
   });
 });

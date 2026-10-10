@@ -1,6 +1,8 @@
 import { z } from "zod";
 import type { Market, Prisma } from "@/generated/prisma/client";
 import {
+  AccountType,
+  BaselineStatus,
   MarketStatus,
   NotificationType,
   PlatformRole,
@@ -382,6 +384,11 @@ export async function createMarketForStudy(raw: CreateMarketForStudyInput): Prom
           openingBaseline: input.openingBaseline.value,
           baselineMethodology: input.openingBaseline.methodology,
           baselineSetAt: now,
+          // The model's estimate is both the opening price and the first point on the model line.
+          modelValue: input.openingBaseline.value,
+          modelVersion: input.model.modelVersion,
+          modelInputsNote: input.model.inputsNote || null,
+          modelUpdatedAt: input.model.asOf,
           visibility: input.visibility,
           organizationId: isPublic ? null : input.organizationId,
           status: MarketStatus.OPEN,
@@ -389,6 +396,26 @@ export async function createMarketForStudy(raw: CreateMarketForStudyInput): Prom
           closesAt: input.closesAt,
           createdById: input.createdById,
           sources: { create: input.sources.map((s, position) => ({ ...s, position })) },
+        },
+      });
+      // Written before the first trade, so the pricing engine reads its confidence for the starting liquidity.
+      await tx.modelBaselineSnapshot.create({
+        data: {
+          marketId: market.id,
+          status: BaselineStatus.OK,
+          probability: input.openingBaseline.value,
+          low: input.model.low,
+          high: input.model.high,
+          confidence: input.model.confidence,
+          asOf: input.model.asOf,
+          modelName: input.model.modelName,
+          modelVersion: input.model.modelVersion,
+          inputsHash: input.model.inputsHash,
+          method: { source: "study-opening-line" },
+          inputsUsed: input.model.inputsUsed as Prisma.InputJsonValue,
+          sources: [],
+          missing: [],
+          notes: input.model.notes,
         },
       });
       await createOpeningSnapshot(tx, market);
@@ -601,6 +628,45 @@ export async function setPlatformRole(
   });
 }
 
+/** Changes someone's account type. Needs a reason, which goes to the audit log. */
+export async function setAccountType(
+  actor: SessionUser,
+  userId: string,
+  input: { accountType: AccountType; reason: string },
+  ctx: RequestContext = {},
+) {
+  assertAdmin(actor);
+  if (userId === actor.id) throw invalidState("You cannot change your own account type");
+  return db.$transaction(async (tx) => {
+    const target = await tx.user.findUnique({
+      where: { id: userId },
+      select: { accountType: true, _count: { select: { memberships: true } } },
+    });
+    if (!target) throw notFound("User");
+    if (input.accountType === AccountType.TRADER && target._count.memberships > 0) {
+      throw invalidState("Remove them from their VC organizations before making them a trader");
+    }
+    const user = await tx.user.update({
+      where: { id: userId },
+      // An admin setting the type vouches for it.
+      data: { accountType: input.accountType, accountVerifiedAt: new Date() },
+      select: { id: true, displayName: true, email: true, accountType: true },
+    });
+    await recordAudit(
+      {
+        actorId: actor.id,
+        action: "user.accountType",
+        entityType: "User",
+        entityId: userId,
+        data: { from: target.accountType, to: input.accountType, reason: input.reason },
+        ipAddress: ctx.ip,
+      },
+      tx,
+    );
+    return user;
+  });
+}
+
 export async function searchUsersForAdmin(actor: SessionUser, opts: { q?: string; limit?: number } = {}) {
   assertAdmin(actor);
   return db.user.findMany({
@@ -621,6 +687,7 @@ export async function searchUsersForAdmin(actor: SessionUser, opts: { q?: string
       displayName: true,
       username: true,
       platformRole: true,
+      accountType: true,
       creditBalance: true,
       createdAt: true,
     },

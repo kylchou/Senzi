@@ -25,6 +25,7 @@ Users (signed in)
 - `PATCH /api/users/me` takes `{ displayName?, username?, bio?, avatarUrl? }`
 - `GET /api/users/me/credits` returns your balance plus your ledger, newest first
 - `GET /api/users/me/notifications?unread=true` and `PATCH` with `{ ids: [...] | "all" }` to mark them read
+- `GET /api/users/me/verification` returns your latest VC verification request. `POST` sends `{ firmName, firmWebsite, jobTitle, workEmail, linkedinUrl?, note? }` for review (VC accounts only, one pending at a time).
 - `GET /api/users/:username` is a public profile with no email or balance
 - `POST /api/users/webhooks/clerk` is Clerk's webhook (signature checked)
 
@@ -32,7 +33,7 @@ Organizations (members only, and non-members get 404)
 
 - `GET /api/organizations` lists your orgs. `POST` creates one and makes you OWNER.
 - `GET|PATCH|DELETE /api/organizations/:orgId`. PATCH needs ADMIN, DELETE needs OWNER.
-- `GET|POST /api/organizations/:orgId/members`. POST takes `{ email, role }` and needs ADMIN. Inviting an email that doesn't have an account yet creates a pending member, who gets linked up when they first sign in with that verified email.
+- `GET|POST /api/organizations/:orgId/members`. POST takes `{ email, role }` and needs ADMIN. Inviting an email that doesn't have an account yet creates a pending VC member, who gets linked up when they first sign in with that verified email. Trader accounts can't be added; an admin has to switch them to VC first.
 - `PATCH|DELETE /api/organizations/:orgId/members/:userId`. Admins can only manage analysts and viewers, and there always has to be at least one owner. Delete your own membership to leave.
 
 Admin (platform admins only)
@@ -46,9 +47,10 @@ Admin (platform admins only)
 - `GET /api/admin/resolution-proposals?status=PROPOSED` is the review queue. `POST /api/admin/resolution-proposals/:id/approve` takes `{ note? }`, and `.../reject` takes `{ reason }`. The proposer can reject their own proposal to withdraw it.
 - `POST /api/admin/resolutions/:id/corrections` takes the same body as a proposal, plus `correctionReason`. `POST /api/admin/resolutions/:id/settle` runs or retries settlement.
 - `POST /api/admin/credits` with `{ userId, amount, type: "ADMIN_GRANT" | "ADMIN_ADJUSTMENT", memo, idempotencyKey }`
-- `GET /api/admin/users?q=`, `PATCH /api/admin/users/:id` with `{ platformRole }`, `GET /api/admin/users/:id/ledger`
+- `GET /api/admin/users?q=`, `PATCH /api/admin/users/:id` with `{ platformRole }` or `{ accountType, reason }`, `GET /api/admin/users/:id/ledger`. Someone still in a VC org can't be made a trader.
+- `GET /api/admin/verifications?status=PENDING` is the VC review queue. `POST /api/admin/verifications/:id/review` takes `{ decision: "APPROVED" | "REJECTED", note? }`; rejecting needs a note, and admins can't review their own request.
 - `GET /api/admin/audit-logs`
-- `GET /api/admin/cron/close-markets` is for Vercel Cron and needs `Authorization: Bearer $CRON_SECRET`. It closes expired markets, retries settlements that are pending, failed, or stuck, and prunes old rate-limit counters.
+- `GET /api/admin/cron/close-markets` is for Vercel Cron and needs `Authorization: Bearer $CRON_SECRET`. Vercel runs it daily at 05:00 UTC (the free plan allows one run a day), and `.github/workflows/cron.yml` calls it every 15 minutes. Trades already stop at each market's deadline, so a late run only delays the status change and settlement. It closes expired markets, retries settlements that are pending, failed, or stuck, prunes old rate-limit counters, and checks every balance against the ledger (mismatches are logged as `[ledger] balance mismatch`).
 
 The `/admin` pages call the same functions in `lib/admin.ts`.
 

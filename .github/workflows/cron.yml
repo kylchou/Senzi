@@ -1,0 +1,49 @@
+name: Cron
+
+# Vercel's free plan only runs crons once a day (see vercel.json), so this
+# calls the same endpoints every 15 minutes. Both are safe to run twice.
+# Needs repo secrets SENZI_URL (e.g. https://senzi.vercel.app) and CRON_SECRET
+# (same value as in Vercel). Skips quietly until they're set.
+
+on:
+  schedule:
+    # Off the top of the hour, when GitHub's scheduler is busiest.
+    - cron: "7,22,37,52 * * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: cron
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      SENZI_URL: ${{ secrets.SENZI_URL }}
+      CRON_SECRET: ${{ secrets.CRON_SECRET }}
+    steps:
+      - name: Check secrets
+        id: check
+        run: |
+          if [ -z "$SENZI_URL" ] || [ -z "$CRON_SECRET" ]; then
+            echo "SENZI_URL or CRON_SECRET isn't set; skipping."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      # Markets close first, so the VC sync sees them closed.
+      - name: Close markets and retry settlements
+        if: steps.check.outputs.ready == 'true'
+        run: >
+          curl --fail-with-body --silent --show-error --retry 2 --max-time 60
+          -H "Authorization: Bearer $CRON_SECRET"
+          "${SENZI_URL%/}/api/admin/cron/close-markets"
+
+      - name: Sync VC studies and alerts
+        if: steps.check.outputs.ready == 'true'
+        run: >
+          curl --fail-with-body --silent --show-error --retry 2 --max-time 60
+          -H "Authorization: Bearer $CRON_SECRET"
+          "${SENZI_URL%/}/api/vc/cron"
