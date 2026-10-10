@@ -1,7 +1,7 @@
 // Validate staged or active scraped data; optional live identity checks are cached.
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
-import { COMPANIES, metricIds, metricsFor, NPM_INDEX_ID, NPM_INDEX_PACKAGES } from '../catalog.js';
+import { COMPANIES, metricsFor } from '../catalog.js';
 import { buildDailySeries } from '../series.js';
 import { FileModelStore, DEFAULT_DATA_DIR } from '../store.js';
 import { lastCompleteDay } from '../../../scripts/scrapers/common.js';
@@ -98,37 +98,12 @@ function validate() {
       sourceIssues: Object.entries(report.companies[c.id]).filter(([, v]) => typeof v === 'object' && v !== null &&
         ('error' in v || ('missing' in v && Array.isArray(v.missing) && v.missing.length))).map(([source, details]) => ({ source, details })) };
   });
-  const npmIndex = validateNpmIndex(store.readNpmIndexPoints());
   if (!existsSync(identitiesPath)) throw new Error('Live identity verification report missing; run --verify-identities first');
   writeFileSync(join(dir, 'validation-report.json'), JSON.stringify({ validatedAt: now.toISOString(), status: 'valid', totalPoints: points.length,
-    latestCompleteDownloadDay: latestDay, companies, npmIndex, limitations: ['Downloads are public counter measurements, not users or revenue.',
+    latestCompleteDownloadDay: latestDay, companies, limitations: ['Downloads are public counter measurements, not users or revenue.',
       'npm zeros are retained verbatim and flagged as missing by the model; missing weeks are never imputed.',
       'HN values count keyword-matching stories, not verified company coverage.', 'Unavailable secondary sources remain missing.'] }, null, 2) + '\n');
   console.log(JSON.stringify({ status: 'valid', companies: ids, totalPoints: points.length, latestCompleteDownloadDay: latestDay }));
-}
-
-/** The npm index basket (npm-index.jsonl) is optional; when present it must be complete and current. */
-function validateNpmIndex(points: ReturnType<FileModelStore['readNpmIndexPoints']>) {
-  if (!points.length) return { status: 'missing', note: 'npm questions fall back to raw downloads.' };
-  const allowed = new Set(NPM_INDEX_PACKAGES.map(p => metricIds.npm(p)));
-  const keys = new Set<string>();
-  for (const p of points) {
-    if (p.companyId !== NPM_INDEX_ID || !allowed.has(p.metricId) || p.source !== 'npm') throw new Error(`Unexpected npm index point: ${p.companyId}/${p.metricId}`);
-    if (!Number.isSafeInteger(p.value) || p.value < 0 || p.provenance !== 'scraped' || p.simulated) throw new Error(`Invalid npm index value: ${p.metricId}`);
-    if (new URL(p.sourceUrl).hostname !== 'api.npmjs.org') throw new Error(`Unexpected source: ${p.sourceUrl}`);
-    if (Date.parse(p.availableAt) > Date.parse(p.fetchedAt) || Date.parse(p.periodEnd) > Date.parse(p.availableAt)) throw new Error('Impossible publication chronology');
-    const key = `${p.metricId}|${p.periodEnd}`;
-    if (keys.has(key)) throw new Error(`Duplicate npm index point: ${key}`);
-    keys.add(key);
-  }
-  const packages = [...allowed].map(metric => {
-    const daily = points.filter(p => p.metricId === metric).sort((a, b) => a.periodEnd.localeCompare(b.periodEnd));
-    if (!daily.length || daily.at(-1)!.periodEnd < latestDay) throw new Error(`Stale/missing npm index history for ${metric}; expected ${latestDay}`);
-    for (let i = 1; i < daily.length; i++) if (Date.parse(daily[i].periodEnd) - Date.parse(daily[i-1].periodEnd) !== 86400000) throw new Error(`Missing calendar day for ${metric}`);
-    return { metric, points: daily.length, firstDay: daily[0].periodEnd, latestDay: daily.at(-1)!.periodEnd,
-      counterZerosExcludedByModel: buildDailySeries(daily, metric, now).zeroDaysTreatedAsMissing.length };
-  });
-  return { status: 'valid', packages };
 }
 
 async function main() { if (process.argv.includes('--verify-identities')) await verifyIdentities(); validate(); }

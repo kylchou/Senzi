@@ -66,8 +66,6 @@ export interface ModelCalculation {
   forecastRange80: [number, number] | null;
   /** Probability before the pull toward 50%; null when it matches the final value. */
   rawProbability: number | null;
-  /** True when the forecast was adjusted for npm-wide download shifts. */
-  npmAdjusted: boolean;
   /** Raw method internals, for the "Technical details" dropdown. */
   technical: ModelTechnical;
 }
@@ -145,7 +143,6 @@ export async function studyModelEvidence(ctx: VcContext, startupId: string, mark
     forecastMedian: details?.forecastMedian ?? null,
     forecastRange80: details?.forecastRange80 ?? null,
     rawProbability: raw != null && snapshot?.probability != null && Math.abs(raw - snapshot.probability) >= 0.005 ? raw : null,
-    npmAdjusted: !!details?.npmIndex,
     technical: {
       methodName: methodInfo?.name ?? null,
       methodVersion: methodInfo?.version ?? null,

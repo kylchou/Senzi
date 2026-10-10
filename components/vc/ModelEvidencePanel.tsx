@@ -38,7 +38,7 @@ function steps(m: Model): React.ReactNode[] {
         <strong>Fit the trend.</strong> Over the last {c.weeksUsed} weeks it changed by{" "}
         <strong className="tabular-nums">{formatRelativeChange(c.weeklyGrowth)}</strong> a week
         {!c.higherIsBetter && ` (${c.weeklyGrowth < 0 ? "improving" : "slipping"}; a lower rank is better)`}
-        {c.npmAdjusted && ", measured against npm-wide downloads so ecosystem-wide jumps don't count as growth"}.
+        .
       </>,
     );
   }
