@@ -44,7 +44,7 @@ test.describe("pages", () => {
 
   test("markets filter by status chip and keep it in the URL", async ({ page }) => {
     await page.goto("/markets");
-    await page.locator("label", { hasText: /^Resolved$/ }).click();
+    await page.locator("label", { hasText: /^Resolved$/ }).filter({ visible: true }).click();
     await expect(page).toHaveURL(/status=RESOLVED/);
     await expect(page.locator('input[name="status"][value="RESOLVED"]')).toBeChecked();
     await expectAccessible(page);
@@ -104,7 +104,7 @@ test.describe("pages", () => {
   test("news page filters by verification", async ({ page }) => {
     await page.goto("/news");
     await expect(page.getByRole("heading", { level: 1, name: "News" })).toBeVisible();
-    await page.locator("label", { hasText: /^Verified$/ }).click();
+    await page.locator("label", { hasText: /^Verified$/ }).filter({ visible: true }).click();
     await expect(page).toHaveURL(/verification=verified/);
     await expectAccessible(page);
   });

@@ -46,12 +46,12 @@ export default async function Image({ params }: { params: Promise<{ slug: string
           )}
         </div>
 
-        {market && <div style={{ display: "flex", marginTop: 56, fontSize: 30, color: MIST }}>{market.startup.name}</div>}
+        {market && <div style={{ display: "flex", marginTop: 44, fontSize: 30, color: MIST }}>{market.startup.name}</div>}
         <div
           style={{
             display: "flex",
             marginTop: 14,
-            fontSize: question.length > 80 ? 52 : 60,
+            fontSize: question.length > 80 ? 44 : question.length > 50 ? 50 : 60,
             fontWeight: 700,
             lineHeight: 1.12,
             letterSpacing: -1,
@@ -62,7 +62,7 @@ export default async function Image({ params }: { params: Promise<{ slug: string
         </div>
 
         {market && (
-          <div style={{ display: "flex", flexDirection: "column", marginTop: "auto" }}>
+          <div style={{ display: "flex", flexDirection: "column", marginTop: "auto", paddingTop: 28 }}>
             <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between" }}>
               <div style={{ display: "flex", alignItems: "baseline", gap: 18 }}>
                 <span style={{ fontSize: 84, fontWeight: 800 }}>{formatShare(share)}</span>

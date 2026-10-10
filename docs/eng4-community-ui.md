@@ -82,4 +82,17 @@ Headings use Montserrat (matches the logo), body text uses Inter.
 
 ## Tests
 
-`tests/unit/community/` runs with `npm test`. Component tests use a per-file `// @vitest-environment jsdom` comment, so the shared Vitest config is unchanged.
+- Unit: `tests/unit/community/` runs with `npm test`. Component tests use a per-file `// @vitest-environment jsdom` comment, so the shared Vitest config is unchanged.
+- Browser: `tests/e2e/community.spec.ts` runs with `npm run test:e2e` against a built app and a seeded database (`npm run db:seed`), signed out. Every page also runs an axe scan that fails on serious or critical WCAG 2 A/AA issues. Tests run with reduced motion so scans see settled content.
+
+## Performance notes
+
+Measured with Lighthouse 13 against the seeded database (production build):
+
+| Page | Desktop perf | Mobile perf | Accessibility | Layout shift |
+| --- | --- | --- | --- | --- |
+| Home, markets, startups, news, market detail | 97 to 99 | 78 to 86 | 100 | 0 to 0.09 |
+
+- Streamed filter forms render with default values while loading, so results do not jump.
+- Montserrat loads only weights 600 and 700, and the mono font used by admin is no longer preloaded.
+- Mobile load time is mostly fonts plus the Clerk client script. Lighthouse also reports a missing description on market pages because Next streams page metadata for regular browsers; search crawlers receive it in the document head.

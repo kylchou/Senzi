@@ -94,13 +94,15 @@ export function MarketTour() {
 
   return createPortal(
     <div className="fixed inset-0 z-[80]" role="dialog" aria-modal="true" aria-labelledby="tour-title">
-      {/* Spotlight: a ring around the figure with the rest of the page dimmed. */}
+      {/* Spotlight: an outline around the figure (not a ring, which would be replaced by the dimming shadow). */}
       <div
         aria-hidden
-        className="pointer-events-none absolute rounded-2xl ring-2 ring-red-500 transition-all duration-300 ease-[var(--ease-out-soft)]"
+        className="pointer-events-none absolute rounded-2xl outline-2 outline-offset-2 outline-red-500 [outline-style:solid] transition-all duration-300 ease-[var(--ease-out-soft)]"
+        // Positioned with transform so moving between steps never counts as layout shift.
         style={{
-          top: rect.top - pad,
-          left: rect.left - pad,
+          top: 0,
+          left: 0,
+          transform: `translate(${rect.left - pad}px, ${rect.top - pad}px)`,
           width: rect.width + pad * 2,
           height: rect.height + pad * 2,
           boxShadow: "0 0 0 9999px rgb(18 20 22 / 0.55)",
@@ -109,8 +111,8 @@ export function MarketTour() {
       <button type="button" aria-label="Skip tour" tabIndex={-1} onClick={finish} className="absolute inset-0 cursor-default" />
       <div
         key={step}
-        className="absolute animate-[rise-in_260ms_var(--ease-out-soft)] rounded-2xl bg-surface p-5 text-ink-900 shadow-[var(--shadow-lift)]"
-        style={{ top: cardTop, left: cardLeft, width: cardWidth }}
+        className="absolute animate-[vt-fade_220ms_ease-out] rounded-2xl bg-surface p-5 text-ink-900 shadow-[var(--shadow-lift)]"
+        style={{ top: 0, left: 0, transform: `translate(${cardLeft}px, ${cardTop}px)`, width: cardWidth }}
       >
         <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-red-700">
           {step + 1} of {STEPS.length}

@@ -150,7 +150,7 @@ export function ForecastPanel({
       ) : receipt ? (
         <Receipt receipt={receipt} onReset={reset} />
       ) : session.state === "loading" ? (
-        <div className="mt-6 flex items-center justify-center py-10 text-ink-500" role="status">
+        <div className="mt-4 flex min-h-32 items-center justify-center text-ink-500" role="status">
           <Loader2 className="size-5 animate-spin" aria-hidden />
           <span className="sr-only">Loading</span>
         </div>
