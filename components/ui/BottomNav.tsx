@@ -1,0 +1,87 @@
+"use client";
+
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { Suspense } from "react";
+import { SignInButton, UserButton, useAuth } from "@clerk/nextjs";
+import { Building2, Home, LineChart, Search, User } from "lucide-react";
+import { cn } from "./cn";
+import { openCommandPalette } from "./CommandPalette";
+
+const tabs = [
+  { href: "/", label: "Home", Icon: Home, exact: true },
+  { href: "/markets", label: "Markets", Icon: LineChart, exact: false },
+  { href: "/startups", label: "Startups", Icon: Building2, exact: false },
+];
+
+const itemClass =
+  "flex min-h-14 flex-1 flex-col items-center justify-center gap-0.5 text-[11px] font-medium transition-colors active:scale-95";
+
+/** Thumb-reachable tab bar on small screens. Hidden from md up. */
+export function BottomNav() {
+  return (
+    <>
+      {/* Spacer so the fixed bar never covers the end of the page. */}
+      <div aria-hidden className="h-16 md:hidden" />
+      <nav
+        aria-label="Primary"
+        className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-night/95 pb-[env(safe-area-inset-bottom)] text-mist-300 backdrop-blur md:hidden"
+      >
+        <div className="mx-auto flex max-w-md items-stretch">
+          <Suspense fallback={<Tabs pathname={null} />}>
+            <RoutedTabs />
+          </Suspense>
+          <button type="button" onClick={openCommandPalette} className={cn(itemClass, "hover:text-white")}>
+            <Search className="size-5" aria-hidden />
+            Search
+          </button>
+          <AccountTab />
+        </div>
+      </nav>
+    </>
+  );
+}
+
+function RoutedTabs() {
+  return <Tabs pathname={usePathname()} />;
+}
+
+function Tabs({ pathname }: { pathname: string | null }) {
+  return tabs.map(({ href, label, Icon, exact }) => {
+    const active = pathname !== null && (exact ? pathname === href : pathname === href || pathname.startsWith(`${href}/`));
+    return (
+      <Link
+        key={href}
+        href={href}
+        aria-current={active ? "page" : undefined}
+        className={cn(itemClass, active ? "text-white" : "hover:text-white")}
+      >
+        <span className="relative">
+          <Icon className="size-5" aria-hidden />
+          {active && <span aria-hidden className="absolute -bottom-1.5 left-1/2 size-1 -translate-x-1/2 rounded-full bg-red-500" />}
+        </span>
+        {label}
+      </Link>
+    );
+  });
+}
+
+function AccountTab() {
+  const { isLoaded, isSignedIn } = useAuth();
+  if (isLoaded && isSignedIn) {
+    return (
+      <div className={itemClass}>
+        <UserButton />
+        <span>Account</span>
+      </div>
+    );
+  }
+  return (
+    <SignInButton mode="modal">
+      <button type="button" className={cn(itemClass, "hover:text-white")}>
+        <User className="size-5" aria-hidden />
+        Sign in
+      </button>
+    </SignInButton>
+  );
+}

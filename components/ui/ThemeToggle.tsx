@@ -2,7 +2,6 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 import { Check, Monitor, Moon, Sun } from "lucide-react";
-import { cn } from "./cn";
 import { setThemeMode, useThemeMode, type ThemeMode } from "./theme";
 
 const options: { mode: ThemeMode; label: string; Icon: typeof Sun }[] = [
@@ -75,27 +74,3 @@ export function ThemeToggle() {
   );
 }
 
-/** Segmented Light / Dark / System control for menus and small screens. */
-export function ThemeSegmented({ className }: { className?: string }) {
-  const mode = useThemeMode();
-  return (
-    <div role="radiogroup" aria-label="Theme" className={cn("grid grid-cols-3 gap-1 rounded-xl bg-white/5 p-1", className)}>
-      {options.map(({ mode: option, label, Icon }) => (
-        <button
-          key={option}
-          type="button"
-          role="radio"
-          aria-checked={mode === option}
-          onClick={() => setThemeMode(option)}
-          className={cn(
-            "flex h-10 items-center justify-center gap-1.5 rounded-lg text-xs font-medium text-mist-300 transition-colors hover:text-white",
-            mode === option && "bg-white/10 text-white",
-          )}
-        >
-          <Icon className="size-4" aria-hidden />
-          {label}
-        </button>
-      ))}
-    </div>
-  );
-}
