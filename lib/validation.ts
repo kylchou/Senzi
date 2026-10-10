@@ -1,5 +1,7 @@
 import { z } from "zod";
 import {
+  AccountType,
+  VerificationStatus,
   CreditTransactionType,
   ForecastSide,
   MarketStatus,
@@ -106,6 +108,32 @@ export const updateProfileSchema = z
   .strict();
 
 export const setPlatformRoleSchema = z.object({ platformRole: z.enum(PlatformRole) }).strict();
+
+export const vcVerificationSchema = z
+  .object({
+    firmName: z.string().trim().min(2).max(120),
+    firmWebsite: httpUrlSchema,
+    jobTitle: z.string().trim().min(2).max(120),
+    workEmail: z.string().trim().toLowerCase().max(254).pipe(z.email()),
+    linkedinUrl: optionalUrl,
+    note: optionalText(1000),
+  })
+  .strict();
+
+export const reviewVerificationSchema = z
+  .object({
+    decision: z.enum([VerificationStatus.APPROVED, VerificationStatus.REJECTED]),
+    note: optionalText(1000),
+  })
+  .strict()
+  .refine((v) => v.decision === VerificationStatus.APPROVED || !!v.note, {
+    message: "Say why, so the applicant knows what to fix",
+    path: ["note"],
+  });
+
+export const setAccountTypeSchema = z
+  .object({ accountType: z.enum(AccountType), reason: z.string().trim().min(3).max(500) })
+  .strict();
 
 // ---------------------------------------------------------------------------
 // Organizations
@@ -443,6 +471,8 @@ export const forecastSubmissionSchema = z
   .strict();
 
 export type UpdateProfileInput = z.output<typeof updateProfileSchema>;
+export type VcVerificationInput = z.output<typeof vcVerificationSchema>;
+export type ReviewVerificationInput = z.output<typeof reviewVerificationSchema>;
 export type CreateOrganizationInput = z.output<typeof createOrganizationSchema>;
 export type UpdateOrganizationInput = z.output<typeof updateOrganizationSchema>;
 export type AddMemberInput = z.output<typeof addMemberSchema>;

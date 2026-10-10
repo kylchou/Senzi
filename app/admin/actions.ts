@@ -7,6 +7,7 @@ import {
   changeMarketStatus,
   createMarket,
   createStartup,
+  setAccountType,
   setPlatformRole,
   updateMarket,
   updateStartup,
@@ -28,6 +29,7 @@ import {
   retrySettlement,
 } from "@/lib/resolutions";
 import { requirePlatformAdmin } from "@/lib/auth";
+import { reviewVcVerification } from "@/lib/verification";
 import type { SessionUser, ValidationIssue } from "@/lib/types";
 import {
   adminCreditAdjustmentSchema,
@@ -40,6 +42,8 @@ import {
   proposeResolutionSchema,
   rejectProposalSchema,
   startupFactSchema,
+  reviewVerificationSchema,
+  setAccountTypeSchema,
   setPlatformRoleSchema,
   updateMarketSchema,
   updateNewsItemSchema,
@@ -289,6 +293,26 @@ export async function setPlatformRoleAction(userId: string, _: ActionState, fd: 
     (admin) =>
       setPlatformRole(admin, userId, setPlatformRoleSchema.parse({ platformRole: text(fd, "platformRole") }).platformRole),
     "Role updated",
+  );
+}
+
+export async function setAccountTypeAction(_: ActionState, fd: FormData): Promise<ActionState> {
+  return run(
+    (admin) =>
+      setAccountType(
+        admin,
+        text(fd, "userId")?.trim() ?? "",
+        setAccountTypeSchema.parse({ accountType: text(fd, "accountType"), reason: text(fd, "reason") }),
+      ),
+    "Account type updated",
+  );
+}
+
+export async function reviewVerificationAction(requestId: string, _: ActionState, fd: FormData): Promise<ActionState> {
+  return run(
+    (admin) =>
+      reviewVcVerification(admin, requestId, reviewVerificationSchema.parse({ decision: text(fd, "decision"), note: text(fd, "note") })),
+    "Decision saved",
   );
 }
 
