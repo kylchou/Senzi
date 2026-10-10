@@ -11,7 +11,7 @@ export function StartupCard({ startup }: { startup: StartupSummary }) {
       <div className="flex items-start gap-3">
         <StartupMark name={startup.name} logoUrl={startup.logoUrl} />
         <div className="min-w-0">
-          <h3 className="truncate font-display text-base font-semibold text-ink-900">
+          <h3 translate="no" className="truncate font-display text-base font-semibold text-ink-900">
             <Link href={`/startups/${startup.slug}`} className="after:absolute after:inset-0 after:rounded-[var(--radius-card)]">
               {startup.name}
             </Link>
@@ -34,7 +34,7 @@ export function StartupCard({ startup }: { startup: StartupSummary }) {
         {startup.foundedYear && <span>Founded {startup.foundedYear}</span>}
         {startup.openMarketCount > 0 && (
           <Badge tone="live" className="ml-auto">
-            {startup.openMarketCount} open {startup.openMarketCount === 1 ? "market" : "markets"}
+            {`${startup.openMarketCount} open ${startup.openMarketCount === 1 ? "market" : "markets"}`}
           </Badge>
         )}
       </div>

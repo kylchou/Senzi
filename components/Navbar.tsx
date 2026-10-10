@@ -9,6 +9,8 @@ import { AuthControls } from "@/components/ui/AuthControls";
 import { openCommandPalette, ShortcutHint } from "@/components/ui/CommandPalette";
 import { NotificationsBell } from "@/components/ui/NotificationsBell";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
+import { AccessibilityMenu } from "@/components/ui/a11y/AccessibilityMenu";
+import { LanguageMenu } from "@/components/ui/i18n/LanguageMenu";
 import { VcLink } from "@/components/ui/VcLink";
 import { cn } from "@/components/ui/cn";
 import { useRememberedHref } from "@/components/ui/remembered-filters";
@@ -81,6 +83,8 @@ export function Navbar() {
             <span className="hidden pr-4 lg:inline">Search</span>
             <ShortcutHint className="hidden rounded-md bg-ink-100 px-1.5 py-0.5 font-sans text-[10px] font-semibold text-ink-700 lg:inline" />
           </button>
+          <LanguageMenu />
+          <AccessibilityMenu />
           <ThemeToggle />
           <NotificationsBell />
           <div className="ml-1 hidden md:block">
