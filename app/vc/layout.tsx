@@ -5,7 +5,6 @@ import { Disclaimer } from "@/components/vc/Disclaimer";
 import { Tyche } from "@/components/vc/Tyche";
 import { VC_LINKS } from "@/components/vc/nav-links";
 import { VcNav } from "@/components/vc/VcNav";
-import { getVcServices } from "@/lib/vc/server/container";
 import { getVcContext } from "@/lib/vc/server/context";
 import { isTycheConfigured } from "@/lib/vc/server/meta-muse";
 
@@ -14,16 +13,14 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-/** Per-user nav: org switcher, unread alert count, review link for platform admins. */
+/** Per-user nav: org switcher and the review link for platform admins. */
 async function NavData() {
   const ctx = await getVcContext();
   if (!ctx) return <StaticNav />;
-  const unreadAlerts = await getVcServices().alerts.unreadCount(ctx);
   return (
     <VcNav
       memberships={ctx.memberships}
       activeOrgId={ctx.activeOrg?.organizationId ?? null}
-      unreadAlerts={unreadAlerts}
       isPlatformAdmin={ctx.user.isPlatformAdmin}
     />
   );

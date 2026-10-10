@@ -1,21 +1,14 @@
 import "server-only";
 import { z } from "zod";
 import { db } from "@/lib/db";
-import { COMPANIES, FileModelStore, MemoryModelStore, getBaseline, makeQuestion, getCompanyIndicators, getIndicatorHistory, crossCheckSponsor, metricsFor, sponsorPoint, type Indicator } from "@/lib/model";
+import { COMPANIES, FileModelStore, getCompanyIndicators, getIndicatorHistory, crossCheckSponsor, metricsFor, sponsorPoint, type Indicator } from "@/lib/model";
 import { SPONSOR_METRIC_LABELS, type SponsorMetricKind } from "@/lib/model/sponsor";
 import type { DataPoint, InputUsed, SourceRef } from "@/lib/model/types";
-import { intakeMetrics, intakeObservationSchema, intakeQuestionSchema } from "@/lib/model/intake";
+import { intakeMetrics, intakeObservationSchema } from "@/lib/model/intake";
 import { canProposeInActiveOrg } from "../permissions";
 import { forbidden, notFound, VcError } from "../errors";
 import type { VcContext } from "../types";
 
-export const structuredQuestionInput = z.object({
-  startupId: z.string().min(1),
-  target: intakeQuestionSchema,
-  context: z.string().trim().max(5000).default(""),
-  visibility: z.enum(["ORGANIZATION", "RESTRICTED", "PUBLIC"]).default("ORGANIZATION"),
-  expectedVersion: z.number().int().positive().optional(),
-}).strict();
 export const companyMetricsInput = z.object({ observations: z.array(intakeObservationSchema).min(1).max(100) }).strict();
 
 export function requireCompanyOrg(ctx: VcContext, write = false) {
@@ -142,28 +135,4 @@ export async function saveCompanyMetrics(ctx: VcContext, startupId: string, raw:
     create: data, update: data,
   })));
   return companyModel(ctx, startupId);
-}
-
-export async function priceQuestion(ctx: VcContext, raw: unknown) {
-  requireCompanyOrg(ctx, true);
-  const input = structuredQuestionInput.parse(raw);
-  const asOf = new Date();
-  const data = await companyModel(ctx, input.startupId, asOf);
-  if (!data.company || !data.questionMetrics.some(m => m.id === input.target.metricId)) throw new VcError("VALIDATION_ERROR", "This metric has no independent resolution connector. Enter it as a company indicator instead.");
-  if (input.target.targetDate <= asOf.toISOString().slice(0, 10)) throw new VcError("VALIDATION_ERROR", "Choose a future window end date");
-  const question = makeQuestion({ id: "vc-preview", companyId: data.company.id, metricId: input.target.metricId, threshold: input.target.threshold, windowEnd: input.target.targetDate, opensAt: asOf.toISOString() });
-  const result = getBaseline(question.id, { asOf, store: new MemoryModelStore(data.scraped, data.sponsor, [question]) });
-  const metric = data.questionMetrics.find(m => m.id === question.metricId)!;
-  const criteria = `${metric.label}: the public source reports a complete seven-day total ending ${question.windowEnd} (UTC)`;
-  const methodology = `${result.method.name}@${result.method.version}. As of ${result.asOf}. Model uncertainty: ${result.low}–${result.high}. Inputs: ${result.inputsUsed.map(i => `${i.metricId} (${i.provenance}${i.simulated ? ", SIMULATED" : ""}, ${i.points} points, ${i.periodStart}–${i.periodEnd})`).join("; ")}. Hash ${result.method.details.inputsHash}. Robust log-weekly trend; only matching history affects the model. Scraped values take precedence; sponsor values fill missing weeks. Trades never feed the model.`.slice(0, 1000);
-  return { input, question, result, fields: {
-    startupId: input.startupId, question: question.text,
-    yesCriteria: `${criteria} of at least ${question.threshold}. Source: ${question.resolutionSource.url}`,
-    noCriteria: `${criteria} below ${question.threshold}. Missing or disputed data requires review; sponsor entries never resolve the outcome.`,
-    context: input.context, visibility: input.visibility,
-    deadline: new Date(`${question.windowEnd}T23:59:59.999Z`),
-    baselineValue: result.probability,
-    baselineMethodology: result.probability === null ? null : methodology,
-    sources: [{ url: question.resolutionSource.url, title: `Resolution: ${metric.label}`, publisher: question.resolutionSource.source, publishedAt: null }],
-  } };
 }

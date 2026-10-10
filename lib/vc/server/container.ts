@@ -7,6 +7,7 @@ import type { VcDeps } from "../ports";
 import { createVcServices, type VcServices } from "../services";
 import { createForecastingGateway } from "./forecasting-adapter";
 import { createIndicatorGateway } from "./indicators-adapter";
+import { createModelGateway } from "./model-adapter";
 import { createPlatformGateway } from "./platform-adapter";
 import { createMetaMuseModel, tycheApiKey } from "./meta-muse";
 import { createPrismaVcRepository } from "./prisma-repository";
@@ -20,6 +21,7 @@ export function getVcDeps(): VcDeps {
     platform: createPlatformGateway(db),
     forecasting: createForecastingGateway(db),
     indicators: createIndicatorGateway(),
+    model: createModelGateway(),
     now: () => new Date(),
   };
   return deps;

@@ -43,6 +43,18 @@ function studyMarketInput(study: Awaited<ReturnType<typeof makeStudy>>, visibili
     noCriteria: study.noCriteria,
     closesAt: study.deadline,
     openingBaseline: { value: 0.3, methodology: "Base rate" },
+    model: {
+      low: 0.2,
+      high: 0.4,
+      confidence: "low" as const,
+      asOf: new Date(),
+      modelName: "senzi-direct",
+      modelVersion: "direct-metric-1.0.0",
+      inputsHash: "hash-1",
+      inputsNote: "npm downloads",
+      inputsUsed: [],
+      notes: [],
+    },
     visibility,
     sources: [{ url: "https://example.com/filing", title: "Filing" }],
     createdById: study.createdById,
@@ -107,6 +119,19 @@ describe("createMarketForStudy", () => {
     expect(results[0]).toMatchObject({ status: "OPEN", visibility: "ORGANIZATION", organizationId: org.id, openingBaseline: 0.3 });
     expect(await db.marketSource.count({ where: { marketId: results[0]!.id } })).toBe(1);
     expect(await db.marketSnapshot.count({ where: { marketId: results[0]!.id, trigger: "OPENING" } })).toBe(1);
+  });
+
+  it("starts the model line at the opening baseline and records the model's confidence", async () => {
+    const owner = await makeUser();
+    const org = await makeOrg([[owner, OrgRole.OWNER]]);
+    const study = await makeStudy(org.id, owner);
+    const market = await createMarketForStudy(studyMarketInput(study, "ORGANIZATION"));
+
+    expect(market).toMatchObject({ openingBaseline: 0.3, modelValue: 0.3, modelVersion: "direct-metric-1.0.0" });
+    const snapshot = await db.modelBaselineSnapshot.findFirstOrThrow({ where: { marketId: market.id } });
+    expect(snapshot).toMatchObject({ status: "OK", probability: 0.3, low: 0.2, high: 0.4, confidence: "low" });
+    const opening = await db.marketSnapshot.findFirstOrThrow({ where: { marketId: market.id, trigger: "OPENING" } });
+    expect(opening.modelValue).toBe(0.3);
   });
 
   it("closes a study's market once, and ignores studies without one", async () => {
