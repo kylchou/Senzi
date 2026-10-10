@@ -4,6 +4,8 @@ import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { timeTicks } from "@/lib/market-view/chart";
 import { formatShortDate } from "@/lib/market-view/format";
 import { SERIES, stateAt, widestGap, type ReplayData, type SeriesKey } from "@/lib/market-view/replay";
+import { usePrefs } from "../a11y/preferences";
+import { lineStyle, markerTimes, SeriesMarker, showsMarkers } from "../chart-style";
 import { percent, SERIES_STYLE } from "./series";
 
 /** Gaps at or above this many points (as a fraction) are highlighted. */
@@ -30,6 +32,7 @@ export function ReplayChart({
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const clipId = useId();
+  const mode = usePrefs().chart;
   const [width, setWidth] = useState(800);
 
   useEffect(() => {
@@ -92,6 +95,18 @@ export function ReplayChart({
     .sort((a, b) => a.y - b.y);
   for (let i = 1; i < tags.length; i++) tags[i].y = Math.max(tags[i].y, tags[i - 1].y + 18);
 
+  // Shape markers along each line (accessible chart modes), only up to the playhead.
+  const lineMarkers = showsMarkers(mode)
+    ? markerTimes(data.start, time, width < 520 ? 4 : 7).flatMap((at) => {
+        const atState = stateAt(data.points, at);
+        return SERIES.filter((series) => available[series] && atState?.[series] != null).map((series) => ({
+          series,
+          x: xFor(at),
+          y: yFor(atState![series] as number),
+        }));
+      })
+    : [];
+
   const visibleEvents = data.events.filter((event) => event.at <= time);
   const ticks = timeTicks(data.start, data.end, width < 520 ? 3 : 5);
 
@@ -143,20 +158,31 @@ export function ReplayChart({
         ))}
 
         <g clipPath={`url(#${clipId})`}>
-          {SERIES.map((series) =>
-            paths[series] ? (
+          {SERIES.map((series) => {
+            const style = lineStyle(series, mode);
+            return paths[series] ? (
               <path
                 key={series}
                 d={paths[series]}
                 fill="none"
-                className={SERIES_STYLE[series].stroke}
-                strokeWidth={SERIES_STYLE[series].width}
-                strokeDasharray={SERIES_STYLE[series].dash}
+                className={style.stroke}
+                strokeWidth={style.width}
+                strokeDasharray={style.dash}
                 strokeLinejoin="round"
-                strokeLinecap="round"
+                strokeLinecap={style.dash ? style.cap : "round"}
               />
-            ) : null,
-          )}
+            ) : null;
+          })}
+          {lineMarkers.map((marker, index) => (
+            <SeriesMarker
+              key={index}
+              shape={lineStyle(marker.series, mode).marker}
+              x={marker.x}
+              y={marker.y}
+              size={3.5}
+              className={lineStyle(marker.series, mode).fill}
+            />
+          ))}
         </g>
 
         {compare &&
@@ -206,7 +232,17 @@ export function ReplayChart({
 
         {tags.map((tag) => (
           <g key={tag.series}>
-            <circle cx={playheadX} cy={yFor(tag.value)} r={3.5} className="fill-surface stroke-ink-900" strokeWidth={1.5} />
+            {showsMarkers(mode) ? (
+              <SeriesMarker
+                shape={lineStyle(tag.series, mode).marker}
+                x={playheadX}
+                y={yFor(tag.value)}
+                size={4.5}
+                className={lineStyle(tag.series, mode).fill}
+              />
+            ) : (
+              <circle cx={playheadX} cy={yFor(tag.value)} r={3.5} className="fill-surface stroke-ink-900" strokeWidth={1.5} />
+            )}
             <text
               x={playheadX + 10}
               y={tag.y}

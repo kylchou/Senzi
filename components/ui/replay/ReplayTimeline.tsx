@@ -42,6 +42,7 @@ export function ReplayEventMarker({
       type="button"
       onClick={() => onSelect(event)}
       aria-label={`${formatShortDate(event.at)}: ${event.title}`}
+      data-hit-exempt="marker"
       className="group absolute -translate-x-1/2 p-1.5 hover:z-10 focus-visible:z-10"
       style={{ left: `${left}%`, bottom: lane * 16 }}
     >
