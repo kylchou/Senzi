@@ -7,6 +7,7 @@ import {
   changeMarketStatus,
   createMarket,
   createStartup,
+  setAccountType,
   setPlatformRole,
   updateMarket,
   updateStartup,
@@ -40,6 +41,7 @@ import {
   proposeResolutionSchema,
   rejectProposalSchema,
   startupFactSchema,
+  setAccountTypeSchema,
   setPlatformRoleSchema,
   updateMarketSchema,
   updateNewsItemSchema,
@@ -289,6 +291,18 @@ export async function setPlatformRoleAction(userId: string, _: ActionState, fd: 
     (admin) =>
       setPlatformRole(admin, userId, setPlatformRoleSchema.parse({ platformRole: text(fd, "platformRole") }).platformRole),
     "Role updated",
+  );
+}
+
+export async function setAccountTypeAction(_: ActionState, fd: FormData): Promise<ActionState> {
+  return run(
+    (admin) =>
+      setAccountType(
+        admin,
+        text(fd, "userId")?.trim() ?? "",
+        setAccountTypeSchema.parse({ accountType: text(fd, "accountType"), reason: text(fd, "reason") }),
+      ),
+    "Account type updated",
   );
 }
 

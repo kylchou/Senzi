@@ -152,6 +152,14 @@ describe("membership management", () => {
     await addMember(owner, org.id, { email: "new.analyst@fund.example", role: OrgRole.ANALYST });
     const members = await listMembers(owner, org.id);
     expect(members.find((m) => m.email === "new.analyst@fund.example")).toMatchObject({ pending: true, role: "ANALYST" });
+    expect((await db.user.findUniqueOrThrow({ where: { email: "new.analyst@fund.example" } })).accountType).toBe("VC");
+  });
+
+  it("won't add a trader to a VC org", async () => {
+    const owner = await makeUser({ accountType: "VC" });
+    const trader = await makeUser();
+    const org = await makeOrg([[owner, OrgRole.OWNER]]);
+    await expect(addMember(owner, org.id, { email: trader.email, role: OrgRole.VIEWER })).rejects.toMatchObject({ code: "INVALID_STATE" });
   });
 
   it("stops org admins from granting admin or touching owners", async () => {

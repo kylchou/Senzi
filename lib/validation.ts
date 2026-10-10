@@ -1,5 +1,6 @@
 import { z } from "zod";
 import {
+  AccountType,
   CreditTransactionType,
   ForecastSide,
   MarketStatus,
@@ -106,6 +107,10 @@ export const updateProfileSchema = z
   .strict();
 
 export const setPlatformRoleSchema = z.object({ platformRole: z.enum(PlatformRole) }).strict();
+
+export const setAccountTypeSchema = z
+  .object({ accountType: z.enum(AccountType), reason: z.string().trim().min(3).max(500) })
+  .strict();
 
 // ---------------------------------------------------------------------------
 // Organizations

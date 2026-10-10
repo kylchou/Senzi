@@ -1,8 +1,8 @@
 import { randomUUID } from "node:crypto";
-import { CreditTransactionType, PlatformRole } from "@/generated/prisma/enums";
+import { AccountType, CreditTransactionType, PlatformRole } from "@/generated/prisma/enums";
 import { searchUsersForAdmin } from "@/lib/admin";
 import { requireAdminPage } from "@/lib/auth";
-import { adjustCreditsAction, setPlatformRoleAction } from "../actions";
+import { adjustCreditsAction, setAccountTypeAction, setPlatformRoleAction } from "../actions";
 import { ActionForm } from "../_components/action-form";
 import { Field, PageHeader, Section, Select, Table } from "../_components/ui";
 
@@ -26,7 +26,7 @@ export default async function AdminUsersPage({ searchParams }: PageProps<"/admin
       </form>
 
       <Section title="Users">
-        <Table head={["Name", "Email", "Balance", "Role", ""]}>
+        <Table head={["Name", "Email", "Balance", "Role", "Account", ""]}>
           {users.map((u) => (
             <tr key={u.id}>
               <td className="py-2 pr-4">
@@ -37,6 +37,7 @@ export default async function AdminUsersPage({ searchParams }: PageProps<"/admin
               <td className="py-2 pr-4">{u.email}</td>
               <td className="py-2 pr-4 tabular-nums">{u.creditBalance.toLocaleString()}</td>
               <td className="py-2 pr-4">{u.platformRole}</td>
+              <td className="py-2 pr-4">{u.accountType ?? "Not chosen"}</td>
               <td className="py-2 pr-4">
                 {u.id !== admin.id && (
                   <ActionForm
@@ -54,6 +55,23 @@ export default async function AdminUsersPage({ searchParams }: PageProps<"/admin
             </tr>
           ))}
         </Table>
+      </Section>
+
+      <Section title="Change account type">
+        <ActionForm action={setAccountTypeAction} submitLabel="Change">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="User id" name="userId" required />
+            <Select
+              label="Account type"
+              name="accountType"
+              options={[
+                { value: AccountType.TRADER, label: "Trader" },
+                { value: AccountType.VC, label: "VC" },
+              ]}
+            />
+          </div>
+          <Field label="Reason" name="reason" required minLength={3} hint="Saved to the audit log. Remove someone from their VC orgs before making them a trader." />
+        </ActionForm>
       </Section>
 
       <Section title="Adjust virtual credits">
