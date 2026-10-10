@@ -33,11 +33,11 @@ describe("market lifecycle", () => {
     const admin = await makeAdmin();
     const market = await makeMarket(admin, { open: false });
     expect(market.status).toBe(MarketStatus.DRAFT);
-    expect(await db.probabilitySnapshot.count({ where: { marketId: market.id } })).toBe(0);
+    expect(await db.marketSnapshot.count({ where: { marketId: market.id } })).toBe(0);
 
     await changeMarketStatus(admin, market.id, { status: "OPEN" });
-    const snapshot = await db.probabilitySnapshot.findFirstOrThrow({ where: { marketId: market.id } });
-    expect(snapshot).toMatchObject({ trigger: "OPENING", openingBaseline: 0.4, communityAllocationShare: null });
+    const snapshot = await db.marketSnapshot.findFirstOrThrow({ where: { marketId: market.id } });
+    expect(snapshot).toMatchObject({ sequence: 1, trigger: "OPENING", openingBaseline: 0.4, allocationShare: null });
   });
 
   it("rejects transitions that skip the resolution workflow", async () => {
@@ -105,10 +105,10 @@ describe("resolution", () => {
     expect(await db.resolution.count({ where: { marketId: market.id } })).toBe(1);
   });
 
-  it("marks cancelled outcomes as CANCELLED markets", async () => {
+  it("marks VOID outcomes as CANCELLED markets", async () => {
     const admin = await makeAdmin();
     const market = await makeMarket(admin);
-    await resolveMarket(admin, market.id, { outcome: "CANCELLED", ...evidence });
+    await resolveMarket(admin, market.id, { outcome: "VOID", ...evidence });
     expect((await db.market.findUniqueOrThrow({ where: { id: market.id } })).status).toBe(MarketStatus.CANCELLED);
   });
 
@@ -143,7 +143,7 @@ describe("admin credits and roles", () => {
     await expect(setPlatformRole(admin, admin.id, "USER")).rejects.toMatchObject({ code: "INVALID_STATE" });
   });
 
-  it("requires an organization for private markets", async () => {
+  it("requires an organization for non-public markets", async () => {
     const admin = await makeAdmin();
     const owner = await makeUser();
     const org = await makeOrg([[owner, OrgRole.OWNER]]);

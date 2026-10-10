@@ -88,9 +88,9 @@ function startupFields(fd: FormData) {
     name: text(fd, "name"),
     tagline: text(fd, "tagline"),
     description: text(fd, "description"),
-    website: text(fd, "website"),
+    websiteUrl: text(fd, "websiteUrl"),
     logoUrl: text(fd, "logoUrl"),
-    sector: text(fd, "sector"),
+    industry: text(fd, "industry"),
     stage: text(fd, "stage"),
     foundedYear: number(fd, "foundedYear") ?? null,
     headquarters: text(fd, "headquarters"),
@@ -116,22 +116,42 @@ export async function updateStartupAction(startupId: string, _: ActionState, fd:
 
 // --- Markets ------------------------------------------------------------------
 
+/** "Title | https://url" per line. */
+function sources(fd: FormData) {
+  return lines(fd, "sources").map((line) => {
+    const [title, url] = line.includes("|") ? line.split("|").map((part) => part.trim()) : [line, line];
+    return { title, url };
+  });
+}
+
 function marketFields(fd: FormData) {
   const visibility = text(fd, "visibility");
+  const baselinePercent = number(fd, "openingBaselinePercent");
+  // Locked (disabled) fields are not submitted; leave them out so they don't count as changes.
   return {
     slug: text(fd, "slug"),
     startupId: text(fd, "startupId"),
     question: text(fd, "question"),
     description: text(fd, "description"),
-    resolutionCriteria: text(fd, "resolutionCriteria"),
-    resolutionSource: text(fd, "resolutionSource"),
+    yesCriteria: text(fd, "yesCriteria"),
+    noCriteria: text(fd, "noCriteria"),
     category: text(fd, "category"),
-    openingBaseline: (number(fd, "openingBaselinePercent") ?? NaN) / 100,
+    ...(fd.has("openingBaselinePercent")
+      ? {
+          openingBaseline: baselinePercent === undefined ? null : baselinePercent / 100,
+          baselineMethodology: text(fd, "baselineMethodology"),
+        }
+      : {}),
     visibility,
-    organizationId: visibility === "PRIVATE" ? text(fd, "organizationId") || null : null,
+    ...(fd.has("visibility")
+      ? { organizationId: visibility === "PUBLIC" ? null : text(fd, "organizationId") || null }
+      : {}),
     opensAt: utcDate(fd, "opensAt"),
     closesAt: utcDate(fd, "closesAt"),
     resolvesBy: utcDate(fd, "resolvesBy"),
+    minForecastCredits: number(fd, "minForecastCredits") ?? null,
+    maxForecastCredits: number(fd, "maxForecastCredits") ?? null,
+    sources: sources(fd),
   };
 }
 

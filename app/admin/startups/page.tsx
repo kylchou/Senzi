@@ -10,7 +10,7 @@ export default async function AdminStartupsPage() {
   return (
     <>
       <PageHeader title="Startups" action={<ButtonLink href="/admin/startups/new">New startup</ButtonLink>} />
-      <Table head={["Name", "Sector", "Stage", "Markets", "Status"]}>
+      <Table head={["Name", "Industry", "Stage", "Markets", "Status"]}>
         {startups.map((s) => (
           <tr key={s.id}>
             <td className="py-2 pr-4">
@@ -18,7 +18,7 @@ export default async function AdminStartupsPage() {
                 {s.name}
               </Link>
             </td>
-            <td className="py-2 pr-4">{s.sector}</td>
+            <td className="py-2 pr-4">{s.industry}</td>
             <td className="py-2 pr-4">{s.stage.replace(/_/g, " ")}</td>
             <td className="py-2 pr-4 tabular-nums">{s.marketCount}</td>
             <td className="py-2 pr-4">{s.isPublished ? "Published" : "Hidden"}</td>

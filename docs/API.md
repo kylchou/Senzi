@@ -38,9 +38,9 @@ Organizations (members only, and non-members get 404)
 Admin (platform admins only)
 
 - `GET|POST /api/admin/startups`, `GET|PATCH /api/admin/startups/:id`
-- `GET|POST /api/admin/markets`, `GET|PATCH /api/admin/markets/:id`
+- `GET|POST /api/admin/markets`, `GET|PATCH /api/admin/markets/:id`. A market needs `yesCriteria`, `noCriteria`, and at least one entry in `sources` (`{ title, url }`). `openingBaseline` is optional, but if you set it you also need `baselineMethodology`.
 - `POST /api/admin/markets/:id/status` with `{ status: "OPEN" | "CLOSED" | "CANCELLED" }`
-- `POST /api/admin/markets/:id/resolve` with `{ outcome: "YES" | "NO" | "CANCELLED", evidenceSummary, evidenceUrls: [...] }`
+- `POST /api/admin/markets/:id/resolve` with `{ outcome: "YES" | "NO" | "VOID", evidenceSummary, evidenceUrls: [...] }`
 - `POST /api/admin/credits` with `{ userId, amount, type: "ADMIN_GRANT" | "ADMIN_ADJUSTMENT", memo, idempotencyKey }`
 - `GET /api/admin/users?q=`, `PATCH /api/admin/users/:id` with `{ platformRole }`, `GET /api/admin/users/:id/ledger`
 - `GET /api/admin/audit-logs`
@@ -52,44 +52,88 @@ The `/admin` pages call the same functions in `lib/admin.ts`.
 
 `DRAFT → OPEN ⇄ CLOSED → RESOLVED`, and a market can be `CANCELLED` from any of those. Some rules:
 
-- Opening a market records an `OPENING` snapshot that holds the admin's baseline.
+- Opening a market writes `MarketSnapshot` #1 with trigger `OPENING`.
 - Once a market has forecasts, its question, criteria, baseline, startup, visibility, and open time can't be changed.
-- You can only cancel a market with a status change if nobody has forecast on it. Otherwise resolve it as `CANCELLED` so people get their stakes back.
+- You can only cancel a market with a status change if nobody has forecast on it. Otherwise resolve it as `VOID` so people get their stakes back.
 - Resolving needs a written summary plus at least one evidence link. It notifies the forecasters, writes to the audit log, and creates a `Resolution` with `settlementStatus: PENDING`. Each market can only be resolved once.
 - The cron moves OPEN markets to CLOSED after `closesAt`, but forecast submission should still check `closesAt > now` itself.
 
+Visibility is `PUBLIC`, `ORGANIZATION` (members of `Market.organization`), or `RESTRICTED` (that org's owners and admins, plus the study author and the people invited to the study). Non-public markets come from research studies.
+
 ## Felix: forecasting and settlement
 
-Submitting a forecast. Validate the body with `forecastSubmissionSchema` from `lib/validation.ts`, then do this in one `db.$transaction`:
+The schema now has the fields your ports use. Here's how they map:
 
-1. Check the market is visible (`requireMarketVisible`), `OPEN`, and still before `closesAt`.
-2. Create the `Forecast` with the client's `idempotencyKey` (unique per user).
-3. Call `applyCreditTransaction(tx, { userId, amount: -credits, type: "FORECAST_STAKE", idempotencyKey: "forecast:<forecastId>", marketId, forecastId })`. It throws `INSUFFICIENT_CREDITS` if the user can't cover it, and the whole transaction rolls back.
-4. Increment `Market.yesCredits` / `noCredits` / `forecastCount` and write a `ProbabilitySnapshot` (trigger `FORECAST`).
+| Your type | Database |
+|---|---|
+| `Market.companyId` | `Market.startupId` |
+| `Market.openingBaseline` (value, asOf, modelVersion, inputsNote) | `openingBaseline`, `baselineSetAt`, `baselineMethodology` |
+| `Market.model` | `modelValue`, `modelUpdatedAt`, `modelVersion`, `modelInputsNote` |
+| `minAmount` / `maxAmount` | `minForecastCredits` / `maxForecastCredits` |
+| `Forecast.amount` | `Forecast.credits` |
+| `sequence`, `requestHash`, `verifiedAtEntry`, `entry`, `fill` | same names (`entry` and `fill` are JSON) |
+| `MarketSnapshot` | `MarketSnapshot`. `general` and `specialized` map to `generalEstimate` and `specializedEstimate`. `generalForecasters` maps to `forecasterCount`, and the `generalAmount` total is `yesCredits + noCredits`. |
+| `SettlementRecord` | `Resolution` (`settlementStatus`, `settlementModelId`, `settledAt`) plus `Forecast.payout` / `settledAt` |
+| `Outcome` `VOID` | `ResolutionOutcome.VOID` |
 
-Settling a resolution. Implement `SettlementService.settleResolution(resolutionId)` from `lib/types.ts`:
+Use `db` from `lib/db.ts` in your `ForecastRepository` adapter. For `LockManager`, use `SELECT ... FOR UPDATE` on the market row inside the same transaction. `(userId, idempotencyKey)` and `(marketId, sequence)` are both unique.
+
+`CreditLedger` adapter. `applyCreditTransaction(tx, input)` in `lib/credits.ts` does atomic, idempotent debits and credits inside your transaction, and throws `INSUFFICIENT_CREDITS` when the balance is too low. Your keys work as they are. Use these transaction types:
+- `forecast:<id>` → `FORECAST_STAKE`
+- `forecast-reversal:<id>` → `FORECAST_REVERSAL`
+- `settlement:<marketId>:<forecastId>` → `SETTLEMENT_PAYOUT`, or `MARKET_REFUND` for VOID outcomes
+
+You can put the debit and the forecast insert in one transaction, so you no longer need the compensating refund.
+
+Settlement. Implement `SettlementService.settleResolution(resolutionId)` from `lib/types.ts`:
 
 1. Call `claimResolutionForSettlement(id)`. If it returns false, someone else already has it, so stop.
-2. Pay out with `applyCreditTransaction` using type `SETTLEMENT_PAYOUT` and key `settlement:<resolutionId>:<forecastId>`. For `CANCELLED` outcomes use `MARKET_REFUND` and `refund:<resolutionId>:<forecastId>`. Because of those keys, re-running settlement after a crash never pays anyone twice.
+2. Pay out with the keys above. Because of them, re-running settlement after a crash never pays anyone twice.
 3. Mark the forecasts `SETTLED` or `REFUNDED`, then call `completeResolutionSettlement(id)`. If something fails, call `failResolutionSettlement(id, message)`. Failed resolutions can be claimed again.
 
-Once your service exists, Kyler will call it from the resolve route. Credits are whole numbers, so round payouts down. The seed includes two resolved markets and one cancelled one, all still `PENDING`, for you to test against.
+Once your service exists, Kyler will call it from the resolve route. The seed includes two resolved markets and one void one, all still `PENDING`, for you to test against. `SettlementAuthorizer` is the resolve route itself, which only platform admins can reach. Nothing exists for `TraderDirectory` (verified users of a product) yet, so leave `verifiedAtEntry` false for now.
 
 ## Darsh: VC intelligence
 
-- Use `requireOrgRole(user, orgId, minRole)` for org pages, and `requireStudyAccess(user, studyId, "read" | "edit" | "manage")` for studies.
-- For lists, filter with `readableStudiesWhere(userId)`, so restricted studies only show up for their members and org admins.
-- `requireWatchlistAccess(user, watchlistId, "read" | "write")` covers both personal and org watchlists.
-- `visibleMarketsWhere(userId)` includes the private markets of the user's orgs.
-- Record anything that changes org data with `recordAudit(...)` from `lib/audit.ts`.
-- The data models are `ResearchStudy`, `StudyMembership`, `StudyStartup`, `StudyMarket`, `Watchlist`, and `WatchlistItem` (`alertThreshold` is a 0–1 move in the allocation share). If reports or alerts need their own tables, ask.
+Your schema request is merged, with every relation wired to the real tables. Differences from the request:
+
+- No `Market.studyId`. The link is `ResearchStudy.marketId`, as in your request, and `market.study` is available as a back-relation.
+- `ResolvedOutcome` became the shared `ResolutionOutcome` enum (`YES | NO | VOID`, same values).
+- `Market.visibility` uses `MarketVisibility`, which has the same values as `StudyVisibility`.
+
+Changes for `platform-adapter.ts`:
+
+| You expected | Actual |
+|---|---|
+| `prisma` from `@/lib/db` | `db` |
+| `getCurrentUser()` → `{ name, role }` | `{ displayName, platformRole }` |
+| `prisma.organizationMember` | `db.organizationMembership` |
+| `user.name` | `user.displayName` |
+| `startup.industry` | `startup.industry` (unchanged) |
+| `createMarketForStudy` from `@/lib/admin/markets` | `createMarketForStudy` from `@/lib/admin` |
+
+`createMarketForStudy(input)` takes your `CreateMarketForStudyInput` unchanged and returns the market (use `.id`). It's idempotent on `studyId` and safe to call concurrently. It checks that the study is `APPROVED` or `OPEN` and that the org and startup match. It does not write to the study, so set `ResearchStudy.marketId` in your open transition. Restricted-market visibility depends on that link.
+
+Use `requireOrgRole` from `lib/permissions.ts` for org checks. Study and watchlist rules are yours in `lib/vc/permissions.ts`. Record changes to org data with `recordAudit(...)` from `lib/audit.ts`. For the cron, add your path to `vercel.json` next to the existing one.
 
 ## Sahil: public pages and read APIs
 
-- Every public query needs to use `PUBLIC_MARKET_WHERE` and `PUBLIC_STARTUP_WHERE` from `lib/permissions.ts`. Use `DIRECT_LINK_MARKET_WHERE` when someone opens a market by its slug, so unlisted markets work by link. Together these keep drafts, unpublished startups, and private VC markets out of public pages.
-- Show the three measurements under their own labels: opening baseline (`Market.openingBaseline`), community allocation share (`yesCredits / (yesCredits + noCredits)`), and calibrated probability (`ProbabilitySnapshot.calibratedProbability`, filled in by Felix).
-- `NewsItem.verification` tells you whether the facts were checked (`VERIFIED`) or are just reported (`UNVERIFIED`), so label them that way.
-- `lib/types.ts` re-exports every enum and model type, and it's safe to import from client components.
+The schema now uses your names where we overlapped: `Startup.industry`, `Startup.websiteUrl`, `StartupFact`, `MarketSource`, `MarketSnapshot`, `NewsItem.url` / `publisher`, `Market.yesCriteria` / `noCriteria`, and `VOID`. Differences:
+
+- Import `db` from `@/lib/db` (there's no `prisma` export), and delete your `prisma/schema.prisma` and `lib/db.ts`.
+- `MarketSnapshot.recordedAt`, `allocationShare`, and `forecasterCount` match yours. There's also a `sequence` you can order by.
+- Market resolution lives in the `Resolution` relation (`market.resolution.outcome`, `evidenceSummary`, `evidenceUrls`, `resolvedAt`), not in columns on `Market`.
+- `Market.baselineMethodology` is the same thing as your `baselineMethod`.
+- `NewsItem.verification` is `VERIFIED`, `UNVERIFIED`, or `DISPUTED`. Label them that way.
+
+Every public query needs to use `PUBLIC_MARKET_WHERE` and `PUBLIC_STARTUP_WHERE` from `lib/permissions.ts`. That keeps drafts, unpublished startups, and VC markets off public pages.
+
+Show these as separate, labelled numbers:
+- the opening baseline (`openingBaseline` with its methodology)
+- the community allocation share (`yesCredits / (yesCredits + noCredits)`, never called a probability)
+- the calibrated probability (`MarketSnapshot.calibratedProbability`, only when Felix provides it)
+
+`lib/types.ts` re-exports every enum and model type, and it's safe to import from client components.
 
 ## Environment variables
 

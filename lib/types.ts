@@ -7,6 +7,7 @@
  */
 export {
   CreditTransactionType,
+  EstimateKind,
   ForecastSide,
   ForecastStatus,
   MarketStatus,
@@ -19,9 +20,10 @@ export {
   SettlementStatus,
   SnapshotTrigger,
   StartupStage,
-  StudyAccess,
-  StudyRole,
   StudyStatus,
+  StudyVisibility,
+  VcAlertType,
+  WatchlistItemType,
 } from "@/generated/prisma/enums";
 
 import type {
@@ -40,16 +42,24 @@ export type {
   CreditTransaction,
   Forecast,
   Market,
+  MarketSnapshot,
+  MarketSource,
   NewsItem,
   Notification,
   Organization,
   OrganizationMembership,
-  ProbabilitySnapshot,
   ResearchStudy,
   Resolution,
   Startup,
-  StudyMembership,
+  StartupFact,
+  StudyEvent,
+  StudyNote,
+  StudyParticipant,
+  StudySource,
   User,
+  VcAlert,
+  VcAlertReceipt,
+  VcReport,
   Watchlist,
   WatchlistItem,
 } from "@/generated/prisma/client";
@@ -202,8 +212,8 @@ export interface CreditMutationInput {
    * Globally unique and stable for the logical operation. Conventions:
    *   signup:<userId>
    *   forecast:<forecastId>
-   *   settlement:<resolutionId>:<forecastId>
-   *   refund:<resolutionId>:<forecastId>
+   *   forecast-reversal:<forecastId>
+   *   settlement:<marketId>:<forecastId>
    *   achievement:<userId>:<achievementKey>
    *   admin:<client-generated uuid>
    */
@@ -226,7 +236,7 @@ export interface AdminMarketSummary {
   status: MarketStatus;
   visibility: MarketVisibility;
   startup: { id: string; name: string; slug: string };
-  openingBaseline: number;
+  openingBaseline: number | null;
   opensAt: string;
   closesAt: string;
   forecastCount: number;
@@ -241,7 +251,7 @@ export interface AdminStartupSummary {
   id: string;
   slug: string;
   name: string;
-  sector: string;
+  industry: string;
   stage: StartupStage;
   isPublished: boolean;
   marketCount: number;
@@ -262,9 +272,9 @@ export interface SettlementResult {
  * Engineer 2's settlement service. Called after an admin records a
  * Resolution (which starts with settlementStatus = PENDING). Must be
  * idempotent: use lib/admin.ts claimResolutionForSettlement() to take the
- * PENDING -> IN_PROGRESS lock, lib/credits.ts applyCreditTransaction() with the
- * settlement:/refund: idempotency keys for payouts, then
- * completeResolutionSettlement() or failResolutionSettlement().
+ * PENDING -> IN_PROGRESS lock, lib/credits.ts applyCreditTransaction() with
+ * settlement:<marketId>:<forecastId> keys (MARKET_REFUND for VOID outcomes),
+ * then completeResolutionSettlement() or failResolutionSettlement().
  */
 export interface SettlementService {
   settleResolution(resolutionId: string): Promise<SettlementResult>;

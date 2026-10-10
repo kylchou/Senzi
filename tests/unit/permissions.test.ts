@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { OrgRole, StudyAccess, StudyRole } from "@/generated/prisma/enums";
+import { OrgRole } from "@/generated/prisma/enums";
 import { canTransitionMarket, termsAreEditable } from "@/lib/admin";
-import { canManageMember, computeStudyPermissions, hasOrgRole } from "@/lib/permissions";
+import { canManageMember, hasOrgRole, PUBLIC_MARKET_WHERE } from "@/lib/permissions";
 
 describe("org roles", () => {
   it("ranks OWNER > ADMIN > ANALYST > VIEWER", () => {
@@ -23,31 +23,13 @@ describe("org roles", () => {
   });
 });
 
-describe("study permissions", () => {
-  const study = (orgRole: OrgRole | null, studyRole: StudyRole | null, access: StudyAccess = StudyAccess.ORGANIZATION) =>
-    computeStudyPermissions({ orgRole, studyRole, access });
-
-  it("gives nothing to non-members, whatever the study role says", () => {
-    expect(study(null, StudyRole.LEAD)).toEqual({ canRead: false, canEdit: false, canManage: false });
-  });
-
-  it("gives org owners and admins full access", () => {
-    expect(study(OrgRole.ADMIN, null, StudyAccess.RESTRICTED)).toEqual({ canRead: true, canEdit: true, canManage: true });
-  });
-
-  it("lets every member read org-wide studies but only listed members read restricted ones", () => {
-    expect(study(OrgRole.VIEWER, null).canRead).toBe(true);
-    expect(study(OrgRole.ANALYST, null, StudyAccess.RESTRICTED).canRead).toBe(false);
-    expect(study(OrgRole.ANALYST, StudyRole.VIEWER, StudyAccess.RESTRICTED).canRead).toBe(true);
-  });
-
-  it("keeps org viewers read-only even as study leads", () => {
-    expect(study(OrgRole.VIEWER, StudyRole.LEAD)).toEqual({ canRead: true, canEdit: false, canManage: false });
-  });
-
-  it("separates editing (contributors) from managing (leads)", () => {
-    expect(study(OrgRole.ANALYST, StudyRole.CONTRIBUTOR)).toEqual({ canRead: true, canEdit: true, canManage: false });
-    expect(study(OrgRole.ANALYST, StudyRole.LEAD).canManage).toBe(true);
+describe("public market filter", () => {
+  it("only lets public, non-draft markets of published startups through", () => {
+    expect(PUBLIC_MARKET_WHERE).toEqual({
+      visibility: "PUBLIC",
+      status: { not: "DRAFT" },
+      startup: { isPublished: true },
+    });
   });
 });
 
