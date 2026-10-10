@@ -7,6 +7,8 @@ import {
   nearestIndex,
   plottable,
   shareMovement,
+  MIN_FORECASTERS_FOR_LINE,
+  settledPoints,
   sliceHistory,
   smoothPath,
   timeTicks,
@@ -67,6 +69,25 @@ describe("buildGeometry", () => {
   it("draws the calibrated probability as its own path", () => {
     const geometry = buildGeometry([point(0, 0.5, 0.4), point(5, 0.25, 0.3)], box, t0 + 10 * day)!;
     expect(geometry.calibratedPath).toBe("M0.0,60.0C16.7,63.3 33.3,66.7 50.0,70.0H100.0");
+  });
+});
+
+describe("settledPoints", () => {
+  const withCount = (forecasterCount: number) => ({ forecasterCount });
+
+  const counts = (n: number) => Array.from({ length: n }, (_, index) => withCount(index + 1));
+
+  it("starts the line once enough forecasters have taken part", () => {
+    expect(settledPoints(counts(MIN_FORECASTERS_FOR_LINE + 2)).map((p) => p.forecasterCount)).toEqual([
+      MIN_FORECASTERS_FOR_LINE,
+      MIN_FORECASTERS_FOR_LINE + 1,
+      MIN_FORECASTERS_FOR_LINE + 2,
+    ]);
+  });
+
+  it("keeps every point on small markets", () => {
+    expect(settledPoints([1, 2, 2].map(withCount))).toHaveLength(3);
+    expect(settledPoints(counts(MIN_FORECASTERS_FOR_LINE))).toHaveLength(MIN_FORECASTERS_FOR_LINE);
   });
 });
 
