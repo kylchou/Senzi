@@ -2,11 +2,11 @@ import type { Metadata } from "next";
 import { io } from "next/cache";
 import { Search } from "lucide-react";
 import { MarketCard } from "@/components/MarketCard";
-import { Button, ButtonLink } from "@/components/ui/Button";
+import { Button, buttonStyles } from "@/components/ui/Button";
 import { Container } from "@/components/ui/Container";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Input, Label, Select } from "@/components/ui/Field";
-import { FilterForm } from "@/components/ui/FilterForm";
+import { ClearFiltersLink, FilterForm } from "@/components/ui/FilterForm";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Pagination } from "@/components/ui/Pagination";
 import { CardGridSkeleton, Skeleton } from "@/components/ui/Skeleton";
@@ -131,9 +131,9 @@ async function Results({ searchParams }: Pick<PageProps<"/markets">, "searchPara
           body={filtered ? "Try a different search or filter." : "New questions appear here as soon as they open."}
           action={
             filtered ? (
-              <ButtonLink href="/markets" variant="outline" size="sm">
+              <ClearFiltersLink path="/markets" className={buttonStyles({ variant: "outline", size: "sm" })}>
                 Clear filters
-              </ButtonLink>
+              </ClearFiltersLink>
             ) : undefined
           }
         />

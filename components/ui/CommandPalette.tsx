@@ -51,6 +51,7 @@ const QUICK_LINKS: Item[] = [
   { id: "q-closing", group: "Go to", label: "Closing soon", href: "/markets?status=OPEN" },
   { id: "q-active", group: "Go to", label: "Most forecasts", href: "/markets?sort=active" },
   { id: "q-startups", group: "Go to", label: "Startup directory", href: "/startups" },
+  { id: "q-news", group: "Go to", label: "News", href: "/news" },
 ];
 
 type MarketHit = { id: string; slug: string; question: string; startup: { name: string }; allocation: { share: number | null } };

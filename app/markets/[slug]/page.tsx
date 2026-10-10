@@ -16,7 +16,9 @@ import { StartupMark } from "@/components/ui/StartupMark";
 import { shareMovement } from "@/lib/market-view/chart";
 import { formatDate, formatDateTime, formatDeadline, isPastDeadline, requestTime } from "@/lib/market-view/format";
 import { getMarket, getMarketHistory } from "@/lib/market-view/queries";
-import { PageTransition, StreamIn } from "@/components/ui/Transitions";
+import { MarketTour } from "@/components/ui/MarketTour";
+import { ShareButton } from "@/components/ui/ShareButton";
+import { Morph, PageTransition, StreamIn } from "@/components/ui/Transitions";
 
 export async function generateMetadata({ params }: PageProps<"/markets/[slug]">): Promise<Metadata> {
   const market = await getMarket((await params).slug).catch(() => null);
@@ -70,15 +72,20 @@ async function MarketView({ params }: Pick<PageProps<"/markets/[slug]">, "params
           <span className="text-sm text-ink-500">{market.category ?? market.startup.industry}</span>
           <MarketStatusBadge status={market.status} outcome={market.outcome} closesAt={market.closesAt} />
         </div>
-        <h1 className="mt-4 text-3xl font-bold leading-tight text-ink-900 sm:text-4xl">{market.question}</h1>
+        <Morph name={`market-title-${market.id}`}>
+          <h1 className="mt-4 text-3xl font-bold leading-tight text-ink-900 sm:text-4xl">{market.question}</h1>
+        </Morph>
         {market.description && <p className="mt-3 text-ink-700">{market.description}</p>}
-        <p className="mt-4 inline-flex items-center gap-2 text-sm text-ink-600">
-          <CalendarClock className="size-4" aria-hidden />
-          <span>
-            Deadline <time dateTime={market.closesAt}>{formatDateTime(market.closesAt)}</time>
-            {isOpen && <span className="text-ink-500"> ({formatDeadline(market.closesAt, new Date(now))})</span>}
-          </span>
-        </p>
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+          <p className="inline-flex items-center gap-2 text-sm text-ink-600">
+            <CalendarClock className="size-4" aria-hidden />
+            <span>
+              Deadline <time dateTime={market.closesAt}>{formatDateTime(market.closesAt)}</time>
+              {isOpen && <span className="text-ink-500"> ({formatDeadline(market.closesAt, new Date(now))})</span>}
+            </span>
+          </p>
+          <ShareButton title={market.question} path={`/markets/${market.slug}`} />
+        </div>
       </header>
 
       {/* On small screens the forecast panel sits right after the key figures. */}
@@ -157,6 +164,7 @@ async function MarketView({ params }: Pick<PageProps<"/markets/[slug]">, "params
           </section>
         </div>
       </div>
+      <MarketTour />
     </>
   );
 }
