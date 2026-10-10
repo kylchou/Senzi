@@ -1,0 +1,65 @@
+/*
+ * Senzi design tokens.
+ * Brand: red #FF2C2C, charcoal #25282B, white #FFFFFF.
+ * red-600 and red-700 are darker steps of the brand red so white text on red
+ * and red text on white both meet WCAG AA contrast.
+ */
+@theme {
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-montserrat), var(--font-inter), ui-sans-serif, sans-serif;
+
+  --color-white: #ffffff;
+
+  --color-ink-950: #1b1d1f;
+  --color-ink-900: #25282b;
+  --color-ink-800: #33373b;
+  --color-ink-700: #4a4f54;
+  --color-ink-600: #5f656b;
+  --color-ink-500: #7d838a;
+  --color-ink-400: #a3a8ad;
+  --color-ink-300: #c9ccd0;
+  --color-ink-200: #e3e5e7;
+  --color-ink-100: #f1f2f3;
+  --color-ink-50: #f8f8f9;
+
+  --color-red-500: #ff2c2c;
+  --color-red-600: #e31b1b;
+  --color-red-700: #c81e1e;
+  --color-red-100: #ffe1e1;
+  --color-red-50: #fff3f3;
+
+  --radius-card: 14px;
+  --shadow-card: 0 1px 2px rgb(37 40 43 / 0.04), 0 4px 16px -8px rgb(37 40 43 / 0.08);
+  --shadow-lift: 0 2px 4px rgb(37 40 43 / 0.05), 0 12px 32px -12px rgb(37 40 43 / 0.18);
+}
+
+@layer base {
+  html {
+    color-scheme: light;
+    -webkit-font-smoothing: antialiased;
+  }
+  body {
+    background: var(--color-white);
+    color: var(--color-ink-900);
+    font-family: var(--font-sans);
+  }
+  h1, h2, h3 {
+    font-family: var(--font-display);
+    letter-spacing: -0.02em;
+  }
+  ::selection {
+    background: var(--color-red-100);
+    color: var(--color-ink-900);
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-red-500);
+    outline-offset: 2px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
