@@ -1,85 +1,271 @@
 "use client";
-import Link from "next/link";
+
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
-import { vcFetch } from "@/lib/vc/client";
-import type { StudyVisibility } from "@/lib/vc/types";
-import type { IntakeMetric } from "@/lib/model/intake";
-import type { BaselineResult } from "@/lib/model/types";
+import { useState, type FormEvent } from "react";
+import { MAX_SOURCES } from "@/lib/vc/constants";
+import { VcApiError, fieldErrors, vcFetch } from "@/lib/vc/client";
+import { VISIBILITY_LABELS } from "@/lib/vc/format";
+import { STUDY_VISIBILITIES, type MetricLink, type StudyVisibility } from "@/lib/vc/types";
+import { OpeningLinePanel, type OpeningLineValue, type PricedWording } from "./OpeningLinePanel";
 import { StartupPicker } from "./StartupPicker";
-import { buttonPrimary, buttonSecondary, inputClass, labelClass } from "./styles";
+import { buttonPrimary, buttonSecondary, errorClass, hintClass, inputClass, labelClass } from "./styles";
+
 export interface StudyFormInitial {
- id: string; version: number; startup: {id: string; name: string} | null;
- question: string; yesCriteria: string; noCriteria: string; context: string | null;
- baselineValue: number | null; baselineMethodology: string | null; deadline: Date | string;
- visibility: StudyVisibility;
- sources: {url: string; title: string; publisher: string | null; publishedAt: Date | string | null}[];
+  id: string;
+  version: number;
+  startup: { id: string; name: string } | null;
+  question: string;
+  yesCriteria: string;
+  noCriteria: string;
+  context: string | null;
+  /** The saved link to the model and the metric's label. */
+  openingLine: { link: MetricLink | null; metricLabel: string | null };
+  deadline: Date | string;
+  visibility: StudyVisibility;
+  sources: { url: string; title: string; publisher: string | null; publishedAt: Date | string | null }[];
 }
-type Preview = { question: {text: string; resolutionSource: {url: string; description: string}}; result: BaselineResult; fields: {yesCriteria: string; noCriteria: string} };
+
+interface SourceDraft {
+  url: string;
+  title: string;
+  publisher: string;
+  publishedAt: string;
+}
+
+/** `YYYY-MM-DDTHH:mm` in the browser's local time for datetime-local inputs. */
+function toLocalInput(d: Date | string | null | undefined): string {
+  if (!d) return "";
+  const date = new Date(d);
+  const off = date.getTimezoneOffset() * 60_000;
+  return new Date(date.getTime() - off).toISOString().slice(0, 16);
+}
+
 export function StudyForm({ initial }: { initial?: StudyFormInitial }) {
- const router = useRouter();
- const [startup, setStartup] = useState(initial?.startup ?? null);
- const [catalog, setCatalog] = useState<{startup: {slug: string}; questionMetrics: IntakeMetric[]} | null>(null);
- const [metricId, setMetric] = useState("");
- const [threshold, setThreshold] = useState("");
- const [targetDate, setDate] = useState(initial ? new Date(initial.deadline).toISOString().slice(0,10) : "");
- const [context, setContext] = useState(initial?.context ?? "");
- const [visibility, setVisibility] = useState<StudyVisibility>(initial?.visibility ?? "ORGANIZATION");
- const [preview, setPreview] = useState<Preview | null>(null);
- const [error, setError] = useState("");
- const [busy, setBusy] = useState(false);
- useEffect(() => {
-   if (!startup) return;
-   const abort = new AbortController();
-   vcFetch<{startup: {slug: string}; questionMetrics: IntakeMetric[]}>(`/api/vc/companies/${startup.id}/metrics`, {signal: abort.signal}).then(data => {
-     setCatalog(data); setMetric(data.questionMetrics[0]?.id ?? "");
-   }).catch(e => { if (!abort.signal.aborted) setError(e.message); });
-   return () => abort.abort();
- }, [startup]);
- function changed() { setPreview(null); setError(""); }
- const payload = {startupId: startup?.id, target: {metricId, threshold: Number(threshold), targetDate}, context, visibility, ...(initial ? {expectedVersion: initial.version} : {})};
- async function calculate() {
-   setBusy(true); setError("");
-   try { setPreview(await vcFetch<Preview>("/api/vc/questions/preview", {method:"POST", json:payload})); }
-   catch(e) { setError(e instanceof Error ? e.message : "Calculation failed"); }
-   finally { setBusy(false); }
- }
- async function save() {
-   setBusy(true); setError("");
-   try {
-     const study = await vcFetch<{id:string}>(initial ? `/api/studies/${initial.id}` : "/api/studies", {method:initial ? "PATCH" : "POST", json:payload});
-     router.push(`/vc/studies/${study.id}`); router.refresh();
-   } catch(e) { setError(e instanceof Error ? e.message : "Save failed"); }
-   finally { setBusy(false); }
- }
- return <form className="max-w-3xl space-y-5" onSubmit={e => {e.preventDefault(); void calculate();}}>
-   <p className="text-sm text-slate-500">Choose a measurable question. The model sets its opening price; your firm?s matching metric history can inform it.</p>
-   {initial && <p className="text-sm">Re-select the metric and threshold to reprice this draft. Current question: {initial.question}</p>}
-   <fieldset disabled={busy} className="space-y-4">
-     <StartupPicker value={startup} onChange={s => {setStartup(s); setCatalog(null); setMetric(""); changed();}} />
-     {startup && catalog && <>
-       <Link className="text-sm underline" href={`/vc/companies/${catalog.startup.slug}`}>View company indicators / enter private metrics</Link>
-       {!catalog.questionMetrics.length && <p role="status">This company has no supported question metric yet. Company indicators are still available.</p>}
-       <label className={labelClass}>Metric<select required className={inputClass} value={metricId} onChange={e=>{setMetric(e.target.value);changed();}}>{catalog.questionMetrics.map(m=><option key={m.id} value={m.id}>{m.label}</option>)}</select></label>
-     </>}
-     <div className="grid gap-4 sm:grid-cols-2">
-       <label className={labelClass}>Threshold<input className={inputClass} type="number" min="0.000001" step="any" required value={threshold} onChange={e=>{setThreshold(e.target.value);changed();}} /></label>
-       <label className={labelClass}>Seven-day window ending (UTC)<input className={inputClass} type="date" required value={targetDate} onChange={e=>{setDate(e.target.value);changed();}} /></label>
-     </div>
-     <label className={labelClass}>Research context<textarea className={inputClass} maxLength={5000} value={context} onChange={e=>setContext(e.target.value)} /></label>
-     <label className={labelClass}>Visibility<select className={inputClass} value={visibility} onChange={e=>setVisibility(e.target.value as StudyVisibility)}><option value="ORGANIZATION">Organization</option><option value="RESTRICTED">Invited participants</option><option value="PUBLIC">Public question</option></select></label>
-     <button className={buttonSecondary} disabled={!metricId} type="submit">{busy ? "Working..." : "Calculate model baseline"}</button>
-   </fieldset>
-   {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
-   {preview && <section aria-label="Model preview" className="space-y-3 rounded-lg border p-4">
-     <h2 className="font-semibold">{preview.question.text}</h2>
-     <p><strong>{preview.result.probability === null ? "Cannot price yet" : (preview.result.probability*100).toFixed(1)+"% model baseline"}</strong>{preview.result.low !== null && ` · ${(preview.result.low*100).toFixed(1)}–${(preview.result.high!*100).toFixed(1)}% model uncertainty`}</p>
-     <p className="text-sm">{preview.result.method.description}</p><p className="text-xs">As of {preview.result.asOf}</p>
-     <p className="text-sm">YES: {preview.fields.yesCriteria}</p><p className="text-sm">NO: {preview.fields.noCriteria}</p>
-     <p className="text-sm">Resolution source (locked on submission): <a className="underline" href={preview.question.resolutionSource.url} target="_blank" rel="noreferrer">{preview.question.resolutionSource.description}</a></p>
-     <ul className="text-xs space-y-1">{preview.result.inputsUsed.map((i,n)=><li key={n}>{i.metricId}: {i.points} points · {i.provenance === "sponsor_provided" ? "Sponsor-provided" : "Scraped"}{i.simulated && " · SIMULATED"} · {i.periodStart}–{i.periodEnd}</li>)}{[...preview.result.missing,...preview.result.notes].map((n,i)=><li key={"n"+i}>{n}</li>)}</ul>
-     {preview.result.probability === null && <p className="text-sm">Save a draft, then add matching data before submission. There is no manual price override.</p>}
-     <button type="button" className={buttonPrimary} disabled={busy} onClick={()=>void save()}>Save draft</button>
-   </section>}
- </form>;
+  const router = useRouter();
+  const [startup, setStartup] = useState(initial?.startup ?? null);
+  const [question, setQuestion] = useState(initial?.question ?? "");
+  const [yesCriteria, setYes] = useState(initial?.yesCriteria ?? "");
+  const [noCriteria, setNo] = useState(initial?.noCriteria ?? "");
+  const [context, setContext] = useState(initial?.context ?? "");
+  const [openingLine, setOpeningLine] = useState<OpeningLineValue>({ link: initial?.openingLine.link ?? null });
+  const linked = !!openingLine.link;
+  const [deadline, setDeadline] = useState(toLocalInput(initial?.deadline));
+  const [visibility, setVisibility] = useState<StudyVisibility>(initial?.visibility ?? "ORGANIZATION");
+  const [sources, setSources] = useState<SourceDraft[]>(
+    initial?.sources.map((s) => ({
+      url: s.url,
+      title: s.title,
+      publisher: s.publisher ?? "",
+      publishedAt: s.publishedAt ? new Date(s.publishedAt).toISOString().slice(0, 10) : "",
+    })) ?? [],
+  );
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [formError, setFormError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+
+  async function onSubmit(e: FormEvent) {
+    e.preventDefault();
+    setErrors({});
+    setFormError(null);
+    if (!startup) {
+      setErrors({ startupId: "Choose a startup" });
+      return;
+    }
+    const payload = {
+      startupId: startup.id,
+      question,
+      yesCriteria,
+      noCriteria,
+      context: context.trim() || null,
+      // The server prices the link again on save; it never accepts a typed baseline.
+      modelLink: openingLine.link,
+      deadline: deadline ? new Date(deadline).toISOString() : "",
+      visibility,
+      sources: sources
+        .filter((s) => s.url.trim() || s.title.trim())
+        .map((s) => ({
+          url: s.url.trim(),
+          title: s.title.trim(),
+          publisher: s.publisher.trim() || null,
+          publishedAt: s.publishedAt || null,
+        })),
+    };
+
+    setSubmitting(true);
+    try {
+      if (initial) {
+        await vcFetch(`/api/studies/${initial.id}`, {
+          method: "PATCH",
+          json: { ...payload, expectedVersion: initial.version },
+        });
+        router.push(`/vc/studies/${initial.id}`);
+      } else {
+        const created = await vcFetch<{ id: string }>("/api/studies", { method: "POST", json: payload });
+        router.push(`/vc/studies/${created.id}`);
+      }
+      router.refresh();
+    } catch (err) {
+      setErrors(fieldErrors(err));
+      setFormError(err instanceof VcApiError ? err.message : "Could not save the study");
+      setSubmitting(false);
+    }
+  }
+
+  const err = (key: string) =>
+    errors[key] ? (
+      <p id={`err-${key}`} className={errorClass}>
+        {errors[key]}
+      </p>
+    ) : null;
+  const aria = (key: string) => ({
+    "aria-invalid": !!errors[key],
+    "aria-describedby": errors[key] ? `err-${key}` : undefined,
+  });
+
+  return (
+    <form onSubmit={onSubmit} className="space-y-6" noValidate>
+      {formError && (
+        <div role="alert" className="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800 dark:border-rose-900 dark:bg-rose-950 dark:text-rose-200">
+          {formError}
+        </div>
+      )}
+
+      <fieldset className="space-y-4">
+        <legend className="text-sm font-semibold text-slate-900 dark:text-slate-100">Research question</legend>
+        <StartupPicker value={startup} onChange={setStartup} error={errors.startupId} />
+        <div>
+          <label htmlFor="question" className={labelClass}>
+            YES/NO question
+          </label>
+          <input
+            id="question"
+            className={`${inputClass} mt-1`}
+            value={question}
+            onChange={(e) => setQuestion(e.target.value)}
+            placeholder="Will Acme's npm downloads pass 40M a week by December 2026?"
+            maxLength={300}
+            required
+            readOnly={linked}
+            {...aria("question")}
+          />
+          <p className={hintClass}>
+            {linked
+              ? "Worded exactly as the model priced it. Remove the link below to edit it freely."
+              : "Ask anything with a clear date. The model sets the opening line if it has data that measures it."}
+          </p>
+          {err("question")}
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div>
+            <label htmlFor="yes" className={labelClass}>
+              Resolves YES if…
+            </label>
+            <textarea id="yes" rows={3} className={`${inputClass} mt-1`} value={yesCriteria} onChange={(e) => setYes(e.target.value)} readOnly={linked} {...aria("yesCriteria")} />
+            {err("yesCriteria")}
+          </div>
+          <div>
+            <label htmlFor="no" className={labelClass}>
+              Resolves NO if…
+            </label>
+            <textarea id="no" rows={3} className={`${inputClass} mt-1`} value={noCriteria} onChange={(e) => setNo(e.target.value)} readOnly={linked} {...aria("noCriteria")} />
+            {err("noCriteria")}
+          </div>
+        </div>
+        <div>
+          <label htmlFor="context" className={labelClass}>
+            Context <span className="font-normal text-slate-500">(optional)</span>
+          </label>
+          <textarea id="context" rows={4} className={`${inputClass} mt-1`} value={context} onChange={(e) => setContext(e.target.value)} {...aria("context")} />
+          <p className={hintClass}>Publicly available background only. Do not include material nonpublic information.</p>
+          {err("context")}
+        </div>
+        <div>
+          <label htmlFor="deadline" className={labelClass}>
+            Forecast deadline
+          </label>
+          <input
+            id="deadline"
+            type="datetime-local"
+            className={`${inputClass} mt-1 max-w-xs`}
+            value={deadline}
+            onChange={(e) => setDeadline(e.target.value)}
+            {...aria("deadline")}
+          />
+          <p className={hintClass}>Forecasting closes at this time (your local time zone).</p>
+          {err("deadline")}
+        </div>
+      </fieldset>
+
+      <fieldset className="space-y-3">
+        <legend className="text-sm font-semibold text-slate-900 dark:text-slate-100">Opening line</legend>
+        <OpeningLinePanel
+          startupId={startup?.id ?? null}
+          question={question}
+          deadline={deadline}
+          value={openingLine}
+          savedMetricLabel={initial?.openingLine.metricLabel ?? null}
+          error={Object.entries(errors).find(([k]) => k.startsWith("modelLink"))?.[1]}
+          onChange={(value: OpeningLineValue, wording: PricedWording | null) => {
+            setOpeningLine(value);
+            if (wording) {
+              setQuestion(wording.question);
+              setYes(wording.yesCriteria);
+              setNo(wording.noCriteria);
+            }
+          }}
+        />
+      </fieldset>
+
+      <fieldset className="space-y-2">
+        <legend className="text-sm font-semibold text-slate-900 dark:text-slate-100">Visibility</legend>
+        {STUDY_VISIBILITIES.map((v) => (
+          <label key={v} className="flex cursor-pointer gap-3 rounded-md border border-slate-200 p-3 has-[:checked]:border-slate-500 dark:border-slate-800 dark:has-[:checked]:border-slate-400">
+            <input type="radio" name="visibility" value={v} checked={visibility === v} onChange={() => setVisibility(v)} className="mt-0.5" />
+            <span>
+              <span className="block text-sm font-medium text-slate-900 dark:text-slate-100">{VISIBILITY_LABELS[v].label}</span>
+              <span className="block text-xs text-slate-500 dark:text-slate-400">{VISIBILITY_LABELS[v].description}</span>
+            </span>
+          </label>
+        ))}
+        {visibility === "RESTRICTED" && (
+          <p className={hintClass}>Invite participants from the study page after saving.</p>
+        )}
+      </fieldset>
+
+      <fieldset className="space-y-3">
+        <legend className="text-sm font-semibold text-slate-900 dark:text-slate-100">Sources</legend>
+        <p className={hintClass}>Public links supporting the question and baseline.</p>
+        {sources.map((s, i) => (
+          <div key={i} className="grid gap-2 rounded-md border border-slate-200 p-3 dark:border-slate-800 sm:grid-cols-2">
+            <input aria-label={`Source ${i + 1} title`} placeholder="Title" className={inputClass} value={s.title} onChange={(e) => setSources((all) => all.map((x, j) => (j === i ? { ...x, title: e.target.value } : x)))} />
+            <input aria-label={`Source ${i + 1} URL`} placeholder="https://" type="url" className={inputClass} value={s.url} onChange={(e) => setSources((all) => all.map((x, j) => (j === i ? { ...x, url: e.target.value } : x)))} />
+            <input aria-label={`Source ${i + 1} publisher`} placeholder="Publisher (optional)" className={inputClass} value={s.publisher} onChange={(e) => setSources((all) => all.map((x, j) => (j === i ? { ...x, publisher: e.target.value } : x)))} />
+            <div className="flex gap-2">
+              <input aria-label={`Source ${i + 1} publication date`} type="date" className={inputClass} value={s.publishedAt} onChange={(e) => setSources((all) => all.map((x, j) => (j === i ? { ...x, publishedAt: e.target.value } : x)))} />
+              <button type="button" className={buttonSecondary} onClick={() => setSources((all) => all.filter((_, j) => j !== i))} aria-label={`Remove source ${i + 1}`}>
+                Remove
+              </button>
+            </div>
+            {(errors[`sources.${i}.url`] || errors[`sources.${i}.title`]) && (
+              <p className={`${errorClass} sm:col-span-2`}>{errors[`sources.${i}.url`] ?? errors[`sources.${i}.title`]}</p>
+            )}
+          </div>
+        ))}
+        {sources.length < MAX_SOURCES && (
+          <button type="button" className={buttonSecondary} onClick={() => setSources((all) => [...all, { url: "", title: "", publisher: "", publishedAt: "" }])}>
+            Add source
+          </button>
+        )}
+      </fieldset>
+
+      <div className="flex gap-2 border-t border-slate-200 pt-4 dark:border-slate-800">
+        <button type="submit" className={buttonPrimary} disabled={submitting}>
+          {submitting ? "Saving…" : initial ? "Save changes" : "Save draft"}
+        </button>
+        <button type="button" className={buttonSecondary} onClick={() => router.back()} disabled={submitting}>
+          Cancel
+        </button>
+      </div>
+    </form>
+  );
 }

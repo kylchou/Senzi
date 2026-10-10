@@ -51,13 +51,14 @@ describe("study creation and editing", () => {
     );
   });
 
-  it("keeps baseline and methodology paired on edit", async () => {
+  it("ignores a baseline typed by the client: only the model sets it", async () => {
     const s = setup();
-    const draft = await s.services.studies.create(users.analystA, validStudyInput());
-    await expectCode(
-      s.services.studies.update(users.analystA, draft.id, { baselineMethodology: null, expectedVersion: 1 }),
-      "VALIDATION_ERROR",
-    );
+    const draft = await s.services.studies.create(users.analystA, {
+      ...validStudyInput(),
+      ...({ baselineValue: 0.9, baselineMethodology: "My gut feeling about this one" } as object),
+    });
+    expect(draft.baselineValue).toBe(0.4);
+    expect(draft.baselineMethodology).toMatch(/Fake model/);
   });
 });
 
@@ -161,17 +162,7 @@ describe("full lifecycle", () => {
     expect((await s.repo.findStudy(draft.id))!).toMatchObject({ status: "CANCELLED", cancellationReason: "Superseded" });
   });
 
-  it("blocks submitting incomplete studies", async () => {
-    const s = setup();
-    const draft = await s.services.studies.create(
-      users.analystA,
-      validStudyInput({ baselineValue: null, baselineMethodology: null }),
-    );
-    await expectCode(
-      s.services.studies.transition(users.analystA, draft.id, { action: "submit", expectedVersion: 1 }),
-      "VALIDATION_ERROR",
-    );
-  });
+
 });
 
 describe("access control through the service", () => {

@@ -1,7 +1,8 @@
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { db } from "@/lib/db";
 import { FileModelStore } from "@/lib/model";
-import { companyModel, priceQuestion, saveCompanyMetrics, structuredQuestionInput } from "@/lib/vc/server/company-model";
+import { companyModel, saveCompanyMetrics } from "@/lib/vc/server/company-model";
+import { createStudyInput } from "@/lib/vc/validation";
 import { createForecastingGateway } from "@/lib/vc/server/forecasting-adapter";
 import { getVcDeps, getVcServices } from "@/lib/vc/server/container";
 import type { VcContext } from "@/lib/vc/types";
@@ -11,6 +12,15 @@ beforeEach(resetDatabase);
 afterEach(() => vi.restoreAllMocks());
 afterAll(() => db.$disconnect());
 const day = (offset: number) => new Date(Date.now()+offset*86400000).toISOString().slice(0,10);
+/** A draft linked to nothing yet; tests add `modelLink`. Forecasting closes two weeks out. */
+const studyInput = (startupId: string) => ({
+  startupId,
+  question: "Will PostHog's JS SDK pass 1,100 downloads in a week?",
+  yesCriteria: "YES if the public npm downloads API reports at least the threshold.",
+  noCriteria: "NO if the public npm downloads API reports fewer than the threshold.",
+  deadline: new Date(Date.now()+14*86400000),
+  visibility: "ORGANIZATION" as const,
+});
 async function world() {
   const a = await makeUser(); const b = await makeUser();
   const orgA = await makeOrg([[a,"OWNER"]]); const orgB = await makeOrg([[b,"OWNER"]]);
@@ -44,35 +54,43 @@ describe("private company metrics and model questions",()=>{
     await expect(saveCompanyMetrics({...w.ca,activeOrg:{...w.ca.activeOrg!,role:"VIEWER"}},w.startup.id,input)).rejects.toMatchObject({code:"FORBIDDEN"});
     await expect(saveCompanyMetrics(w.ca,w.startup.id,input)).rejects.toMatchObject({code:"VALIDATION_ERROR"});
     await expect(saveCompanyMetrics(w.ca,w.startup.id,{observations:[{...input.observations[0],periodStart:day(1),periodEnd:day(1)}]})).rejects.toMatchObject({code:"VALIDATION_ERROR"});
-    expect(structuredQuestionInput.safeParse({startupId:w.startup.id,target:{metricId:"npm_downloads:posthog-js",threshold:100,targetDate:day(28)},baselineValue:.99}).success).toBe(false);
-    await expect(priceQuestion(w.ca,{startupId:w.startup.id,target:{metricId:"sponsor_arr",threshold:1,targetDate:day(28)}})).rejects.toMatchObject({code:"VALIDATION_ERROR"});
+    // No manual prices: a typed baseline is dropped, and only the model sets it.
+    expect(createStudyInput.parse({...studyInput(w.startup.id),baselineValue:.99})).not.toHaveProperty("baselineValue");
+    // A firm-only KPI has no independent resolution source, so it can't be a question.
+    await expect(getVcServices().studies.create(w.ca,{...studyInput(w.startup.id),modelLink:{metricId:"sponsor_arr",threshold:1,targetDate:day(28)}})).rejects.toMatchObject({code:"VALIDATION_ERROR"});
   });
-  it("prices only from the target metric and this firm's inputs, freezes the model baseline on opening",async()=>{
+  it("prices only from the target metric and this firm's inputs, and opens at the model's price",async()=>{
     const w=await world();
     vi.spyOn(FileModelStore.prototype,"readPoints").mockReturnValue([]);
-    const request={startupId:w.startup.id,target:{metricId:"npm_downloads:posthog-js",threshold:1100,targetDate:day(28)}};
-    expect((await priceQuestion(w.ca,request)).result.probability).toBeNull();
-    const observations=Array.from({length:10},(_,i)=>({metricId:request.target.metricId,value:800+i*20,periodStart:day(-76+i*7),periodEnd:day(-70+i*7),simulated:true}));
-    await saveCompanyMetrics(w.ca,w.startup.id,{observations});
-    const priced=await priceQuestion(w.ca,request);
-    expect(priced.result.status).toBe("ok");
-    expect(priced.result.probability).not.toBeNull();
-    expect(priced.result.inputsUsed.some(i=>i.provenance==="sponsor_provided")).toBe(true);
-    expect((await priceQuestion(w.cb,request)).result.probability).toBeNull();
-    await saveCompanyMetrics(w.ca,w.startup.id,{observations:[{metricId:"sponsor_arr",value:9e10,periodStart:day(-1),periodEnd:day(-1)}]});
-    expect((await priceQuestion(w.ca,request)).result.probability).toBe(priced.result.probability);
     const services=getVcServices();
-    const study=await services.studies.create(w.ca,priced.fields);
+    const link={metricId:"npm_downloads:posthog-js",threshold:1100,targetDate:day(28)};
+    const input={...studyInput(w.startup.id),modelLink:link};
+    expect((await services.studies.create(w.ca,input)).baselineValue).toBeNull();
+
+    const observations=Array.from({length:10},(_,i)=>({metricId:link.metricId,value:800+i*20,periodStart:day(-76+i*7),periodEnd:day(-70+i*7),simulated:true}));
+    await saveCompanyMetrics(w.ca,w.startup.id,{observations});
+    const study=await services.studies.create(w.ca,input);
+    expect(study.baselineValue).not.toBeNull();
+    const estimate=(await getVcDeps().repo.findModelEstimate(study.id))!;
+    expect(estimate.status).toBe("OK");
+    expect(estimate.inputsUsed.some((i)=>i.provenance==="sponsor_provided")).toBe(true);
+    // Firm B can't see or use firm A's figures.
+    expect((await services.studies.create(w.cb,input)).baselineValue).toBeNull();
+    // A different metric's figures never move this question's price.
+    await saveCompanyMetrics(w.ca,w.startup.id,{observations:[{metricId:"sponsor_arr",value:9e10,periodStart:day(-1),periodEnd:day(-1)}]});
+    expect((await services.studies.create(w.ca,input)).baselineValue).toBe(study.baselineValue);
+
     const admin=await makeAdmin();
     const adminCtx:VcContext={user:{id:admin.id,name:admin.displayName,email:admin.email,isPlatformAdmin:true},memberships:[],activeOrg:null};
     await services.studies.transition(w.ca,study.id,{action:"submit",expectedVersion:1});
     await services.studies.transition(adminCtx,study.id,{action:"approve",expectedVersion:2});
     const open=await services.studies.transition(adminCtx,study.id,{action:"open",expectedVersion:3});
-    const market=await db.market.findUniqueOrThrow({where:{id:open.marketId!},include:{sources:true}});
-    expect(market.openingBaseline).toBe(priced.result.probability);
-    expect(market.modelValue).toBe(priced.result.probability);
-    expect(market.sources[0].url).toBe(priced.question.resolutionSource.url);
+    const market=await db.market.findUniqueOrThrow({where:{id:open.marketId!},include:{sources:{orderBy:{position:"asc"}}}});
+    expect(market.openingBaseline).toBe(open.baselineValue);
+    expect(market.modelValue).toBe(open.baselineValue);
+    expect(market.sources[0].url).toContain("api.npmjs.org/downloads/range/");
     await expect(services.studies.update(w.ca,study.id,{expectedVersion:4,sources:[]})).rejects.toMatchObject({code:"CONFLICT"});
+    // New figures don't touch the market until the model refresh publishes them.
     await saveCompanyMetrics(w.ca,w.startup.id,{observations:[{...observations[0],value:9000}]});
     expect((await db.market.findUniqueOrThrow({where:{id:market.id}})).openingBaseline).toBe(market.openingBaseline);
   });

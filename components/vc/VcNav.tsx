@@ -11,12 +11,10 @@ import { inputClass } from "./styles";
 export function VcNav({
   memberships,
   activeOrgId,
-  unreadAlerts,
   isPlatformAdmin,
 }: {
   memberships: OrgMembership[];
   activeOrgId: string | null;
-  unreadAlerts: number;
   isPlatformAdmin: boolean;
 }) {
   const pathname = usePathname();
@@ -56,12 +54,6 @@ export function VcNav({
                 }`}
               >
                 {l.label}
-                {l.href === "/vc/alerts" && unreadAlerts > 0 && (
-                  <span className="ml-1.5 rounded-full bg-sky-600 px-1.5 text-xs font-semibold text-white">
-                    {unreadAlerts > 99 ? "99+" : unreadAlerts}
-                    <span className="sr-only"> unread</span>
-                  </span>
-                )}
               </Link>
             );
           })}
