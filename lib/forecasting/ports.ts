@@ -11,7 +11,7 @@ import type {
   SettlementRecord,
   EstimateKind,
   Side,
-} from './types.js';
+} from './types';
 
 // ---------------------------------------------------------------------------
 // Auth
@@ -88,6 +88,7 @@ export interface CommunityEstimateRule {
     baseline: number | null,
     prior: readonly EstimateEntry[],
     next: Omit<EstimateEntry, 'fill'>,
+    market?: Market,
   ): Record<string, number>;
 }
 

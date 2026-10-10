@@ -12,7 +12,7 @@ export type Outcome = 'YES' | 'NO' | 'VOID';
  * Market lifecycle. Quorum handling and opening belong to other components;
  * the engine only accepts forecasts while a market is `open` and inside its window.
  */
-export type MarketStatus = 'pending_quorum' | 'open' | 'closed' | 'resolved' | 'cancelled';
+export type MarketStatus = 'draft' | 'pending_quorum' | 'open' | 'closed' | 'resolved' | 'cancelled';
 
 export interface Baseline {
   /** Model probability of YES, in [0, 1]. Set by the model, never by forecasts. */
@@ -44,6 +44,8 @@ export interface Market {
   /** Per-forecast amount limits in credits (inclusive). */
   minAmount?: number;
   maxAmount?: number;
+  /** LMSR liquidity for this market before its first trade (frozen in each fill afterwards). */
+  lmsrB?: number;
   createdAt: Date;
 }
 

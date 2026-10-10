@@ -8,19 +8,25 @@
 // sequence numbers and before/after estimates are consistent.
 
 import { createHash } from 'node:crypto';
-import { marketLockKey, requireRule, requireUser, type EngineDeps } from './deps.js';
-import { checkEligibility } from './eligibility.js';
-import { ForecastingError, InsufficientBalanceError } from './errors.js';
-import { computeLine, toEstimateEntries, verifiedOnly } from './estimates.js';
-import { buildSnapshot } from './history.js';
-import type { AuthContext } from './ports.js';
-import type { EntrySnapshot, Forecast, Side } from './types.js';
+import { marketLockKey, requireRule, requireUser, type EngineDeps } from './deps';
+import { checkEligibility } from './eligibility';
+import { ForecastingError, InsufficientBalanceError } from './errors';
+import { computeLine, toEstimateEntries, verifiedOnly } from './estimates';
+import { buildSnapshot, nextSnapshotSequence } from './history';
+import type { AuthContext } from './ports';
+import type { EntrySnapshot, Forecast, Side } from './types';
 
 export interface SubmitForecastInput {
   marketId: string;
   side: Side;
   amount: number;
   idempotencyKey: string;
+  /**
+   * YES price the client was shown when it quoted this trade. When present and
+   * the price has since moved by more than config.maxPriceMove, the trade is
+   * rejected with PRICE_MOVED and a fresh quote.
+   */
+  quotedPrice?: number;
 }
 
 export interface ForecastReceipt {
@@ -59,6 +65,10 @@ function validateInput(input: SubmitForecastInput, deps: EngineDeps): void {
   if (typeof key !== 'string' || key.trim() === '') fail('idempotencyKey is required', 'idempotencyKey');
   if (key.length > deps.config.maxIdempotencyKeyLength) {
     fail(`idempotencyKey must be at most ${deps.config.maxIdempotencyKeyLength} characters`, 'idempotencyKey');
+  }
+  const q = input.quotedPrice;
+  if (q !== undefined && (typeof q !== 'number' || !Number.isFinite(q) || q <= 0 || q >= 1)) {
+    fail('quotedPrice must be a number between 0 and 1', 'quotedPrice');
   }
 }
 
@@ -120,6 +130,38 @@ async function replay(deps: EngineDeps, existing: Forecast, requestHash: string)
   const txs = await deps.ledger.listTransactions(existing.userId);
   const tx = txs.find((t) => t.id === existing.ledgerTransactionId);
   return toReceipt(existing, deps.config.unitLabel, tx?.balanceAfter ?? null, true);
+}
+
+export interface ForecastQuote {
+  marketId: string;
+  side: Side;
+  amount: number;
+  /** Rule-specific fill (for LMSR: shares, averagePrice, priceBefore, priceAfter, b, p0). */
+  fill: Record<string, number>;
+  quotedAt: Date;
+}
+
+/**
+ * What a trade would get right now, without placing it. Not binding: the
+ * server reprices at submit time and rejects moves beyond config.maxPriceMove.
+ */
+export async function quoteForecast(deps: EngineDeps, input: { marketId: string; side: Side; amount: number }): Promise<ForecastQuote> {
+  if (input.side !== 'YES' && input.side !== 'NO') {
+    throw new ForecastingError('VALIDATION_FAILED', 'side must be YES or NO', { field: 'side' });
+  }
+  if (typeof input.amount !== 'number' || !Number.isSafeInteger(input.amount) || input.amount <= 0) {
+    throw new ForecastingError('VALIDATION_FAILED', 'amount must be a positive whole number of credits', { field: 'amount' });
+  }
+  const rule = requireRule(deps);
+  if (!rule.describeFill) throw new ForecastingError('NOT_CONFIGURED', 'The pricing rule cannot quote trades');
+  const market = await deps.repo.getMarket(input.marketId);
+  if (!market) throw new ForecastingError('MARKET_NOT_FOUND', 'Market not found', { marketId: input.marketId });
+  const opening = market.openingBaseline?.value ?? null;
+  if (opening === null) throw new ForecastingError('MARKET_NOT_OPEN', 'This market has no opening price yet');
+  const existing = await deps.repo.listForecastsByMarket(market.id);
+  const sequence = (existing[existing.length - 1]?.sequence ?? 0) + 1;
+  const fill = rule.describeFill(opening, toEstimateEntries(existing), { forecastId: 'quote', side: input.side, amount: input.amount, sequence }, market);
+  return { marketId: market.id, side: input.side, amount: input.amount, fill, quotedAt: deps.clock.now() };
 }
 
 export async function submitForecast(
@@ -184,12 +226,27 @@ export async function submitForecast(
     const existing = await repo.listForecastsByMarket(market.id);
     const sequence = (existing[existing.length - 1]?.sequence ?? 0) + 1;
     const opening = market.openingBaseline?.value ?? null;
+    if (rule.kind === 'market_price' && opening === null) {
+      throw new ForecastingError('MARKET_NOT_OPEN', 'This market has no opening price yet');
+    }
     const generalBefore = computeLine(rule, opening, existing).value;
     const specializedBefore = computeLine(rule, opening, verifiedOnly(existing)).value;
 
     const forecastId = deps.ids.next('fc');
     const entryBase = { forecastId, side: input.side, amount: input.amount, sequence };
-    const fill = rule.describeFill?.(opening, toEstimateEntries(existing), entryBase);
+    const fill = rule.describeFill?.(opening, toEstimateEntries(existing), entryBase, market);
+
+    // Reject if the price moved too far since the client's quote, returning a fresh quote.
+    if (input.quotedPrice !== undefined && generalBefore !== null) {
+      const moved = Math.abs(generalBefore - input.quotedPrice);
+      if (moved > config.maxPriceMove) {
+        throw new ForecastingError('PRICE_MOVED', 'The price moved since your quote. Review the new quote and try again.', {
+          quotedPrice: input.quotedPrice,
+          currentPrice: generalBefore,
+          quote: fill ?? null,
+        });
+      }
+    }
 
     // Debit first, so a forecast never exists without its stake being taken.
     const tx = await ledger.debit({
@@ -199,6 +256,16 @@ export async function submitForecast(
       reference: forecastId,
       idempotencyKey: `forecast:${forecastId}`,
     });
+    // The market maker receives the stake, so the ledger balances.
+    if (deps.marketMakerAccountId) {
+      await ledger.credit({
+        userId: deps.marketMakerAccountId,
+        amount: input.amount,
+        reason: 'market_maker_receive',
+        reference: forecastId,
+        idempotencyKey: `market-maker:in:${forecastId}`,
+      });
+    }
 
     const draft: Forecast = {
       id: forecastId,
@@ -233,7 +300,7 @@ export async function submitForecast(
       rule,
       trigger: 'forecast',
       at: now,
-      sequence: (await repo.listSnapshots(market.id)).length + 1,
+      sequence: await nextSnapshotSequence(repo, market.id),
       forecastId,
     });
     draft.entry.generalAfter = after.general;
@@ -242,8 +309,17 @@ export async function submitForecast(
     try {
       await repo.recordForecast(draft, after);
     } catch (err) {
-      // Give the stake back if the forecast couldn't be stored. In production the
-      // debit and insert should share one transaction with Engineer 1's ledger.
+      // Give the stake back if the forecast couldn't be stored. With the database
+      // adapter the debit and insert share one transaction, so this doesn't run there.
+      if (deps.marketMakerAccountId) {
+        await ledger.debit({
+          userId: deps.marketMakerAccountId,
+          amount: input.amount,
+          reason: 'market_maker_reversal',
+          reference: forecastId,
+          idempotencyKey: `market-maker:reversal:${forecastId}`,
+        });
+      }
       await ledger.credit({
         userId,
         amount: input.amount,

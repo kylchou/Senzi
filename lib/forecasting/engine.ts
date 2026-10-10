@@ -7,18 +7,18 @@ import {
   getUserStats,
   type CalibrationLine,
   type LeaderboardMetric,
-} from './analytics.js';
-import { mergeConfig, type EngineConfig } from './config.js';
-import type { EngineDeps } from './deps.js';
-import { ForecastingError } from './errors.js';
-import { buildMarketEstimates } from './estimates.js';
-import { selectHistory, snapshotsToCsv, toChartSeries, type HistoryQuery } from './history.js';
-import { recordModelValue } from './model-updates.js';
-import { getPortfolio } from './portfolio.js';
-import { settleMarket, type SettleMarketInput } from './settlement.js';
-import { submitForecast, type SubmitForecastInput } from './submission.js';
-import type { AuthContext } from './ports.js';
-import type { Baseline } from './types.js';
+} from './analytics';
+import { mergeConfig, type EngineConfig } from './config';
+import type { EngineDeps } from './deps';
+import { ForecastingError } from './errors';
+import { buildMarketEstimates } from './estimates';
+import { selectHistory, snapshotsToCsv, toChartSeries, type HistoryQuery } from './history';
+import { recordModelValue } from './model-updates';
+import { getPortfolio } from './portfolio';
+import { settleMarket, type SettleMarketInput } from './settlement';
+import { quoteForecast, submitForecast, type SubmitForecastInput } from './submission';
+import type { AuthContext } from './ports';
+import type { Baseline } from './types';
 
 export type EngineOptions = Omit<EngineDeps, 'config'> & { config?: Partial<EngineConfig> };
 
@@ -36,6 +36,7 @@ export function createForecastingEngine(options: EngineOptions) {
 
     // 1. Forecast submission
     submitForecast: (auth: AuthContext, input: SubmitForecastInput) => submitForecast(deps, auth, input),
+    quoteForecast: (input: { marketId: string; side: 'YES' | 'NO'; amount: number }) => quoteForecast(deps, input),
 
     // 2. Probability calculations: baseline and community estimates, kept apart
     async getMarketEstimates(marketId: string) {

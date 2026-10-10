@@ -1,12 +1,12 @@
 // The model pushes new values here when new data arrives. This is the only way
 // the model line or the opening baseline changes; forecasts never touch them.
 
-import { marketLockKey, type EngineDeps } from './deps.js';
-import { ForecastingError } from './errors.js';
-import { validateBaseline } from './estimates.js';
-import { buildSnapshot } from './history.js';
-import type { AuthContext } from './ports.js';
-import type { Baseline, Market } from './types.js';
+import { marketLockKey, type EngineDeps } from './deps';
+import { ForecastingError } from './errors';
+import { validateBaseline } from './estimates';
+import { buildSnapshot, nextSnapshotSequence } from './history';
+import type { AuthContext } from './ports';
+import type { Baseline, Market } from './types';
 
 export interface ModelUpdateResult {
   market: Market;
@@ -52,7 +52,7 @@ export async function recordModelValue(
         rule: deps.estimateRule,
         trigger: 'model_update',
         at: deps.clock.now(),
-        sequence: (await deps.repo.listSnapshots(marketId)).length + 1,
+        sequence: await nextSnapshotSequence(deps.repo, marketId),
       }),
     );
     return { market: updated, openingBaselineUpdated };

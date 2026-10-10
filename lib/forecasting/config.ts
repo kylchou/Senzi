@@ -26,6 +26,11 @@ export interface EngineConfig {
    * design has a general line open to any signed-up user), so this stays a switch.
    */
   requireVerifiedTrader: boolean;
+  /**
+   * Largest allowed move in the YES price (absolute, 0.02 = 2 points) between the
+   * client's quote and submission. Beyond it the trade is rejected with a new quote.
+   */
+  maxPriceMove: number;
   /** Display name for the unit. Token vs credit naming is still open. */
   unitLabel: string;
 }
@@ -38,6 +43,7 @@ export const defaultConfig: EngineConfig = {
   calibration: { minResolvedMarkets: 30, maxEceForCalibratedLabel: 0.05, bins: 10 },
   leaderboard: { minResolvedForAccuracyRank: 5 },
   requireVerifiedTrader: false,
+  maxPriceMove: 0.02,
   unitLabel: 'credits',
 };
 

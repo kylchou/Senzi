@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { anonymous, asUser, DAY, expectCode, resolver, setup, T0 } from './helpers.js';
+import { anonymous, asUser, DAY, expectCode, resolver, setup, T0 } from './helpers';
 
 describe('getPortfolio', () => {
   it('groups positions and totals them, reading the balance from the ledger', async () => {
