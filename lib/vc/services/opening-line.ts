@@ -1,6 +1,3 @@
-import { createHash } from "node:crypto";
-import type { AssistantModel } from "../assistant/model";
-import { suggestMetric, type MetricSuggestion } from "../assistant/suggest-metric";
 import { VcError, forbidden } from "../errors";
 import { OPENING_LINE_MODEL_NAME } from "../opening-line";
 import { canProposeInActiveOrg } from "../permissions";
@@ -25,10 +22,6 @@ export type EstimateView = Omit<ModelEstimate, "inputsUsed">;
 
 export interface OpeningLinePreview {
   metrics: OpeningLineMetric[];
-  /** The AI's proposed measurable form, when it found one. */
-  suggestion: MetricSuggestion | null;
-  /** Shown when no metric fits, e.g. "Funding rounds aren't in the model's data." */
-  suggestionNote: string | null;
   estimate: EstimateView;
   /** How many of the firm's own figures fed this estimate (entered on the company page). */
   firmFigureCount: number;
@@ -68,10 +61,10 @@ export const NOT_MEASURABLE_NOTE =
   "Not enough data: none of the model's metrics for this startup measures this question, so it has no opening line. Forecasting can't open until it does.";
 
 /**
- * The model-set opening line: links a question to a metric, runs the model,
- * and keeps open markets' model lines current. The AI only proposes links.
+ * The model-set opening line: prices a question's outcome with the model and
+ * keeps open markets' model lines current.
  */
-export function createOpeningLineService(deps: VcDeps, assistantModel: AssistantModel | null) {
+export function createOpeningLineService(deps: VcDeps) {
   const { repo, platform, model, now } = deps;
 
   async function startupOrThrow(startupId: string): Promise<StartupSummary> {
@@ -121,52 +114,17 @@ export function createOpeningLineService(deps: VcDeps, assistantModel: Assistant
     return stored;
   }
 
-  /** Draft-time preview: the AI proposes a link if none is given, then the model prices it. Saves nothing. */
+  /** Draft-time preview: the model prices the chosen outcome. Saves nothing. */
   async function preview(ctx: VcContext, input: OpeningLinePreviewInput): Promise<OpeningLinePreview> {
     if (!ctx.activeOrg) throw forbidden("Select a VC organization first");
     if (!canProposeInActiveOrg(ctx)) throw forbidden("Your role cannot propose studies");
     const organizationId = ctx.activeOrg.organizationId;
     const startup = await startupOrThrow(input.startupId);
     const metrics = model.metricsFor(startup);
-    const companyPath = `/vc/companies/${startup.slug}`;
-
-    let suggestion: MetricSuggestion | null = null;
-    let suggestionNote: string | null = null;
-    let link = input.link ?? null;
-    if (!link) {
-      if (!assistantModel) {
-        suggestionNote = "Automatic matching isn't set up. Pick the metric that measures your question below.";
-      } else {
-        try {
-          const result = await suggestMetric(assistantModel, {
-            question: input.question,
-            startupName: startup.name,
-            metrics,
-            today: now(),
-            deadline: input.deadline,
-            userKey: createHash("sha256").update(`senzi-tyche:${ctx.user.id}`).digest("hex"),
-          });
-          if (result.link) {
-            suggestion = result as MetricSuggestion;
-            link = result.link;
-          } else {
-            suggestionNote = result.reason || "None of the model's metrics measures this question.";
-          }
-        } catch (err) {
-          console.error("[opening-line] metric suggestion failed", err);
-          suggestionNote = "Automatic matching isn't available right now. Pick the metric that measures your question below.";
-        }
-      }
-    }
-
-    if (!link) {
-      const estimate = toEstimateView(notMeasurable(now(), NOT_MEASURABLE_NOTE));
-      return { metrics, suggestion, suggestionNote, estimate, firmFigureCount: 0, companyPath };
-    }
-    assertValidLink(startup, link, input.deadline, "link");
-    const figures = await firmFigures(organizationId, startup.id, link);
-    const estimate = await model.estimate({ startup, link, observations: figures, asOf: now() });
-    return { metrics, suggestion, suggestionNote, estimate: toEstimateView(estimate), firmFigureCount: figures.length, companyPath };
+    assertValidLink(startup, input.link, input.deadline, "link");
+    const figures = await firmFigures(organizationId, startup.id, input.link);
+    const estimate = await model.estimate({ startup, link: input.link, observations: figures, asOf: now() });
+    return { metrics, estimate: toEstimateView(estimate), firmFigureCount: figures.length, companyPath: `/vc/companies/${startup.slug}` };
   }
 
   /**
