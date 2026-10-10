@@ -27,6 +27,8 @@ export const RATE_LIMITS = {
   resolutionReview: { limit: 60, windowSeconds: 60 * 60 },
   forecastSubmit: { limit: 60, windowSeconds: 60 },
   export: { limit: 30, windowSeconds: 60 * 60 },
+  /** Market discussion posts per user (lib/market-view/discussion.ts). */
+  commentPost: { limit: 8, windowSeconds: 60 },
 } satisfies Record<string, RateLimitRule>;
 
 export async function rateLimit(key: string, rule: RateLimitRule, now = new Date()): Promise<{ remaining: number }> {

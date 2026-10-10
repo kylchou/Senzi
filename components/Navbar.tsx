@@ -13,7 +13,7 @@ import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { AccessibilityMenu } from "@/components/ui/a11y/AccessibilityMenu";
 import { LanguageMenu } from "@/components/ui/i18n/LanguageMenu";
 import { VcMenu } from "@/components/ui/VcMenu";
-import { useIsVcAccount } from "@/components/ui/account-type";
+import { useShowTradingUi } from "@/components/ui/account-type";
 import { cn } from "@/components/ui/cn";
 import { useRememberedHref } from "@/components/ui/remembered-filters";
 
@@ -28,17 +28,17 @@ interface NavItem {
   remember?: boolean;
   /** Only shown when signed in. */
   signedIn?: boolean;
-  /** Trading entry point: hidden for VC accounts, which don't trade. */
+  /** Trader-only page (trading, portfolios): hidden for VC accounts, and until the account type loads. */
   tradersOnly?: boolean;
 }
 
 // The logo links home, so there is no separate Home link.
 const links: NavItem[] = [
   { href: "/markets", label: "Markets", section: "explore", remember: true, tradersOnly: true },
-  { href: "/how-it-works", label: "How it works", section: "how-it-works" },
+  { href: "/how-it-works", label: "How it works", section: "how-it-works", tradersOnly: true },
   { href: "/startups", label: "Startups", section: "startups", remember: true },
   { href: "/news", label: "News", remember: true },
-  { href: "/profile", label: "Profile", signedIn: true },
+  { href: "/profile", label: "Profile", signedIn: true, tradersOnly: true },
 ];
 
 /** Homepage section ids, top to bottom. */
@@ -136,10 +136,10 @@ function NavLinks({ pathname }: { pathname: string | null }) {
   const onHome = pathname === "/";
   const section = useActiveSection(onHome);
   const { isSignedIn } = useAuth();
-  const isVc = useIsVcAccount();
+  const showTrading = useShowTradingUi();
   return (
     <>
-      {links.filter((link) => (!link.signedIn || isSignedIn) && !(link.tradersOnly && isVc)).map((link) => {
+      {links.filter((link) => (!link.signedIn || isSignedIn) && (!link.tradersOnly || showTrading)).map((link) => {
         const active = onHome
           ? link.section !== undefined && link.section === section
           : !link.exact && isActive(pathname, link.href);

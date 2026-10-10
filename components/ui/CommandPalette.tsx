@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useId, useMemo, useRef, useState, useSyncExternalStore } from "react";
-import { useIsVcAccount } from "./account-type";
+import { useShowTradingUi } from "./account-type";
 import { useFocusTrap } from "./a11y/useFocusTrap";
 import { ArrowRight, Building2, Clock, CornerDownLeft, LineChart, Search, X } from "lucide-react";
 import { formatShare } from "@/lib/market-view/format";
@@ -135,7 +135,7 @@ export function CommandPalette() {
   }, [query, open]);
 
   const trimmed = query.trim();
-  const isVc = useIsVcAccount();
+  const showTrading = useShowTradingUi();
   const items = useMemo<Item[]>(() => {
     if (trimmed.length < 2) {
       return [
@@ -146,7 +146,7 @@ export function CommandPalette() {
           href: `/search?q=${encodeURIComponent(value)}`,
           query: value,
         })),
-        ...QUICK_LINKS.filter((link) => !(isVc && TRADING_LINK_IDS.has(link.id))),
+        ...QUICK_LINKS.filter((link) => showTrading || !TRADING_LINK_IDS.has(link.id)),
       ];
     }
     if (!hits) return [];
@@ -172,7 +172,7 @@ export function CommandPalette() {
         href: `/search?q=${encodeURIComponent(trimmed)}`,
       },
     ];
-  }, [trimmed, hits, recent, isVc]);
+  }, [trimmed, hits, recent, showTrading]);
 
   if (!open) return null;
 

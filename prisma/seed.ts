@@ -3,6 +3,8 @@ import { createHash, randomUUID } from "node:crypto";
 import { Prisma } from "../generated/prisma/client";
 import {
   AccountType,
+  ProductVerificationMethod,
+  VerificationStatus,
   CreditTransactionType,
   EstimateKind,
   ForecastSide,
@@ -43,6 +45,7 @@ import {
   arrivalTime,
   beliefFor,
   crowdUsers,
+  discussionFor,
   forecasterTarget,
   forecastsFor,
   normal,
@@ -111,6 +114,9 @@ async function main() {
       username: member.handle,
       displayName: member.displayName,
       creditBalance: SIGNUP_GRANT_CREDITS,
+      // They forecast, so they are verified trader accounts like real forecasters.
+      accountType: AccountType.TRADER,
+      accountVerifiedAt: SEED_ANCHOR,
     })),
   });
   await db.creditTransaction.createMany({
@@ -217,6 +223,21 @@ async function main() {
     startups.map((startup) => startup.slug),
     crowdRandom,
   );
+  // Their product-user verifications, approved, so the "Verified user" badge and
+  // the verified-only checks match the forecasts they place.
+  await db.productUserVerification.createMany({
+    data: [...verifiedByStartup].flatMap(([slug, handles]) =>
+      [...handles].map((handle) => ({
+        userId: uid(handle),
+        startupId: startupIds.get(slug)!,
+        method: ProductVerificationMethod.ACCESS_CODE,
+        status: VerificationStatus.APPROVED,
+        reviewedAt: SEED_ANCHOR,
+        note: "Seed demo verification",
+        createdAt: SEED_ANCHOR,
+      })),
+    ),
+  });
   const clampUnit = (value: number) => Math.min(0.97, Math.max(0.03, value));
 
   type PlannedForecast = { handle: string; time: number; belief: number; verified: boolean; stake?: number };
@@ -474,6 +495,35 @@ async function main() {
           approvedById: reviewerId,
           approvedAt,
           currentProposalId: proposal.id,
+        },
+      });
+    }
+  }
+
+  // --- Market discussion (demo comments, prisma/seed-crowd.ts) -----------------
+  const commentRandom = rng(20261003);
+  for (const m of markets) {
+    if ((m.visibility ?? MarketVisibility.PUBLIC) !== MarketVisibility.PUBLIC || m.state === "DRAFT") continue;
+    const from = daysFrom(Math.min(-45, m.closesInDays - 60)).getTime();
+    const to = Math.min(SEED_ANCHOR.getTime(), daysFrom(m.closesInDays + 5).getTime());
+    const thread = discussionFor(commentRandom, crowd, verifiedByStartup.get(m.startup) ?? new Set(), m.lean, from, to);
+    for (const comment of thread) {
+      const parentId = randomUUID();
+      await db.marketComment.create({
+        data: {
+          id: parentId,
+          marketId: marketIds.get(m.slug)!,
+          userId: uid(comment.handle),
+          body: comment.body,
+          createdAt: new Date(comment.at),
+          replies: {
+            create: comment.replies.map((reply) => ({
+              marketId: marketIds.get(m.slug)!,
+              userId: uid(reply.handle),
+              body: reply.body,
+              createdAt: new Date(reply.at),
+            })),
+          },
         },
       });
     }

@@ -311,6 +311,8 @@ model User {
   productVerifications    ProductUserVerification[] @relation("ProductVerificationUser")
   productReviews          ProductUserVerification[] @relation("ProductVerificationReviewer")
   productAccessCodes      ProductAccessCode[]
+  marketComments          MarketComment[]           @relation("MarketCommentAuthor")
+  marketCommentsRemoved   MarketComment[]           @relation("MarketCommentRemover")
 }
 
 /// A VC's firm details, checked by a platform admin before they get VC access.
@@ -497,6 +499,7 @@ model Market {
   news                   NewsItem[]
   modelQuestionSpec      ModelQuestionSpec?
   modelBaselineSnapshots ModelBaselineSnapshot[]
+  comments               MarketComment[]
 
   @@index([status, visibility, closesAt])
   @@index([startupId])
@@ -1189,6 +1192,32 @@ model AuditLog {
 /// Proof that someone uses a startup's product. Approved rows unlock that
 /// startup's verified-users-only markets and count toward the Verified Users
 /// line. Never edited after review; a retry is a new row.
+/// A message in a market's public discussion. Replies go one level deep
+/// (parentId points at a top-level comment). A removed comment keeps its row so
+/// its replies stay in place, but its body is cleared.
+model MarketComment {
+  id          String    @id @default(cuid())
+  marketId    String
+  userId      String
+  /// The top-level comment this replies to; null for a top-level comment.
+  parentId    String?
+  /// Up to 1,000 characters; empty only once removed. CHECK in the migration.
+  body        String
+  createdAt   DateTime  @default(now())
+  /// Set when the author or an admin removes it.
+  removedAt   DateTime?
+  removedById String?
+
+  market    Market          @relation(fields: [marketId], references: [id], onDelete: Cascade)
+  user      User            @relation("MarketCommentAuthor", fields: [userId], references: [id], onDelete: Cascade)
+  removedBy User?           @relation("MarketCommentRemover", fields: [removedById], references: [id], onDelete: SetNull)
+  parent    MarketComment?  @relation("MarketCommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies   MarketComment[] @relation("MarketCommentReplies")
+
+  @@index([marketId, parentId, createdAt])
+  @@index([parentId, createdAt])
+}
+
 model ProductUserVerification {
   id             String                    @id @default(cuid())
   userId         String
