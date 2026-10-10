@@ -25,7 +25,7 @@ export function VcLink({ active, className }: { active: boolean; className?: str
 
   if (!isSignedIn || !member) return null;
   return (
-    <Link href="/vc" aria-current={active ? "page" : undefined} className={cn(className, active && "bg-white/10 text-white")}>
+    <Link href="/vc" aria-current={active ? "page" : undefined} className={cn(className, active && "text-ink-900")}>
       Intelligence
     </Link>
   );

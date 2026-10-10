@@ -5,7 +5,7 @@ import { Button } from "./Button";
 import { cn } from "./cn";
 
 /** Sign-in button when signed out, account menu when signed in. Clerk handles the flow. */
-export function AuthControls({ variant = "inverse", className }: { variant?: "inverse" | "accent"; className?: string }) {
+export function AuthControls({ variant = "primary", className }: { variant?: "primary" | "accent"; className?: string }) {
   const { isLoaded, isSignedIn } = useAuth();
 
   if (!isLoaded) return <span aria-hidden className={cn("inline-block h-8 w-20", className)} />;
@@ -28,7 +28,7 @@ export function SignInCta({
 }: {
   children: React.ReactNode;
   signedIn?: React.ReactNode;
-  variant?: "accent" | "inverse";
+  variant?: "accent" | "primary";
   className?: string;
 }) {
   const { isLoaded, isSignedIn } = useAuth();

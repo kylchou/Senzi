@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
-import { Building2, House, LineChart, Newspaper, Pencil, Search, type LucideIcon } from "lucide-react";
+import { Search } from "lucide-react";
 import { AuthControls } from "@/components/ui/AuthControls";
 import { openCommandPalette, ShortcutHint } from "@/components/ui/CommandPalette";
 import { NotificationsBell } from "@/components/ui/NotificationsBell";
@@ -16,7 +16,6 @@ import { useRememberedHref } from "@/components/ui/remembered-filters";
 interface NavItem {
   href: string;
   label: string;
-  icon: LucideIcon;
   /** Homepage section highlighted while it's in view (the homepage only). */
   section?: string;
   /** Exact match only (Home, and in-page links). */
@@ -25,13 +24,13 @@ interface NavItem {
   remember?: boolean;
 }
 
+// The logo links home, so there is no separate Home link.
 const links: NavItem[] = [
-  { href: "/", label: "Home", icon: House, section: "top", exact: true },
-  { href: "/markets", label: "Markets", icon: LineChart, section: "explore", remember: true },
+  { href: "/markets", label: "Markets", section: "explore", remember: true },
   // "#tutorial" also starts the walkthrough (see HowItWorksTutorial).
-  { href: "/#tutorial", label: "How it works", icon: Pencil, section: "how-it-works", exact: true },
-  { href: "/startups", label: "Startups", icon: Building2, section: "startups", remember: true },
-  { href: "/news", label: "News", icon: Newspaper, remember: true },
+  { href: "/#tutorial", label: "How it works", section: "how-it-works", exact: true },
+  { href: "/startups", label: "Startups", section: "startups", remember: true },
+  { href: "/news", label: "News", remember: true },
 ];
 
 /** Homepage section ids, top to bottom. */
@@ -49,7 +48,7 @@ function isActive(pathname: string | null, href: string) {
 export function Navbar() {
   return (
     <header
-      className="sticky top-0 z-40 px-3 pt-3 sm:px-4"
+      className="sticky top-0 z-40 border-b border-hairline bg-page/80 backdrop-blur-xl supports-[backdrop-filter]:bg-page/70"
       // Stays still while page content transitions underneath.
       style={{ viewTransitionName: "site-header" }}
     >
@@ -59,30 +58,32 @@ export function Navbar() {
       >
         Skip to content
       </a>
-      <div className="mx-auto flex h-14 max-w-6xl items-center gap-6 rounded-full bg-night pl-5 pr-2 text-white shadow-[0_14px_36px_-18px_rgb(0_0_0/0.55)] ring-1 ring-white/5">
-        <Link href="/" aria-label="Senzi home" className="shrink-0">
-          <Image src="/senzi-logo.png" alt="Senzi" width={77} height={22} priority />
+      <div className="mx-auto flex h-16 max-w-6xl items-center gap-8 px-4 sm:px-6">
+        <Link href="/" aria-label="Senzi home" className="shrink-0 transition-opacity hover:opacity-80">
+          <Image src="/senzi-logo-dark.png" alt="Senzi" width={84} height={24} priority className="dark:hidden" />
+          <Image src="/senzi-logo.png" alt="Senzi" width={84} height={24} priority className="hidden dark:block" />
         </Link>
 
-        <nav aria-label="Main" className="hidden items-center gap-0.5 md:flex">
+        <nav aria-label="Main" className="hidden items-center gap-1 md:flex">
           <Suspense fallback={<NavLinks pathname={null} />}>
             <RoutedNavLinks />
           </Suspense>
         </nav>
 
-        <div className="ml-auto flex items-center gap-1.5 md:gap-2">
+        <div className="ml-auto flex items-center gap-1">
           <button
             type="button"
             onClick={openCommandPalette}
-            className="hidden h-9 items-center gap-2 rounded-full border border-white/10 bg-white/5 pl-3 pr-2 text-sm text-mist-300 transition-colors hover:border-white/20 hover:text-white md:flex"
+            aria-label="Open search"
+            className="mr-1 hidden h-9 items-center gap-2 rounded-full border border-hairline bg-surface pl-3 pr-2 text-sm text-ink-500 transition-colors hover:border-ink-300 hover:text-ink-900 md:flex"
           >
             <Search className="size-4" aria-hidden />
-            <span className="pr-6">Search</span>
-            <ShortcutHint className="rounded border border-white/15 px-1.5 py-0.5 font-sans text-[10px] font-semibold text-mist-400" />
+            <span className="hidden pr-4 lg:inline">Search</span>
+            <ShortcutHint className="hidden rounded-md bg-ink-100 px-1.5 py-0.5 font-sans text-[10px] font-semibold text-ink-700 lg:inline" />
           </button>
           <ThemeToggle />
           <NotificationsBell />
-          <div className="hidden md:block">
+          <div className="ml-1 hidden md:block">
             <AuthControls />
           </div>
         </div>
@@ -119,7 +120,7 @@ function useActiveSection(enabled: boolean) {
 }
 
 const linkClass =
-  "group inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium text-mist-300 transition-colors duration-200 hover:bg-white/5 hover:text-white";
+  "relative rounded-full px-3 py-1.5 text-sm font-medium text-ink-500 transition-colors duration-200 hover:text-ink-900";
 
 function NavLinks({ pathname }: { pathname: string | null }) {
   const onHome = pathname === "/";
@@ -143,15 +144,12 @@ function NavLink({ link, active, inPage }: { link: NavItem; active: boolean; inP
     <Link
       href={link.remember ? remembered : link.href}
       aria-current={active ? (inPage ? "location" : "page") : undefined}
-      aria-label={link.label}
-      title={link.label}
-      className={cn(linkClass, active && "bg-white/10 text-white")}
+      className={cn(linkClass, active && "text-ink-900")}
     >
-      <link.icon
-        className={cn("size-4 transition-colors", active ? "text-red-500" : "text-mist-400 group-hover:text-white")}
-        aria-hidden
-      />
-      <span className="hidden lg:inline">{link.label}</span>
+      {link.label}
+      {active && (
+        <span aria-hidden className="absolute inset-x-3 -bottom-[17px] h-0.5 animate-[grow-x_220ms_var(--ease-out-soft)] rounded-full bg-red-500" />
+      )}
     </Link>
   );
 }

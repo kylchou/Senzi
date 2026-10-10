@@ -145,11 +145,11 @@ export function NotificationsBell() {
         aria-expanded={open}
         aria-controls={panelId}
         onClick={toggle}
-        className="relative rounded-full p-2 text-mist-300 transition-colors hover:bg-white/10 hover:text-white"
+        className="relative grid size-9 place-items-center rounded-full text-ink-600 transition-colors hover:bg-ink-100 hover:text-ink-900"
       >
-        <Bell className="size-5" aria-hidden />
+        <Bell className="size-[18px]" aria-hidden />
         {unread > 0 && (
-          <span className="absolute right-1 top-1 flex min-w-4 animate-[pop-in_200ms_var(--ease-out-soft)] items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-bold leading-4 text-white ring-2 ring-night">
+          <span className="absolute -right-0.5 -top-0.5 flex min-w-4 animate-[pop-in_200ms_var(--ease-out-soft)] items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-bold leading-4 text-white ring-2 ring-page">
             {unread >= COUNT_CAP ? `${COUNT_CAP}+` : unread}
           </span>
         )}
