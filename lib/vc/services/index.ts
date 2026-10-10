@@ -23,8 +23,7 @@ export function createVcServices(
   const compare = createCompareService(deps);
   const assistantContext = createAssistantContextService(deps, { studies, compare }, { tier: options.assistantTier ?? "standard" });
   const assistant = createAssistantService({ assistantContext }, options.assistantModel ?? null);
-  // The AI only proposes how to measure a question; the model sets the price.
-  const openingLine = createOpeningLineService(deps, options.assistantModel ?? null);
+  const openingLine = createOpeningLineService(deps);
   return { studies, watchlists, alerts, reports, dashboard, compare, assistantContext, assistant, openingLine };
 }
 
