@@ -21,6 +21,7 @@ export const KIND_LABEL: Record<EvidenceKind, string> = {
   startup: "Startup",
   firm_note: "Firm note (private)",
   conflict_flag: "Conflict flag",
+  key_stats: "Key stats",
 };
 
 const oneLine = (s: string) => s.replace(/\s+/g, " ").trim();

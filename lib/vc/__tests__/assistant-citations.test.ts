@@ -92,4 +92,20 @@ describe("citation checking", () => {
     expect(r.grounded).toBe(true);
     expect(r.sentences[0].citations).toHaveLength(2);
   });
+
+  it("doesn't flag declines and 'not in your data' statements, but still flags uncited numbers", () => {
+    const r = checkCitations(
+      "I can't advise on whether to invest. That isn't in your data. Your evidence includes no revenue figures. I can summarize the study evidence if that would help. That isn't in your data, but revenue is about $12M.",
+      pkg,
+    );
+    expect(r.sentences.map((s) => s.unsupported)).toEqual([false, false, false, false, true]);
+  });
+
+  it("doesn't flag 'No X is in your data' or 'X aren't in your data' statements", () => {
+    const r = checkCitations(
+      "- Calibrated probability: No calibrated probability is in your data.\n- No revenue figures are in your evidence, and the startup isn't tracked.\n- Views of other firms aren't in your data. Your data does not break out views by firm. A calibrated model output would be needed to answer.\n- Revenue grew strongly last year.",
+      pkg,
+    );
+    expect(r.sentences.map((s) => s.unsupported)).toEqual([false, false, false, false, false, true]);
+  });
 });
