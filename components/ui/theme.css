@@ -9,6 +9,9 @@
  * charcoal in both themes. `white` is never redefined,
  * so other teams' `bg-white` and `text-white` keep their meaning.
  */
+/* Accessibility preferences (text size, contrast, motion, ...). */
+@import "./a11y/a11y.css";
+
 @theme {
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
   --font-display: var(--font-montserrat), var(--font-inter), ui-sans-serif, sans-serif;
