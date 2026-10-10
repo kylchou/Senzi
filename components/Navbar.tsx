@@ -12,7 +12,7 @@ import { NotificationsBell } from "@/components/ui/NotificationsBell";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { AccessibilityMenu } from "@/components/ui/a11y/AccessibilityMenu";
 import { LanguageMenu } from "@/components/ui/i18n/LanguageMenu";
-import { VcLink } from "@/components/ui/VcLink";
+import { VcMenu } from "@/components/ui/VcMenu";
 import { cn } from "@/components/ui/cn";
 import { useRememberedHref } from "@/components/ui/remembered-filters";
 
@@ -141,7 +141,7 @@ function NavLinks({ pathname }: { pathname: string | null }) {
           : !link.exact && isActive(pathname, link.href);
         return <NavLink key={link.href} link={link} active={active} inPage={onHome && active} />;
       })}
-      <VcLink active={isActive(pathname, "/vc")} className={linkClass} />
+      <VcMenu className={linkClass} pathname={pathname} />
     </>
   );
 }

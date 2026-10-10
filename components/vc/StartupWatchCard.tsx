@@ -19,7 +19,9 @@ export function StartupWatchCard({ watch, canEdit }: { watch: StartupWatch; canE
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 id={`watch-${startup.id}`} className="text-lg font-semibold">
-            {startup.name}
+            <Link href={`/vc/companies/${startup.slug}`} className="hover:underline">
+              {startup.name}
+            </Link>
           </h2>
           {startup.industry && <p className="text-sm text-slate-500 dark:text-slate-400">{startup.industry}</p>}
         </div>
