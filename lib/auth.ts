@@ -69,6 +69,10 @@ export async function provisionUser(identity: AuthIdentity): Promise<SessionUser
       if (existing) return existing;
 
       const byEmail = await tx.user.findUnique({ where: { email }, select: { id: true, authId: true } });
+      // A concurrent first request for this same identity committed between the two reads.
+      if (byEmail?.authId === identity.authId) {
+        return tx.user.findUniqueOrThrow({ where: { id: byEmail.id }, select: sessionUserSelect });
+      }
       let userId: string;
       if (byEmail) {
         if (!byEmail.authId.startsWith(PENDING_AUTH_PREFIX) || !identity.emailVerified) {
