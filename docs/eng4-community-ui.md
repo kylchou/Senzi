@@ -60,6 +60,21 @@ Each simulated forecast goes through the LMSR rule like a real one (fill, Genera
 
 Market charts draw straight segments between snapshots with an axis zoomed to the data (`lib/market-view/chart.ts`). The YES allocation line starts once 15 forecasters have taken part (`settledPoints`), because the first few forecasts swing the share between 0% and 100%; the data table lists every point.
 
+## Market discussion
+
+Every public market has a discussion thread under its chart (`components/discussion/MarketDiscussion.tsx`). Comments show the person's name, handle, profile picture (or initials), and when they posted; replies go one level deep. People verified as users of the market's startup get a "Verified user" badge.
+
+| Route | Who | Does |
+| --- | --- | --- |
+| `GET /api/markets/:slug/comments` | Anyone | Newest top-level comments first (`cursor`, `limit` up to 50), each with up to 50 replies oldest first, plus `total`, `nextCursor`, and whether the viewer can post |
+| `POST /api/markets/:slug/comments` | Signed in and onboarded | `{ body, parentId? }`, 1 to 1,000 characters, 8 per minute (`RATE_LIMITS.commentPost`) |
+| `DELETE /api/markets/:slug/comments/:id` | Author or platform admin | Clears the body and keeps the row so replies stay in place; admin removals are audited (`market_comment.remove`) |
+
+- Data: `MarketComment` (migration `20261013000000_market_discussion`), with a database check on length. Logic in `lib/market-view/discussion.ts`; only names, handles, and pictures leave the server, never emails, balances, or forecasts.
+- Private and draft markets have no discussion (`PUBLIC_MARKET_WHERE`).
+- The thread refreshes every 30 seconds while the tab is visible and when the window regains focus.
+- `npm run db:seed` adds a few demo comments per public market from the fictional crowd. They are opinions and questions about the rules only, never claims about a company, since some seeded companies are real.
+
 ## Market Replay
 
 A Replay button beside the market chart opens a dialog that plays the market's history back. Code: `components/ui/replay/` (UI), `lib/market-view/replay.ts` (pure logic, unit tested), `lib/market-view/replay-data.ts` (server query).
