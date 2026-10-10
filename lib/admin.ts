@@ -381,6 +381,8 @@ export async function createMarketForStudy(raw: CreateMarketForStudyInput): Prom
           yesCriteria: input.yesCriteria,
           noCriteria: input.noCriteria,
           openingBaseline: input.openingBaseline.value,
+          modelValue: input.openingBaseline.value,
+          modelUpdatedAt: now,
           baselineMethodology: input.openingBaseline.methodology,
           baselineSetAt: now,
           visibility: input.visibility,

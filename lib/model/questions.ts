@@ -1,17 +1,30 @@
 // Threshold questions: wording and resolution.
 
-import { metricDef } from './catalog';
+import { getCompany, metricDef } from './catalog';
 import { toDayNumber } from './dates';
 import { buildDailySeries, windowTotal } from './series';
 import type { DataPoint, SourceId, ThresholdQuestion } from './types';
 
-const fmtDay = (day: string) =>
-  new Date(`${day}T00:00:00Z`).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
+const shortDay = (day: string) =>
+  new Date(`${day}T00:00:00Z`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
 
-/** Every question spells out its window, e.g. "in the 7 days ending November 8, 2026". */
+/** 35000000 -> "35M", 5200000 -> "5.2M", 770 -> "770". */
+function compact(n: number): string {
+  if (n >= 1e9) return `${+(n / 1e9).toFixed(1)}B`;
+  if (n >= 1e6) return `${+(n / 1e6).toFixed(1)}M`;
+  if (n >= 1e4) return `${+(n / 1e3).toFixed(0)}K`;
+  return n.toLocaleString('en-US');
+}
+
+/**
+ * Short, but the window stays explicit: "Will Supabase's npm downloads reach
+ * 35M in the 7 days ending Oct 25?" The package name and exact threshold live
+ * in the market's criteria.
+ */
 export function questionText(companyId: string, metricId: string, threshold: number, windowEnd: string): string {
   const m = metricDef(companyId, metricId);
-  return `Will ${m.label} in the 7 days ending ${fmtDay(windowEnd)} (UTC) be at least ${threshold.toLocaleString('en-US')}?`;
+  const what = m.source === 'pypistats' ? 'PyPI downloads' : 'npm downloads';
+  return `Will ${getCompany(companyId).name}'s ${what} reach ${compact(threshold)} in the 7 days ending ${shortDay(windowEnd)}?`;
 }
 
 const RESOLUTION: Partial<Record<SourceId, (metricId: string, windowEnd: string) => { url: string; description: string }>> = {

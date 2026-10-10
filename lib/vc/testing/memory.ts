@@ -396,6 +396,10 @@ export function createTestDeps(now: Date = new Date("2026-10-01T12:00:00Z")) {
 export function makeEstimate(marketId: string, overrides: Partial<MarketEstimate> = {}): MarketEstimate {
   return {
     marketId,
+    modelValue: 0.3,
+    generalPrice: 0.6,
+    specializedPrice: null,
+    specializedCount: 0,
     status: "OPEN",
     openingBaseline: { value: 0.3, methodology: "Base rate" },
     allocation: { yesCredits: 600, noCredits: 400, totalCredits: 1000, yesShare: 0.6 },

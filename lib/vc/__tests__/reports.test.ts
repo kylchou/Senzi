@@ -70,7 +70,7 @@ describe("report content", () => {
         now: NOW,
       }),
     );
-    expect(csv).toContain("community_yes_allocation_share,0.6");
+    expect(csv).toContain("general_lmsr_price,0.6");
     expect(csv).toContain("calibrated_probability,not available");
     expect(csv).toContain("2026-10-01T12:00:00.000Z,0.6");
   });

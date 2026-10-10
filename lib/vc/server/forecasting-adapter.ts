@@ -28,6 +28,7 @@ export function createForecastingGateway(db: PrismaClient): ForecastingGateway {
             status: true,
             openingBaseline: true,
             baselineMethodology: true,
+            modelValue: true,
             yesCredits: true,
             noCredits: true,
             forecastCount: true,
@@ -35,7 +36,7 @@ export function createForecastingGateway(db: PrismaClient): ForecastingGateway {
             snapshots: {
               orderBy: { sequence: "desc" },
               take: 1,
-              select: { recordedAt: true, forecasterCount: true, calibratedProbability: true },
+              select: { recordedAt: true, forecasterCount: true, calibratedProbability: true, generalEstimate: true, specializedEstimate: true, specializedForecasters: true, estimateKind: true },
             },
             resolution: { select: { outcome: true, resolvedAt: true, evidenceSummary: true, evidenceUrls: true } },
           },
@@ -56,6 +57,10 @@ export function createForecastingGateway(db: PrismaClient): ForecastingGateway {
             {
               marketId: m.id,
               status: m.status,
+              modelValue: m.modelValue ?? m.openingBaseline,
+              generalPrice: latest?.estimateKind === "MARKET_PRICE" ? latest.generalEstimate : m.forecastCount === 0 ? m.openingBaseline : null,
+              specializedPrice: latest?.estimateKind === "MARKET_PRICE" && latest.specializedForecasters > 0 ? latest.specializedEstimate : null,
+              specializedCount: latest?.specializedForecasters ?? 0,
               openingBaseline:
                 m.openingBaseline != null ? { value: m.openingBaseline, methodology: m.baselineMethodology } : null,
               allocation: {
@@ -93,12 +98,14 @@ export function createForecastingGateway(db: PrismaClient): ForecastingGateway {
           ...((options?.from || options?.to) && { recordedAt: { gte: options?.from, lte: options?.to } }),
         },
         orderBy: { sequence: "asc" },
-        select: { id: true, recordedAt: true, allocationShare: true, yesCredits: true, noCredits: true, forecasterCount: true },
+        select: { id: true, recordedAt: true, modelValue: true, openingBaseline: true, generalEstimate: true, specializedEstimate: true, specializedForecasters: true, estimateKind: true, forecastCount: true, yesCredits: true, noCredits: true, forecasterCount: true },
       });
       return rows.map((r) => ({
         id: r.id,
         at: r.recordedAt,
-        yesShare: r.allocationShare,
+        yesShare: r.estimateKind === "MARKET_PRICE" ? r.generalEstimate : r.forecastCount === 0 ? r.openingBaseline : null,
+        modelValue: r.modelValue ?? r.openingBaseline,
+        specializedPrice: r.estimateKind === "MARKET_PRICE" && r.specializedForecasters > 0 ? r.specializedEstimate : null,
         totalCredits: r.yesCredits + r.noCredits,
         participantCount: r.forecasterCount,
       }));
