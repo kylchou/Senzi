@@ -222,7 +222,7 @@ async function OpenMarkets() {
   const markets = await safe(() => listFeaturedMarkets(6));
   if (markets.failed) return <ErrorState body="Markets could not load. Try again shortly." />;
   if (markets.data.length === 0) {
-    return <EmptyState title="No open markets yet" body="New questions appear here as soon as they open." />;
+    return <EmptyState illustration="markets" title="No open markets yet" body="New questions appear here as soon as they open." />;
   }
   return (
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -237,7 +237,7 @@ async function FeaturedStartups() {
   await io();
   const startups = await safe(() => listFeaturedStartups(4));
   if (startups.failed) return <ErrorState body="Startups could not load. Try again shortly." />;
-  if (startups.data.length === 0) return <EmptyState title="No startups yet" />;
+  if (startups.data.length === 0) return <EmptyState illustration="startups" title="No startups yet" />;
   return (
     <div className="grid gap-4 sm:grid-cols-2">
       {startups.data.map((startup) => (

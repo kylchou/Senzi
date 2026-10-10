@@ -126,6 +126,7 @@ async function Results({ searchParams }: Pick<PageProps<"/markets">, "searchPara
       </p>
       {result.items.length === 0 ? (
         <EmptyState
+          illustration="markets"
           title={filtered ? "No matching markets" : "No markets yet"}
           body={filtered ? "Try a different search or filter." : "New questions appear here as soon as they open."}
           action={

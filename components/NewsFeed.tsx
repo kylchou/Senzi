@@ -35,7 +35,7 @@ export function NewsFeed({
   emptyTitle?: string;
 }) {
   if (items.length === 0) {
-    return <EmptyState title={emptyTitle} body="Sourced coverage appears here once published." />;
+    return <EmptyState illustration="news" title={emptyTitle} body="Sourced coverage appears here once published." />;
   }
 
   return (
