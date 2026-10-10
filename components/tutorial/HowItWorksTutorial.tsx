@@ -12,7 +12,6 @@ import {
   FlaskConical,
   Lightbulb,
   PartyPopper,
-  Pencil,
   RotateCcw,
   X,
 } from "lucide-react";
@@ -33,8 +32,8 @@ import {
   type TutorialStep,
 } from "@/lib/tutorial/sandbox";
 
-/** Red that stays readable as small text on the charcoal (night) panel: ~5.9:1. */
-const RED_ON_NIGHT = "text-[#ff7a7a]";
+/** Red that stays readable as small text on the guide panel in both themes. */
+const RED_TEXT = "text-red-700";
 
 /** Links to "#tutorial" (e.g. the navbar pencil) start the walkthrough. */
 export const TUTORIAL_HASH = "#tutorial";
@@ -191,7 +190,7 @@ export function HowItWorksTutorial() {
                 className="flex w-full items-start gap-3 rounded-xl p-3 text-left transition-colors hover:bg-ink-50"
                 aria-expanded={practice.startupOpened}
               >
-                <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-night text-white">
+                <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-ink-900 text-surface">
                   <Building2 className="size-5" aria-hidden />
                 </span>
                 <span className="min-w-0 flex-1">
@@ -392,16 +391,9 @@ export function HowItWorksTutorial() {
 
           {!started && (
             <div className="absolute inset-0 grid place-items-center rounded-[var(--radius-card)] bg-page/60 backdrop-blur-[2px]">
-              <div className="mx-4 max-w-sm rounded-2xl bg-night p-6 text-center text-white shadow-[var(--shadow-lift)]">
-                <Pencil className="mx-auto size-6 text-red-500" aria-hidden />
-                <p className="mt-3 font-display text-xl font-bold">Try it with a practice market</p>
-                <p className="mt-2 text-sm text-mist-300">
-                  A two-minute, hands-on walkthrough with a made-up startup and {PRACTICE_BALANCE} practice credits. Nothing touches your real account.
-                </p>
-                <Button variant="accent" size="lg" className="mt-5" onClick={start}>
-                  Start the walkthrough <ArrowRight className="size-4" aria-hidden />
-                </Button>
-              </div>
+              <Button variant="accent" size="lg" className="shadow-[var(--shadow-lift)]" onClick={start}>
+                Start the walkthrough <ArrowRight className="size-4" aria-hidden />
+              </Button>
             </div>
           )}
         </div>
@@ -413,7 +405,7 @@ export function HowItWorksTutorial() {
           role="region"
           aria-labelledby={titleId}
           className={cn(
-            "rounded-[var(--radius-card)] bg-night p-6 text-white shadow-[var(--shadow-lift)] outline-none lg:sticky lg:top-24",
+            "surface-card p-6 text-ink-900 outline-none lg:sticky lg:top-24",
             // On small screens the guide becomes a bottom sheet so it stays next to what you're tapping.
             started &&
               "max-lg:fixed max-lg:inset-x-3 max-lg:bottom-3 max-lg:z-30 max-lg:max-h-[42vh] max-lg:overflow-y-auto max-lg:p-5 max-md:bottom-[calc(max(0.75rem,env(safe-area-inset-bottom))+4.25rem)] max-md:max-h-[38vh]",
@@ -422,15 +414,15 @@ export function HowItWorksTutorial() {
           {started ? (
             <>
               <div className="flex items-center justify-between gap-3">
-                <p className={cn("text-xs font-semibold uppercase tracking-[0.14em]", RED_ON_NIGHT)}>
+                <p className={cn("text-xs font-semibold uppercase tracking-[0.14em]", RED_TEXT)}>
                   Step {stepIndex + 1} of {TUTORIAL_STEPS.length}
                 </p>
-                <button type="button" onClick={exit} className="rounded-full p-1.5 text-mist-400 hover:bg-white/10 hover:text-white" aria-label="Exit walkthrough">
+                <button type="button" onClick={exit} className="rounded-full p-1.5 text-ink-500 hover:bg-ink-100 hover:text-ink-900" aria-label="Exit walkthrough">
                   <X className="size-4" aria-hidden />
                 </button>
               </div>
               <div
-                className="mt-3 h-1.5 overflow-hidden rounded-full bg-white/10"
+                className="mt-3 h-1.5 overflow-hidden rounded-full bg-ink-100"
                 role="progressbar"
                 aria-valuemin={1}
                 aria-valuemax={TUTORIAL_STEPS.length}
@@ -444,7 +436,7 @@ export function HowItWorksTutorial() {
                 {isLast && <PartyPopper className="mr-2 inline size-6 text-red-500" aria-hidden />}
                 {step.title}
               </h3>
-              <p className="mt-2 text-mist-300">{step.body}</p>
+              <p className="mt-2 text-ink-600">{step.body}</p>
 
               {step.id === "numbers" && <NumbersQuiz answer={practice.quizAnswer} onAnswer={(quizAnswer) => update({ quizAnswer })} />}
 
@@ -457,17 +449,17 @@ export function HowItWorksTutorial() {
                   <ButtonLink href="/markets" variant="accent">
                     Explore real markets <ArrowRight className="size-4" aria-hidden />
                   </ButtonLink>
-                  <Button variant="inverse" onClick={start}>
+                  <Button variant="outline" onClick={start}>
                     <RotateCcw className="size-4" aria-hidden /> Restart
                   </Button>
                 </div>
               ) : (
                 <div className="mt-6 flex items-center justify-between gap-3">
-                  <Button variant="inverse" size="sm" onClick={back} disabled={stepIndex === 0}>
+                  <Button variant="outline" size="sm" onClick={back} disabled={stepIndex === 0}>
                     <ArrowLeft className="size-4" aria-hidden /> Back
                   </Button>
                   <div className="flex items-center gap-2">
-                    <button type="button" onClick={start} className="text-xs font-semibold text-mist-400 hover:text-white">
+                    <button type="button" onClick={start} className="text-xs font-semibold text-ink-500 hover:text-ink-900">
                       Restart
                     </button>
                     <Button variant="accent" size="sm" onClick={next} disabled={!complete}>
@@ -476,28 +468,27 @@ export function HowItWorksTutorial() {
                   </div>
                 </div>
               )}
-              <p className="mt-5 border-t border-white/10 pt-4 text-xs text-mist-400 max-lg:mt-3 max-lg:pt-3">
+              <p className="mt-5 border-t border-hairline pt-4 text-xs text-ink-500 max-lg:mt-3 max-lg:pt-3">
                 Practice mode: nothing here changes your real credits or places a real forecast.
                 <span className="max-lg:hidden"> Press Esc to exit.</span>
               </p>
             </>
           ) : (
             <>
-              <p className={cn("text-xs font-semibold uppercase tracking-[0.14em]", RED_ON_NIGHT)}>How it works</p>
-              <h3 id={titleId} className="mt-2 text-2xl font-bold">Learn by doing</h3>
-              <ol className="mt-4 space-y-3 text-sm text-mist-300">
+              <h3 id={titleId} className="text-2xl font-bold">Learn by doing</h3>
+              <ol className="mt-4 space-y-3 text-sm text-ink-600">
                 {["Read a YES/NO question and how it resolves", "Pick a side and allocate practice credits", "Watch the market resolve and pay out"].map((t, i) => (
                   <li key={t} className="flex gap-3">
-                    <span className={cn("font-display font-extrabold tabular-nums", RED_ON_NIGHT)}>{String(i + 1).padStart(2, "0")}</span>
+                    <span className={cn("font-display font-extrabold tabular-nums", RED_TEXT)}>{String(i + 1).padStart(2, "0")}</span>
                     {t}
                   </li>
                 ))}
               </ol>
-              <Button variant="accent" className="mt-6" onClick={start}>
-                Start the walkthrough <ArrowRight className="size-4" aria-hidden />
-              </Button>
-              <p className="mt-4 text-xs text-mist-400">
-                Or skip ahead and <Link href="/markets" className="underline hover:text-white">browse real markets</Link>.
+              <p className="mt-5 text-sm text-ink-500">
+                Two minutes, a made-up startup, and {PRACTICE_BALANCE} practice credits. Nothing touches your account.
+              </p>
+              <p className="mt-4 text-xs text-ink-500">
+                Or skip ahead and <Link href="/markets" className="underline hover:text-ink-900">browse real markets</Link>.
               </p>
             </>
           )}
@@ -548,7 +539,7 @@ function StepFeedback({ step, practice, complete }: { step: TutorialStep; practi
     resolution: "That's the full loop.",
   };
   return (
-    <p className="flex items-center gap-2 text-emerald-300">
+    <p className="flex items-center gap-2 text-emerald-700 dark:text-emerald-300">
       <Check className="size-4 shrink-0" aria-hidden /> {message[step.id]}
     </p>
   );
@@ -556,7 +547,7 @@ function StepFeedback({ step, practice, complete }: { step: TutorialStep; practi
 
 function Hint({ children }: { children: ReactNode }) {
   return (
-    <p className="flex items-start gap-2 text-amber-200">
+    <p className="flex items-start gap-2 text-amber-800 dark:text-amber-200">
       <Lightbulb className="mt-0.5 size-4 shrink-0" aria-hidden /> <span>{children}</span>
     </p>
   );
@@ -581,9 +572,9 @@ function NumbersQuiz({ answer, onAnswer }: { answer: Practice["quizAnswer"]; onA
             "rounded-xl border px-4 py-2.5 text-left text-sm font-medium transition-colors",
             answer === o.id
               ? o.id === "allocation"
-                ? "border-emerald-400 bg-emerald-400/10 text-white"
-                : "border-amber-300 bg-amber-300/10 text-white"
-              : "border-white/15 text-mist-200 hover:bg-white/5",
+                ? "border-emerald-600 bg-emerald-500/10 text-ink-900 dark:border-emerald-400"
+                : "border-amber-500 bg-amber-400/10 text-ink-900 dark:border-amber-300"
+              : "border-ink-200 text-ink-700 hover:bg-ink-50",
           )}
         >
           {o.label}
