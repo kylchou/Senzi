@@ -39,17 +39,22 @@ export type ModelLinkInput = z.infer<typeof modelLinkInput>;
 
 const studyFields = {
   startupId: id,
+  /**
+   * Ignored when the question is linked to an outcome (always, for new questions):
+   * the wording is generated from the outcome's template. Kept for legacy drafts.
+   */
   question: z
     .string()
     .trim()
     .min(15, "Question must be at least 15 characters")
     .max(300)
-    .refine((q) => q.endsWith("?"), "Phrase the question as a YES/NO question ending with '?'"),
-  yesCriteria: z.string().trim().min(20, "Describe exactly what counts as YES").max(5000),
-  noCriteria: z.string().trim().min(20, "Describe exactly what counts as NO").max(5000),
+    .refine((q) => q.endsWith("?"), "Phrase the question as a YES/NO question ending with '?'")
+    .optional(),
+  yesCriteria: z.string().trim().min(20, "Describe exactly what counts as YES").max(5000).optional(),
+  noCriteria: z.string().trim().min(20, "Describe exactly what counts as NO").max(5000).optional(),
   context: z.string().trim().max(5000).nullish(),
-  /** The opening line comes from the model, never from the firm: link the question to a metric instead. */
-  modelLink: modelLinkInput.nullish(),
+  /** The binary outcome the question asks about. Its template words the question and the model prices it. */
+  modelLink: modelLinkInput,
   deadline: z.coerce.date(),
   /** Legacy and API use only; the form sets the audiences below and the visibility follows from them. */
   visibility: z.enum(STUDY_VISIBILITIES).optional(),
@@ -71,7 +76,7 @@ type ParsedCreateStudy = z.output<typeof createStudyInput>;
 export type CreateStudyInput = Omit<ParsedCreateStudy, "openToPublic" | "openToVerified" | "prizePoolCredits"> &
   Partial<Pick<ParsedCreateStudy, "openToPublic" | "openToVerified" | "prizePoolCredits">>;
 
-/** Partial edit of a DRAFT study. Omitted fields are left unchanged. */
+/** Partial edit of a DRAFT study. Omitted fields are left unchanged; the outcome can be changed but not removed. */
 export const updateStudyInput = studyObject.partial().extend({
   openToPublic: z.boolean().optional(),
   openToVerified: z.boolean().optional(),
@@ -174,9 +179,8 @@ export type AssistantAskInput = z.infer<typeof assistantAskInput>;
 /** Preview of the model's opening line while drafting; nothing is saved. */
 export const openingLinePreviewInput = z.object({
   startupId: id,
-  question: z.string().trim().min(5, "Type the question first").max(300),
   deadline: z.coerce.date(),
-  /** Omit to have the AI suggest a measurable form of the question. */
-  link: z.object(metricLinkFields).nullish(),
+  /** The outcome to price: one of the startup's metrics, a threshold and a date. */
+  link: z.object(metricLinkFields),
 });
 export type OpeningLinePreviewInput = z.infer<typeof openingLinePreviewInput>;

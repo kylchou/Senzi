@@ -1,9 +1,8 @@
 import { describe, expect, it } from "vitest";
-import type { AssistantModel } from "../assistant/model";
-import { parseSuggestion } from "../assistant/suggest-metric";
 import { VcError } from "../errors";
 import { confidenceFor, publicInputs } from "../opening-line";
-import { createVcServices } from "../services";
+import { notMeasurable } from "../services/opening-line";
+import { createStudyInput, updateStudyInput } from "../validation";
 import { DAY, NOW, modelLinkFor, setup, users, validStudyInput } from "./fixtures";
 
 async function expectCode(p: Promise<unknown>, code: VcError["code"], message?: RegExp) {
@@ -17,19 +16,6 @@ async function approve(s: ReturnType<typeof setup>, studyId: string) {
   st = (await s.repo.findStudy(studyId))!;
   await s.services.studies.transition(users.admin, studyId, { action: "approve", expectedVersion: st.version });
   return (await s.repo.findStudy(studyId))!.version;
-}
-
-function fakeAi(reply: string | Error): AssistantModel & { calls: number } {
-  const ai = {
-    name: "fake-ai",
-    calls: 0,
-    async complete() {
-      ai.calls++;
-      if (reply instanceof Error) throw reply;
-      return { text: reply, finishReason: "stop", model: "fake-ai" };
-    },
-  };
-  return ai;
 }
 
 /** Weekly download totals the firm entered on Acme's company page (Acme has no public history in these tests). */
@@ -58,14 +44,12 @@ describe("opening line on save", () => {
     expect(stored).toMatchObject({ status: "OK", link: { metricId: "downloads:acme", threshold: 50_000, targetDate: "2027-01-15" }, calculatedById: "analyst_a" });
   });
 
-  it("stores 'not enough data' for a question no metric measures, and keeps the typed wording", async () => {
-    const s = setup();
-    const study = await s.services.studies.create(users.analystA, validStudyInput({ modelLink: null }));
-
-    expect(study).toMatchObject({ question: "Will Acme raise a Series B by June 30, 2027?", baselineValue: null, baselineMethodology: null });
-    expect((await s.repo.findModelEstimate(study.id))!).toMatchObject({ status: "NOT_MEASURABLE", link: null });
-    const detail = await s.services.studies.get(users.analystA, study.id);
-    expect(detail.openingLine?.notes[0]).toMatch(/Not enough data/);
+  it("requires an outcome: questions are never free text", () => {
+    const without = (...keys: string[]) => Object.fromEntries(Object.entries(validStudyInput()).filter(([k]) => !keys.includes(k)));
+    expect(createStudyInput.safeParse(without("modelLink")).success).toBe(false);
+    expect(createStudyInput.safeParse({ ...validStudyInput(), modelLink: null }).success).toBe(false);
+    // The wording comes from the outcome, so the client needn't send any.
+    expect(createStudyInput.safeParse(without("question", "yesCriteria", "noCriteria")).success).toBe(true);
   });
 
   it("rejects links the model can't price as asked, including firm-only KPIs with no public resolution source", async () => {
@@ -83,19 +67,18 @@ describe("opening line on save", () => {
     expect(study.sources).toHaveLength(2);
   });
 
-  it("keeps a linked question's wording on edit, and frees it when the link is removed", async () => {
+  it("keeps a question's wording tied to its outcome on edit; the outcome can change but not be removed", async () => {
     const s = setup();
     const study = await s.services.studies.create(users.analystA, validStudyInput());
     const edited = await s.services.studies.update(users.analystA, study.id, { question: "Will Acme do great things soon?", expectedVersion: 1 });
     expect(edited.question).toBe(study.question);
+    expect(updateStudyInput.safeParse({ modelLink: null, expectedVersion: 2 }).success).toBe(false);
 
-    const unlinked = await s.services.studies.update(users.analystA, study.id, {
-      question: "Will Acme do great things soon?",
-      modelLink: null,
+    const changed = await s.services.studies.update(users.analystA, study.id, {
+      modelLink: modelLinkFor("startup_1", { threshold: 70_000 }),
       expectedVersion: 2,
     });
-    expect(unlinked).toMatchObject({ question: "Will Acme do great things soon?", baselineValue: null });
-    expect((await s.repo.findModelEstimate(study.id))!.status).toBe("NOT_MEASURABLE");
+    expect(changed.question).toMatch(/at least 70000/);
   });
 
   it("re-prices when the deadline or the link changes", async () => {
@@ -112,9 +95,11 @@ describe("opening line on save", () => {
 });
 
 describe("opening forecasting", () => {
-  it("blocks opening when no metric measures the question", async () => {
+  it("blocks opening an older free-text draft that no metric measures", async () => {
     const s = setup();
-    const study = await s.services.studies.create(users.analystA, validStudyInput({ modelLink: null }));
+    const study = await s.services.studies.create(users.analystA, validStudyInput());
+    // Drafts written in words before outcomes were required have no link.
+    await s.repo.saveModelEstimate({ ...notMeasurable(NOW, "Not enough data"), studyId: study.id, observations: [], calculatedById: null });
     const version = await approve(s, study.id);
     await expectCode(
       s.services.studies.transition(users.admin, study.id, { action: "open", expectedVersion: version }),
@@ -241,67 +226,23 @@ describe("model line refresh", () => {
 });
 
 describe("draft preview", () => {
-  const preview = (s: ReturnType<typeof setup>, ai: AssistantModel | null, extra: object = {}) =>
-    createVcServices(s.deps, { assistantModel: ai }).openingLine.preview(users.analystA, {
-      startupId: "startup_1",
-      question: "Will Acme's downloads pass 50k a week by mid January?",
-      deadline: new Date(NOW.getTime() + 60 * DAY),
-      ...extra,
-    });
+  const preview = (s: ReturnType<typeof setup>, ctx = users.analystA, link = modelLinkFor()) =>
+    s.services.openingLine.preview(ctx, { startupId: "startup_1", deadline: new Date(NOW.getTime() + 60 * DAY), link });
 
-  it("has the AI propose a measurable form, then prices it", async () => {
+  it("prices the chosen outcome without saving anything", async () => {
     const s = setup();
-    const ai = fakeAi('Sure: {"metricId":"downloads:acme","threshold":50000,"targetDate":"2027-01-15","reason":"Weekly downloads measure this."}');
-    const result = await preview(s, ai);
-    expect(result.suggestion).toEqual({ link: { metricId: "downloads:acme", threshold: 50_000, targetDate: "2027-01-15" }, reason: "Weekly downloads measure this." });
-    expect(result.estimate).toMatchObject({ status: "OK", probability: 0.4 });
+    const result = await preview(s);
+    expect(result.estimate).toMatchObject({ status: "OK", probability: 0.4, question: expect.stringMatching(/^Will Acme/) });
     expect(result.estimate).not.toHaveProperty("inputsUsed");
     expect(result.metrics.map((m) => m.id)).toEqual(["downloads:acme"]);
     expect(result).toMatchObject({ firmFigureCount: 0, companyPath: "/vc/companies/acme" });
+    expect(s.repo.studies.size).toBe(0);
   });
 
-  it("says not enough data when no metric measures the question", async () => {
+  it("rejects outcomes the startup doesn't have, and members who can't propose", async () => {
     const s = setup();
-    const result = await preview(s, fakeAi('{"metricId":null,"threshold":null,"targetDate":null,"reason":"Funding rounds aren\'t in the model\'s data."}'));
-    expect(result).toMatchObject({ suggestion: null, suggestionNote: "Funding rounds aren't in the model's data.", estimate: { status: "NOT_MEASURABLE" } });
-  });
-
-  it("skips the AI when the firm picked the metric, and copes when the AI is down or not set up", async () => {
-    const s = setup();
-    const ai = fakeAi("unused");
-    const picked = await preview(s, ai, { link: { metricId: "downloads:acme", threshold: 60_000, targetDate: "2027-01-15" } });
-    expect(ai.calls).toBe(0);
-    expect(picked.estimate.status).toBe("OK");
-
-    expect((await preview(s, fakeAi(new Error("timeout")))).suggestionNote).toMatch(/isn't available right now/);
-    expect((await preview(s, null)).suggestionNote).toMatch(/isn't set up/);
-  });
-
-  it("is limited to members who can propose studies", async () => {
-    const s = setup();
-    await expectCode(
-      createVcServices(s.deps).openingLine.preview(users.viewerA, {
-        startupId: "startup_1",
-        question: "Will Acme grow?",
-        deadline: new Date(NOW.getTime() + 60 * DAY),
-      }),
-      "FORBIDDEN",
-    );
-  });
-});
-
-describe("AI suggestion parsing", () => {
-  const metrics = [{ id: "downloads:acme", label: "weekly downloads", unit: "downloads", kind: "weekly_total" as const, hasPublicData: true, thresholdLabel: "At least", dateLabel: "Week ending" }];
-  const deadline = new Date("2026-12-01T00:00:00Z");
-
-  it("accepts only listed metrics, real dates after the deadline, and a threshold", () => {
-    const ok = '{"metricId":"downloads:acme","threshold":5,"targetDate":"2027-01-15","reason":"r"}';
-    expect(parseSuggestion(ok, metrics, deadline).link).not.toBeNull();
-    expect(parseSuggestion(ok.replace("downloads:acme", "downloads:other"), metrics, deadline).link).toBeNull();
-    expect(parseSuggestion(ok.replace("2027-01-15", "2026-11-15"), metrics, deadline).link).toBeNull();
-    expect(parseSuggestion(ok.replace("2027-01-15", "2027-02-30"), metrics, deadline).link).toBeNull();
-    expect(parseSuggestion(ok.replace('"threshold":5', '"threshold":null'), metrics, deadline).link).toBeNull();
-    expect(parseSuggestion("I think downloads.", metrics, deadline).link).toBeNull();
+    await expectCode(preview(s, users.analystA, modelLinkFor("startup_1", { metricId: "downloads:globex" })), "VALIDATION_ERROR");
+    await expectCode(preview(s, users.viewerA), "FORBIDDEN");
   });
 });
 
