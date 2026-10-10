@@ -32,7 +32,8 @@
   --color-ink-800: #33373b;
   --color-ink-700: #4a4f54;
   --color-ink-600: #5f656b;
-  --color-ink-500: #7d838a;
+  /* Darkened from #7d838a so muted text passes 4.5:1 on white and on the page. */
+  --color-ink-500: #676d73;
   --color-ink-400: #a3a8ad;
   --color-ink-300: #c9ccd0;
   --color-ink-200: #e3e5e7;
