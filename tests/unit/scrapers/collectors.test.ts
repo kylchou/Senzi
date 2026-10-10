@@ -161,8 +161,8 @@ describe('PyPI collector', () => {
         ],
       },
     }));
-    const r = await collectPypi(getCompany('databricks'), ctxFor(http));
-    expect(r.points.map((p) => [p.metricId, p.periodEnd, p.value])).toEqual([['pypi_downloads:databricks-sdk', '2026-10-01', 100]]);
+    const r = await collectPypi(getCompany('resend'), ctxFor(http));
+    expect(r.points.map((p) => [p.metricId, p.periodEnd, p.value])).toEqual([['pypi_downloads:resend', '2026-10-01', 100]]);
   });
 });
 
@@ -248,7 +248,7 @@ describe('SEC Form D collector', () => {
     const { http, calls } = fakeHttp(handler);
     const r = await collectFormD(getCompany('posthog'), ctxFor(http, { secUserAgent: 'x y@z.org' }));
     expect(r.points).toEqual([]);
-    expect(r.missing[0]).toMatch(/No Form D filer/);
+    expect(r.missing[0]).toMatch(/No verified Form D filer configured/);
     expect(calls).toHaveLength(0);
   });
 
@@ -285,6 +285,14 @@ describe('jobs, Tranco and HN collectors', () => {
     ]);
     const { http: empty } = fakeHttp(() => ({ body: { ranks: [] } }));
     expect((await collectTranco(getCompany('stripe'), ctxFor(empty))).missing[0]).toMatch(/not ranked/);
+  });
+
+  it('leaves unsupported hiring data missing rather than inventing zero jobs', async () => {
+    const { http, calls } = fakeHttp(() => { throw new Error('No job-board request should be made'); });
+    const r = await collectJobs(getCompany('resend'), ctxFor(http));
+    expect(r.points).toEqual([]);
+    expect(r.missing[0]).toMatch(/No supported public job-board API verified/);
+    expect(calls).toHaveLength(0);
   });
 
   it('collects weekly HN story counts with non-overlapping windows', async () => {

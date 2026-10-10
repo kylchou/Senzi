@@ -1,9 +1,9 @@
 // Threshold questions: wording and resolution.
 
-import { metricDef } from './catalog.js';
-import { toDayNumber } from './dates.js';
-import { buildDailySeries, windowTotal } from './series.js';
-import type { DataPoint, SourceId, ThresholdQuestion } from './types.js';
+import { metricDef } from './catalog';
+import { toDayNumber } from './dates';
+import { buildDailySeries, windowTotal } from './series';
+import type { DataPoint, SourceId, ThresholdQuestion } from './types';
 
 const fmtDay = (day: string) =>
   new Date(`${day}T00:00:00Z`).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric', timeZone: 'UTC' });

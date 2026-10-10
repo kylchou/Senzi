@@ -4,13 +4,13 @@
 // Questions are synthetic: thresholds at multiples of the last observed week,
 // for windows 1-8 weeks ahead. There are no real past VC questions to use.
 
-import { addDays, fromDayNumber } from './dates.js';
-import { forecastWeekly, probabilityAtLeast, probabilityAtLeastRaw, shrinkWeight } from './forecast.js';
-import { clamp, seedFrom, Z90 } from './math.js';
-import type { ModelParams } from './params.js';
-import { buildDailySeries, weeklySeries, windowTotal } from './series.js';
-import { predictionFactor } from './trend.js';
-import type { DataPoint } from './types.js';
+import { addDays, fromDayNumber } from './dates';
+import { forecastWeekly, probabilityAtLeast, probabilityAtLeastRaw, shrinkWeight } from './forecast';
+import { clamp, seedFrom, Z90 } from './math';
+import type { ModelParams } from './params';
+import { buildDailySeries, weeklySeries, windowTotal } from './series';
+import { predictionFactor } from './trend';
+import type { DataPoint } from './types';
 
 export interface BacktestConfig {
   horizons: number[];
