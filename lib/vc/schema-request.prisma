@@ -1,0 +1,204 @@
+// SCHEMA CHANGE REQUEST — VC Intelligence
+// Relations to existing models (User, Organization, Startup, Market) are shown
+// as scalar foreign keys with the relation fields commented; wire them to the
+// real models when merging.
+//
+// Also requested on existing models:
+//   Market.studyId    String? @unique      -- idempotency key for createMarketForStudy
+//   Market.visibility StudyVisibility @default(PUBLIC)
+//                     -- public market APIs (Engineer 4) must filter to PUBLIC
+
+
+enum StudyStatus {
+  DRAFT
+  SUBMITTED
+  APPROVED
+  OPEN
+  CLOSED
+  RESOLVED
+  REJECTED
+  CANCELLED
+}
+
+enum StudyVisibility {
+  PUBLIC
+  ORGANIZATION
+  RESTRICTED
+}
+
+enum ResolvedOutcome {
+  YES
+  NO
+  VOID
+}
+
+enum WatchlistItemType {
+  STARTUP
+  STUDY
+}
+
+enum VcAlertType {
+  FORECAST_MOVEMENT
+  DEADLINE_APPROACHING
+  STUDY_RESOLVED
+  STUDY_STATUS_CHANGED
+}
+
+model ResearchStudy {
+  id                  String           @id @default(cuid())
+  organizationId      String // -> Organization
+  createdById         String // -> User
+  startupId           String // -> Startup
+  marketId            String?          @unique // -> Market (set when opened)
+  question            String
+  yesCriteria         String
+  noCriteria          String
+  context             String?
+  baselineValue       Float? // 0..1 opening baseline
+  baselineMethodology String?
+  deadline            DateTime
+  visibility          StudyVisibility  @default(ORGANIZATION)
+  status              StudyStatus      @default(DRAFT)
+  rejectionReason     String?
+  cancellationReason  String?
+  submittedAt         DateTime?
+  approvedAt          DateTime?
+  openedAt            DateTime?
+  closedAt            DateTime?
+  resolvedAt          DateTime?
+  resolvedOutcome     ResolvedOutcome?
+  version             Int              @default(1) // optimistic concurrency
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+
+  sources      StudySource[]
+  participants StudyParticipant[]
+  events       StudyEvent[]
+  notes        StudyNote[]
+  reports      VcReport[]
+
+  @@index([organizationId, status])
+  @@index([visibility, status])
+  @@index([startupId])
+}
+
+model StudySource {
+  id          String        @id @default(cuid())
+  studyId     String
+  study       ResearchStudy @relation(fields: [studyId], references: [id], onDelete: Cascade)
+  url         String
+  title       String
+  publisher   String?
+  publishedAt DateTime?
+  position    Int           @default(0)
+
+  @@index([studyId])
+}
+
+model StudyParticipant {
+  studyId   String
+  study     ResearchStudy @relation(fields: [studyId], references: [id], onDelete: Cascade)
+  userId    String // -> User
+  addedById String // -> User
+  createdAt DateTime      @default(now())
+
+  @@id([studyId, userId])
+  @@index([userId])
+}
+
+/// Append-only audit trail of lifecycle transitions.
+model StudyEvent {
+  id         String        @id @default(cuid())
+  studyId    String
+  study      ResearchStudy @relation(fields: [studyId], references: [id], onDelete: Cascade)
+  actorId    String? // -> User; null for system actions
+  action     String
+  fromStatus StudyStatus?
+  toStatus   StudyStatus
+  reason     String?
+  createdAt  DateTime      @default(now())
+
+  @@index([studyId, createdAt])
+}
+
+/// Private to the owning organization. Never exposed through public APIs.
+model StudyNote {
+  id             String        @id @default(cuid())
+  studyId        String
+  study          ResearchStudy @relation(fields: [studyId], references: [id], onDelete: Cascade)
+  organizationId String // -> Organization
+  authorId       String // -> User
+  body           String
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  @@index([studyId, createdAt])
+}
+
+model Watchlist {
+  id             String          @id @default(cuid())
+  organizationId String // -> Organization
+  name           String
+  createdById    String // -> User
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  items          WatchlistItem[]
+
+  @@unique([organizationId, name])
+}
+
+model WatchlistItem {
+  id          String            @id @default(cuid())
+  watchlistId String
+  watchlist   Watchlist         @relation(fields: [watchlistId], references: [id], onDelete: Cascade)
+  type        WatchlistItemType
+  startupId   String? // -> Startup
+  studyId     String? // -> ResearchStudy
+  addedById   String // -> User
+  createdAt   DateTime          @default(now())
+
+  @@unique([watchlistId, startupId])
+  @@unique([watchlistId, studyId])
+}
+
+model VcAlert {
+  id             String           @id @default(cuid())
+  organizationId String // -> Organization
+  type           VcAlertType
+  studyId        String?
+  startupId      String?
+  marketId       String?
+  title          String
+  body           String
+  payload        Json             @default("{}")
+  dedupeKey      String
+  createdAt      DateTime         @default(now())
+  receipts       VcAlertReceipt[]
+
+  @@unique([organizationId, dedupeKey])
+  @@index([organizationId, createdAt])
+}
+
+/// Per-user read state for organization alerts.
+model VcAlertReceipt {
+  alertId String
+  alert   VcAlert  @relation(fields: [alertId], references: [id], onDelete: Cascade)
+  userId  String // -> User
+  readAt  DateTime @default(now())
+
+  @@id([alertId, userId])
+}
+
+/// Frozen report snapshot. Access is re-checked against the study on every read.
+model VcReport {
+  id             String        @id @default(cuid())
+  organizationId String // -> Organization
+  studyId        String
+  study          ResearchStudy @relation(fields: [studyId], references: [id], onDelete: Cascade)
+  createdById    String // -> User
+  title          String
+  content        Json
+  createdAt      DateTime      @default(now())
+
+  @@index([organizationId, createdAt])
+}
