@@ -88,6 +88,17 @@ export function formatRelative(iso: string, now: Date = new Date()): string {
   return formatDate(iso);
 }
 
+/** Comment times: "just now", "5m ago", "3h ago", "2d ago", then the date. */
+export function formatCommentTime(iso: string, now: Date = new Date()): string {
+  const diff = Math.max(0, now.getTime() - new Date(iso).getTime());
+  if (diff < 60_000) return "just now";
+  if (diff < HOUR) return `${Math.floor(diff / 60_000)}m ago`;
+  if (diff < DAY) return `${Math.floor(diff / HOUR)}h ago`;
+  const days = Math.floor(diff / DAY);
+  if (days < 7) return `${days}d ago`;
+  return formatDate(iso);
+}
+
 export function isPastDeadline(iso: string, now: Date = new Date()): boolean {
   return new Date(iso).getTime() <= now.getTime();
 }

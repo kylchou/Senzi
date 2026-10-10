@@ -36,6 +36,7 @@ import { ReplayLauncher } from "@/components/ui/replay/ReplayLauncher";
 import { ShareButton } from "@/components/ui/ShareButton";
 import { ReadAloud } from "@/components/ui/a11y/ReadAloud";
 import { Secondary } from "@/components/ui/a11y/Secondary";
+import { MarketDiscussion } from "@/components/discussion/MarketDiscussion";
 import { Morph, PageTransition, StreamIn } from "@/components/ui/Transitions";
 
 export async function generateMetadata({ params }: PageProps<"/markets/[slug]">): Promise<Metadata> {
@@ -188,6 +189,10 @@ async function MarketView({ params }: Pick<PageProps<"/markets/[slug]">, "params
               events={market.coverage}
             />
           </section>
+
+          <Secondary label="discussion" className="render-when-visible">
+            <MarketDiscussion slug={market.slug} />
+          </Secondary>
 
           <Secondary label="sources, coverage, and startup details" className="render-when-visible" bodyClassName="space-y-8">
           <section aria-labelledby="sources-heading">
