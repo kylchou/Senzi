@@ -8,6 +8,7 @@ import {
   PlatformRole,
   ResolutionOutcome,
   StartupStage,
+  StudyVisibility,
 } from "@/generated/prisma/enums";
 import { MAX_CREDIT_TRANSACTION, RESERVED_USERNAMES } from "@/lib/types";
 
@@ -136,9 +137,9 @@ export const createStartupSchema = z
     name: z.string().trim().min(1).max(120),
     tagline: z.string().trim().min(1).max(200),
     description: z.string().trim().min(1).max(5000),
-    website: optionalUrl,
+    websiteUrl: optionalUrl,
     logoUrl: optionalUrl,
-    sector: z.string().trim().min(1).max(80),
+    industry: z.string().trim().min(1).max(80),
     stage: z.enum(StartupStage),
     foundedYear: z.number().int().min(1900).max(2100).nullish(),
     headquarters: optionalText(120),
@@ -156,25 +157,45 @@ export const updateStartupSchema = createStartupSchema
 // Admin: markets
 // ---------------------------------------------------------------------------
 
+const questionSchema = z
+  .string()
+  .trim()
+  .min(10)
+  .max(300)
+  .refine((q) => q.endsWith("?"), "Phrase the market as a YES/NO question ending in '?'");
+
+const criteriaSchema = (side: "YES" | "NO") =>
+  z.string().trim().min(20, `Describe exactly what makes this resolve ${side}`).max(5000);
+
+/** Where the resolver will look for evidence. */
+export const marketSourceSchema = z
+  .object({
+    title: z.string().trim().min(1).max(200),
+    url: httpUrlSchema,
+    publisher: optionalText(120),
+    publishedAt: dateInputSchema.nullish(),
+  })
+  .strict();
+
 const marketFields = {
   slug: slugSchema,
   startupId: idSchema,
-  question: z
-    .string()
-    .trim()
-    .min(10)
-    .max(300)
-    .refine((q) => q.endsWith("?"), "Phrase the market as a YES/NO question ending in '?'"),
+  question: questionSchema,
   description: optionalText(5000),
-  resolutionCriteria: z.string().trim().min(20, "Describe measurable YES/NO criteria").max(5000),
-  resolutionSource: optionalText(1000),
+  yesCriteria: criteriaSchema("YES"),
+  noCriteria: criteriaSchema("NO"),
   category: optionalText(80),
-  openingBaseline: openingBaselineSchema,
+  /** Optional: the model service can supply it later. Requires a methodology when set. */
+  openingBaseline: openingBaselineSchema.nullish(),
+  baselineMethodology: optionalText(1000),
   visibility: z.enum(MarketVisibility).default(MarketVisibility.PUBLIC),
   organizationId: idSchema.nullish(),
   opensAt: dateInputSchema,
   closesAt: dateInputSchema,
   resolvesBy: dateInputSchema.nullish(),
+  minForecastCredits: creditAmountSchema.nullish(),
+  maxForecastCredits: creditAmountSchema.nullish(),
+  sources: z.array(marketSourceSchema).min(1, "Add at least one resolution source").max(10),
 };
 
 type MarketDates = {
@@ -183,6 +204,10 @@ type MarketDates = {
   opensAt?: Date;
   closesAt?: Date;
   resolvesBy?: Date | null;
+  openingBaseline?: number | null;
+  baselineMethodology?: string | null;
+  minForecastCredits?: number | null;
+  maxForecastCredits?: number | null;
 };
 
 function checkMarketInvariants(value: MarketDates, ctx: z.RefinementCtx) {
@@ -192,11 +217,17 @@ function checkMarketInvariants(value: MarketDates, ctx: z.RefinementCtx) {
   if (value.closesAt && value.resolvesBy && value.resolvesBy < value.closesAt) {
     ctx.addIssue({ code: "custom", path: ["resolvesBy"], message: "Resolution date cannot precede the deadline" });
   }
-  if (value.visibility === MarketVisibility.PRIVATE && !value.organizationId) {
-    ctx.addIssue({ code: "custom", path: ["organizationId"], message: "Private markets need an organization" });
+  if (value.visibility && value.visibility !== MarketVisibility.PUBLIC && !value.organizationId) {
+    ctx.addIssue({ code: "custom", path: ["organizationId"], message: "Organization and restricted markets need an organization" });
   }
-  if (value.visibility && value.visibility !== MarketVisibility.PRIVATE && value.organizationId) {
-    ctx.addIssue({ code: "custom", path: ["organizationId"], message: "Only private markets belong to an organization" });
+  if (value.visibility === MarketVisibility.PUBLIC && value.organizationId) {
+    ctx.addIssue({ code: "custom", path: ["organizationId"], message: "Public markets don't belong to an organization" });
+  }
+  if (value.openingBaseline != null && !value.baselineMethodology) {
+    ctx.addIssue({ code: "custom", path: ["baselineMethodology"], message: "Explain how the opening baseline was derived" });
+  }
+  if (value.minForecastCredits != null && value.maxForecastCredits != null && value.maxForecastCredits < value.minForecastCredits) {
+    ctx.addIssue({ code: "custom", path: ["maxForecastCredits"], message: "Maximum must be at least the minimum" });
   }
 }
 
@@ -205,8 +236,31 @@ export const createMarketSchema = z
   .strict()
   .superRefine(checkMarketInvariants);
 
-/** Cross-field rules are re-checked against the merged record in lib/admin.ts. */
+/**
+ * Cross-field rules are re-checked against the merged record in lib/admin.ts.
+ * Passing `sources` replaces the whole list.
+ */
 export const updateMarketSchema = z.object(marketFields).partial().strict();
+
+/**
+ * Input from VC Intelligence when a reviewed study opens (lib/admin.ts
+ * createMarketForStudy). Idempotent on studyId.
+ */
+export const createMarketForStudySchema = z
+  .object({
+    studyId: idSchema,
+    organizationId: idSchema,
+    startupId: idSchema,
+    question: questionSchema,
+    yesCriteria: criteriaSchema("YES"),
+    noCriteria: criteriaSchema("NO"),
+    closesAt: dateInputSchema,
+    openingBaseline: z.object({ value: openingBaselineSchema, methodology: z.string().trim().min(3).max(1000) }),
+    visibility: z.enum(StudyVisibility),
+    sources: z.array(z.object({ url: httpUrlSchema, title: z.string().trim().min(1).max(200) })).max(20),
+    createdById: idSchema,
+  })
+  .strict();
 
 export const marketStatusChangeSchema = z
   .object({
@@ -280,3 +334,5 @@ export type MarketStatusChangeInput = z.output<typeof marketStatusChangeSchema>;
 export type ResolveMarketInput = z.output<typeof resolveMarketSchema>;
 export type AdminCreditAdjustmentInput = z.output<typeof adminCreditAdjustmentSchema>;
 export type ForecastSubmissionInput = z.output<typeof forecastSubmissionSchema>;
+export type CreateMarketForStudyInput = z.input<typeof createMarketForStudySchema>;
+export type MarketSourceInput = z.output<typeof marketSourceSchema>;

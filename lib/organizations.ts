@@ -231,8 +231,8 @@ export async function removeMember(
     }
     await assertNotLastOwner(tx, organizationId, target.role);
 
-    // Study memberships in this org go with the org membership.
-    await tx.studyMembership.deleteMany({ where: { userId: targetUserId, study: { organizationId } } });
+    // Study invitations inside this org go with the org membership.
+    await tx.studyParticipant.deleteMany({ where: { userId: targetUserId, study: { organizationId } } });
     await tx.organizationMembership.delete({ where: { id: target.id } });
     await recordAudit(
       { actorId: user.id, organizationId, action: leaving ? "organization.member.leave" : "organization.member.remove", entityType: "OrganizationMembership", entityId: target.id, data: { userId: targetUserId, role: target.role }, ipAddress: ctx.ip },

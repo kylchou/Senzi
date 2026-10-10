@@ -92,7 +92,7 @@ export async function anonymizeDeletedUser(authId: string) {
       },
     }),
     db.organizationMembership.deleteMany({ where: { userId: user.id } }),
-    db.studyMembership.deleteMany({ where: { userId: user.id } }),
+    db.studyParticipant.deleteMany({ where: { userId: user.id } }),
   ]);
 }
 

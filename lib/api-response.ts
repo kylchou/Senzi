@@ -1,3 +1,4 @@
+import { unstable_rethrow } from "next/navigation";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { Prisma } from "@/generated/prisma/client";
@@ -110,6 +111,8 @@ export function withApiHandler<Ctx>(
     try {
       return await handler(req, ctx);
     } catch (error) {
+      // Let Next's own control-flow signals (redirects, prerender bailouts) through.
+      unstable_rethrow(error);
       return errorResponse(error);
     }
   };
