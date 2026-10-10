@@ -27,6 +27,8 @@ export async function checkEligibility(
   ]);
   if (userId === market.sponsorId) return { eligible: false, reason: 'SPONSOR_OF_MARKET', verified };
   if (conflicted) return { eligible: false, reason: 'CONFLICT_OF_INTEREST', verified };
-  if (config.requireVerifiedTrader && !verified) return { eligible: false, reason: 'NOT_VERIFIED', verified };
+  if ((config.requireVerifiedTrader || market.verifiedUsersOnly) && !verified) {
+    return { eligible: false, reason: 'NOT_VERIFIED', verified };
+  }
   return { eligible: true, verified };
 }

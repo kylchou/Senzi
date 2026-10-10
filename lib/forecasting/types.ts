@@ -46,6 +46,8 @@ export interface Market {
   maxAmount?: number;
   /** LMSR liquidity for this market before its first trade (frozen in each fill afterwards). */
   lmsrB?: number;
+  /** Only verified users of the company's product may forecast. */
+  verifiedUsersOnly?: boolean;
   createdAt: Date;
 }
 
