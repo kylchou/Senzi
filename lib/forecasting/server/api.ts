@@ -5,6 +5,7 @@ import "server-only";
 // engine call live here.
 
 import { z } from "zod";
+import { AccountType } from "@/generated/prisma/enums";
 import { forbidden } from "@/lib/api-response";
 import { db } from "@/lib/db";
 import { requireMarketVisible } from "@/lib/permissions";
@@ -82,7 +83,16 @@ async function assertNotSponsor(userId: string, marketId: string) {
   }
 }
 
+/**
+ * VC accounts sponsor questions and read research; they never trade. Checked
+ * here as well as hidden in the UI, so the API can't be used to get around it.
+ */
+export function assertCanTrade(user: Pick<SessionUser, "accountType"> | null) {
+  if (user?.accountType === AccountType.VC) throw forbidden("VC accounts can't trade. Switch to a trader account to forecast.");
+}
+
 export async function submitForecastForUser(user: SessionUser, input: z.output<typeof submitForecastSchema>) {
+  assertCanTrade(user);
   await rateLimit(`forecast:${user.id}`, RATE_LIMITS.forecastSubmit);
   await requireMarketVisible(user.id, input.marketId);
   await assertNotSponsor(user.id, input.marketId);

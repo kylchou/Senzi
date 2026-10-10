@@ -163,6 +163,12 @@ export interface Study {
   /** Forecasting closes at this time. */
   deadline: Date;
   visibility: StudyVisibility;
+  /** Who may trade: any retail trader, and/or only traders verified as users of the product. At least one. */
+  openToPublic: boolean;
+  openToVerified: boolean;
+  /** Credits split among traders by what they gained once the market settles; 0 for none. */
+  prizePoolCredits: number;
+  prizeDistributedAt: Date | null;
   status: StudyStatus;
   rejectionReason: string | null;
   cancellationReason: string | null;
@@ -451,9 +457,18 @@ export interface OpeningLineMetric {
   id: string;
   label: string;
   unit: string;
-  kind: "snapshot" | "weekly_total";
+  /**
+   * The outcome's shape: a 7-day total at or above a threshold, a 7-day average
+   * web rank at or better than a threshold, a count on one day, or an event by
+   * a date (no threshold). "snapshot" is a firm-only KPI and can't be linked.
+   */
+  kind: "snapshot" | "weekly_total" | "rank_average" | "count_on_day" | "event_by_date";
   /** True when public history exists; false when only the firm's own figures can feed it. */
   hasPublicData: boolean;
+  /** Label for the threshold input, or null when the outcome has none (e.g. "files a Form D"). */
+  thresholdLabel: string | null;
+  /** Label for the date input. */
+  dateLabel: string;
 }
 
 /** One model run for a study question. */

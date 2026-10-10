@@ -7,15 +7,15 @@ import { ALLOCATION_SHARE_EXPLAINER } from "@/lib/vc/constants";
 import { STATUS_LABELS, formatDate, formatDateTime, formatRelative } from "@/lib/vc/format";
 import { getVcServices } from "@/lib/vc/server/container";
 import { requirePageContext } from "@/lib/vc/server/page";
-import type { StudyStatus, StudyVisibility } from "@/lib/vc/types";
+import type { StudyStatus } from "@/lib/vc/types";
 
 const COUNT_ORDER: StudyStatus[] = ["OPEN", "SUBMITTED", "RESOLVED"];
 
-/** Active-studies filter. "Verified users" means invited participants only; "Public" means anyone can trade. */
+/** Active-studies filter by who can trade (a question can be open to both). */
 const AUDIENCES = [
-  { key: "public", label: "Public", visibility: "PUBLIC" },
-  { key: "verified", label: "Verified users", visibility: "RESTRICTED" },
-] as const satisfies readonly { key: string; label: string; visibility: StudyVisibility }[];
+  { key: "public", label: "Public", matches: (s: { openToPublic: boolean }) => s.openToPublic },
+  { key: "verified", label: "Verified users", matches: (s: { openToVerified: boolean }) => s.openToVerified },
+] as const;
 const MIN_PARTICIPANT_OPTIONS = [3, 5, 10] as const;
 
 type Audience = (typeof AUDIENCES)[number]["key"];
@@ -52,10 +52,10 @@ export default async function VcDashboardPage({
     return `/vc${qs ? `?${qs}` : ""}#active`;
   };
 
-  const visibility = AUDIENCES.find((a) => a.key === filters.audience)?.visibility;
+  const audienceFilter = AUDIENCES.find((a) => a.key === filters.audience);
   const activeStudies = d.activeStudies.filter(
     (r) =>
-      (!visibility || r.study.visibility === visibility) &&
+      (!audienceFilter || audienceFilter.matches(r.study)) &&
       (!filters.min || (r.estimate?.participantCount ?? 0) >= filters.min),
   );
   const filtered = !!filters.audience || !!filters.min;

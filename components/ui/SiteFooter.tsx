@@ -1,13 +1,6 @@
 import Image from "next/image";
-import Link from "next/link";
 import { Container } from "./Container";
-
-const links = [
-  { href: "/markets", label: "Markets" },
-  { href: "/startups", label: "Startups" },
-  { href: "/news", label: "News" },
-  { href: "/search", label: "Search" },
-];
+import { FooterLinks } from "./FooterLinks";
 
 export function SiteFooter() {
   return (
@@ -20,13 +13,7 @@ export function SiteFooter() {
             Virtual credits only. Forecasts are research signals, not guarantees or investment advice.
           </p>
         </div>
-        <nav aria-label="Footer" className="flex flex-wrap gap-x-6 gap-y-2 text-sm text-ink-600">
-          {links.map((link) => (
-            <Link key={link.href} href={link.href} className="transition-colors hover:text-ink-900">
-              {link.label}
-            </Link>
-          ))}
-        </nav>
+        <FooterLinks />
       </Container>
     </footer>
   );
