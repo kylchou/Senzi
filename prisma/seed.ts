@@ -1,7 +1,9 @@
 import "dotenv/config";
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
+import { Prisma } from "../generated/prisma/client";
 import {
   CreditTransactionType,
+  EstimateKind,
   ForecastSide,
   MarketStatus,
   MarketVisibility,
@@ -17,7 +19,9 @@ import {
   VoidReason,
   WatchlistItemType,
 } from "../generated/prisma/enums";
-import { applyCreditTransaction, grantSignupCredits } from "../lib/credits";
+import { grantSignupCredits } from "../lib/credits";
+import { applyTrade, defaultLiquidity, openingState, quoteTrade, sharesForSpend, yesPrice } from "../lib/forecasting/lmsr";
+import { LMSR_RULE_ID } from "../lib/forecasting/lmsr-pricing";
 import { db } from "../lib/db";
 import { PENDING_AUTH_PREFIX, SIGNUP_GRANT_CREDITS } from "../lib/types";
 import {
@@ -30,6 +34,17 @@ import {
   users,
   type SeedMarket,
 } from "./seed-data";
+import {
+  arrivalTime,
+  beliefFor,
+  crowdUsers,
+  forecasterTarget,
+  forecastsFor,
+  normal,
+  pickForecasters,
+  stakeFor,
+  verifiedUsers,
+} from "./seed-crowd";
 
 // Deterministic demo data. Run on an empty database:
 //   npm run db:reset   (drops, migrates, seeds)
@@ -73,6 +88,34 @@ async function main() {
     await db.$transaction((tx) => grantSignupCredits(tx, user.id));
     userIds.set(u.handle, user.id);
   }
+  // --- Simulated forecaster crowd (prisma/seed-crowd.ts) --------------------
+  // About 2,000 fictional forecasters so markets show realistic participation.
+  // Inserted in bulk; each still gets its welcome grant as a ledger row.
+  const crowdRandom = rng(20261002);
+  const crowd = crowdUsers(crowdRandom);
+  const crowdIds = crowd.map(() => randomUUID());
+  await db.user.createMany({
+    data: crowd.map((member, index) => ({
+      id: crowdIds[index]!,
+      authId: `seed:crowd:${member.handle}`,
+      email: `${member.handle}@crowd.senzi.invalid`,
+      username: member.handle,
+      displayName: member.displayName,
+      creditBalance: SIGNUP_GRANT_CREDITS,
+    })),
+  });
+  await db.creditTransaction.createMany({
+    data: crowdIds.map((id) => ({
+      userId: id,
+      amount: SIGNUP_GRANT_CREDITS,
+      balanceAfter: SIGNUP_GRANT_CREDITS,
+      type: CreditTransactionType.SIGNUP_GRANT,
+      idempotencyKey: `signup:${id}`,
+      memo: "Welcome grant (virtual credits, no cash value)",
+    })),
+  });
+  crowd.forEach((member, index) => userIds.set(member.handle, crowdIds[index]!));
+
   const uid = (handle: string) => userIds.get(handle)!;
   const adminId = uid("avery");
   // A second admin approves the seeded resolutions (two-admin rule).
@@ -151,7 +194,170 @@ async function main() {
   const marketIds = new Map<string, string>();
   const forecasters = users.filter((u) => u.role !== "ADMIN").map((u) => u.handle);
   // Mirror of each seed user's balance so stakes never exceed it.
-  const balances = new Map(users.map((u) => [u.handle, SIGNUP_GRANT_CREDITS]));
+  const balances = new Map([...users, ...crowd].map((u) => [u.handle, SIGNUP_GRANT_CREDITS]));
+  const verifiedByStartup = verifiedUsers(
+    crowd,
+    startups.map((startup) => startup.slug),
+    crowdRandom,
+  );
+  const clampUnit = (value: number) => Math.min(0.97, Math.max(0.03, value));
+
+  type PlannedForecast = { handle: string; time: number; belief: number; verified: boolean; stake?: number };
+
+  /** The original small-group forecasts: named demo users only (private markets, and a few on public ones). */
+  function namedPlan(m: SeedMarket, pool: string[], count: number, opensAt: number, windowEnd: number): PlannedForecast[] {
+    return Array.from({ length: count }, () => ({
+      handle: pool[Math.floor(random() * pool.length)]!,
+      time: opensAt + random() * (windowEnd - opensAt),
+      belief: clampUnit(m.lean + (random() - 0.5) * 0.3),
+      verified: false,
+      stake: 10 * (1 + Math.floor(random() * 10)),
+    }));
+  }
+
+  /** The simulated crowd on a public market (sizes and behavior documented in seed-crowd.ts). */
+  function crowdPlan(m: SeedMarket, opensAt: number, windowEnd: number): PlannedForecast[] {
+    const verified = verifiedByStartup.get(m.startup) ?? new Set<string>();
+    const outcome = m.state === "RESOLVED_YES" ? 1 : m.state === "RESOLVED_NO" ? 0 : null;
+    const newsAt = news.filter((item) => item.startup === m.startup).map((item) => daysFrom(item.days).getTime());
+    const plan: PlannedForecast[] = [];
+    for (const member of pickForecasters(crowd, forecasterTarget(crowdRandom, (windowEnd - opensAt) / DAY), verified, crowdRandom)) {
+      const isVerified = verified.has(member.handle);
+      const belief = beliefFor(crowdRandom, m.lean, isVerified, outcome);
+      const count = forecastsFor(member, crowdRandom);
+      for (let k = 0; k < count; k++) {
+        plan.push({
+          handle: member.handle,
+          time: arrivalTime(crowdRandom, opensAt, windowEnd, newsAt),
+          // Later forecasts from the same person drift a little from their first view.
+          belief: k === 0 ? belief : clampUnit(belief + 0.05 * normal(crowdRandom)),
+          verified: isVerified,
+        });
+      }
+    }
+    return plan;
+  }
+
+  /**
+   * Writes a market's forecasts the way the engine would: each one buys LMSR
+   * shares at the current price (the General Users line), verified users'
+   * trades are replayed on their own (the Verified Users line), stakes are
+   * debited in the ledger, and every forecast appends a snapshot. Rows are
+   * inserted in bulk; ledger chains are computed in order so they verify.
+   */
+  async function writeForecasts(marketId: string, m: SeedMarket, plan: PlannedForecast[], firstSnapshot: number) {
+    const b = defaultLiquidity.baseB;
+    const p0 = yesPrice(openingState(m.baseline, b));
+    let general = openingState(m.baseline, b);
+    let specialized = openingState(m.baseline, b);
+    let yes = 0;
+    let no = 0;
+    let verifiedCredits = 0;
+    const seen = new Set<string>();
+    const seenVerified = new Set<string>();
+    const forecastRows: Prisma.ForecastCreateManyInput[] = [];
+    const ledgerRows: Prisma.CreditTransactionCreateManyInput[] = [];
+    const snapshotRows: Prisma.MarketSnapshotCreateManyInput[] = [];
+
+    for (const planned of [...plan].sort((a, b) => a.time - b.time)) {
+      const balance = balances.get(planned.handle)!;
+      const credits = planned.stake !== undefined ? Math.min(planned.stake, balance - (balance % 10)) : stakeFor(crowdRandom, balance);
+      if (credits <= 0) continue;
+      const priceBefore = yesPrice(general);
+      // Buy the side the forecaster thinks is underpriced; a few go against their view.
+      let side = planned.belief > priceBefore ? ForecastSide.YES : ForecastSide.NO;
+      if (crowdRandom() < 0.08) side = side === ForecastSide.YES ? ForecastSide.NO : ForecastSide.YES;
+      const quote = quoteTrade(general, side, credits);
+      const specializedBefore = yesPrice(specialized);
+      general = applyTrade(general, side, quote.shares);
+      if (planned.verified) {
+        specialized = applyTrade(specialized, side, sharesForSpend(specialized, side, credits));
+        seenVerified.add(planned.handle);
+        verifiedCredits += credits;
+      }
+      balances.set(planned.handle, balance - credits);
+      seen.add(planned.handle);
+      if (side === ForecastSide.YES) yes += credits;
+      else no += credits;
+
+      const id = randomUUID();
+      const sequence = forecastRows.length + 1;
+      const createdAt = new Date(planned.time);
+      const idempotencyKey = `seed:${m.slug}:${sequence}`;
+      forecastRows.push({
+        id,
+        userId: uid(planned.handle),
+        marketId,
+        sequence,
+        side,
+        credits,
+        // Most forecasters also state a probability; it feeds calibration scoring.
+        statedProbability: crowdRandom() < 0.7 ? Math.round(planned.belief * 100) / 100 : null,
+        verifiedAtEntry: planned.verified,
+        idempotencyKey,
+        requestHash: sha({ marketId, side, credits, idempotencyKey }),
+        entry: {
+          openingBaseline: m.baseline,
+          model: null,
+          generalBefore: priceBefore,
+          generalAfter: yesPrice(general),
+          specializedBefore,
+          specializedAfter: yesPrice(specialized),
+          estimateRuleId: LMSR_RULE_ID,
+          estimateKind: "market_price",
+        },
+        fill: { b, p0, shares: quote.shares, averagePrice: quote.averagePrice, priceBefore: quote.priceBefore, priceAfter: quote.priceAfter },
+        createdAt,
+      });
+      ledgerRows.push({
+        userId: uid(planned.handle),
+        amount: -credits,
+        balanceAfter: balance - credits,
+        type: CreditTransactionType.FORECAST_STAKE,
+        idempotencyKey: `forecast:${id}`,
+        marketId,
+        forecastId: id,
+        memo: "Seed forecast stake",
+        createdAt,
+      });
+      snapshotRows.push({
+        marketId,
+        sequence: firstSnapshot + sequence,
+        trigger: SnapshotTrigger.FORECAST,
+        forecastId: id,
+        openingBaseline: m.baseline,
+        yesCredits: yes,
+        noCredits: no,
+        allocationShare: yes / (yes + no),
+        generalEstimate: yesPrice(general),
+        specializedEstimate: yesPrice(specialized),
+        estimateRuleId: LMSR_RULE_ID,
+        estimateKind: EstimateKind.MARKET_PRICE,
+        forecastCount: sequence,
+        forecasterCount: seen.size,
+        specializedForecasters: seenVerified.size,
+        specializedCredits: verifiedCredits,
+        recordedAt: createdAt,
+      });
+    }
+
+    await db.$transaction([
+      db.forecast.createMany({ data: forecastRows }),
+      db.creditTransaction.createMany({ data: ledgerRows }),
+      db.marketSnapshot.createMany({ data: snapshotRows }),
+    ]);
+    // Cached balances follow the ledger rows just written.
+    if (seen.size) {
+      await db.$executeRaw`
+        UPDATE "User" AS u SET "creditBalance" = v.balance, "updatedAt" = now()
+        FROM (VALUES ${Prisma.join([...seen].map((handle) => Prisma.sql`(${uid(handle)}, ${balances.get(handle)!}::int)`))}) AS v(id, balance)
+        WHERE u."id" = v.id`;
+    }
+    await db.market.update({
+      where: { id: marketId },
+      data: { yesCredits: yes, noCredits: no, forecastCount: forecastRows.length },
+    });
+  }
 
   for (const m of markets) {
     const status = marketStatus(m);
@@ -184,7 +390,7 @@ async function main() {
     marketIds.set(m.slug, market.id);
 
     if (status !== MarketStatus.DRAFT) {
-      let snapshotSeq = 1;
+      const snapshotSeq = 1;
       await db.marketSnapshot.create({
         data: {
           marketId: market.id,
@@ -199,83 +405,15 @@ async function main() {
         },
       });
 
-      const pool = visibility === MarketVisibility.PUBLIC ? forecasters : ["maya", "theo"];
-      const count = 3 + Math.floor(random() * 6);
       const windowEnd = Math.min(SEED_ANCHOR.getTime(), closesAt.getTime());
-      const times = Array.from({ length: count }, () => opensAt.getTime() + random() * (windowEnd - opensAt.getTime())).sort((a, b) => a - b);
-      let yes = 0;
-      let no = 0;
-      let forecastCount = 0;
-      const seen = new Set<string>();
-
-      for (const [i, time] of times.entries()) {
-        const handle = pool[Math.floor(random() * pool.length)]!;
-        const stated = Math.min(0.97, Math.max(0.03, m.lean + (random() - 0.5) * 0.3));
-        const side = random() < stated ? ForecastSide.YES : ForecastSide.NO;
-        const credits = Math.min(10 * (1 + Math.floor(random() * 10)), balances.get(handle)! - (balances.get(handle)! % 10));
-        if (credits <= 0) continue;
-        balances.set(handle, balances.get(handle)! - credits);
-        const createdAt = new Date(time);
-        forecastCount += 1;
-
-        const before = yes + no > 0 ? yes / (yes + no) : null;
-        const nextYes = yes + (side === ForecastSide.YES ? credits : 0);
-        const nextNo = no + (side === ForecastSide.NO ? credits : 0);
-        const after = nextYes / (nextYes + nextNo);
-        const idempotencyKey = `seed:${m.slug}:${i}`;
-        const sequence = forecastCount;
-        snapshotSeq += 1;
-        const snapshotSequence = snapshotSeq;
-        seen.add(handle);
-        const forecasterCount = seen.size;
-
-        await db.$transaction(async (tx) => {
-          const forecast = await tx.forecast.create({
-            data: {
-              userId: uid(handle),
-              marketId: market.id,
-              sequence,
-              side,
-              credits,
-              statedProbability: Math.round(stated * 100) / 100,
-              idempotencyKey,
-              requestHash: sha({ marketId: market.id, side, credits, idempotencyKey }),
-              entry: { openingBaseline: m.baseline, generalBefore: before, generalAfter: after, estimateKind: "ALLOCATION_SHARE" },
-              createdAt,
-            },
-          });
-          await applyCreditTransaction(tx, {
-            userId: uid(handle),
-            amount: -credits,
-            type: CreditTransactionType.FORECAST_STAKE,
-            idempotencyKey: `forecast:${forecast.id}`,
-            marketId: market.id,
-            forecastId: forecast.id,
-            memo: "Seed forecast stake",
-          });
-          await tx.marketSnapshot.create({
-            data: {
-              marketId: market.id,
-              sequence: snapshotSequence,
-              trigger: SnapshotTrigger.FORECAST,
-              forecastId: forecast.id,
-              openingBaseline: m.baseline,
-              yesCredits: nextYes,
-              noCredits: nextNo,
-              allocationShare: after,
-              forecastCount: sequence,
-              forecasterCount,
-              recordedAt: createdAt,
-            },
-          });
-        });
-        yes = nextYes;
-        no = nextNo;
-      }
-      await db.market.update({
-        where: { id: market.id },
-        data: { yesCredits: yes, noCredits: no, forecastCount },
-      });
+      const start = opensAt.getTime();
+      // Private research markets stay small (their org's analysts); public ones get the crowd
+      // plus a few named demo users so those profiles have history.
+      const plan =
+        visibility === MarketVisibility.PUBLIC
+          ? [...crowdPlan(m, start, windowEnd), ...namedPlan(m, forecasters, 1 + Math.floor(random() * 3), start, windowEnd)]
+          : namedPlan(m, ["maya", "theo"], 3 + Math.floor(random() * 6), start, windowEnd);
+      await writeForecasts(market.id, m, plan, snapshotSeq);
     }
 
     await db.market.update({ where: { id: market.id }, data: { status } });
