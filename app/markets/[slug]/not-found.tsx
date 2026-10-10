@@ -7,6 +7,7 @@ export default function MarketNotFound() {
     <main id="main" className="flex-1">
       <Container className="py-16">
         <EmptyState
+          illustration="markets"
           title="Market not found"
           body="It may have been removed or is not public."
           action={

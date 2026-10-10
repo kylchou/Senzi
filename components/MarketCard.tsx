@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Clock, Users } from "lucide-react";
 import { AllocationBar } from "@/components/ui/AllocationBar";
 import { MarketStatusBadge } from "@/components/ui/MarketStatusBadge";
+import { CardSparkline } from "@/components/ui/CardSparkline";
 import { StartupMark } from "@/components/ui/StartupMark";
 import { Morph } from "@/components/ui/Transitions";
 import { formatDate, formatDeadline, formatShare } from "@/lib/market-view/format";
@@ -40,6 +41,7 @@ export function MarketCard({ market }: { market: MarketSummary }) {
             </p>
             <p className="text-xs text-ink-500">YES allocation</p>
           </div>
+          <CardSparkline slug={market.slug} />
           {openingBaseline !== null && (
             <div className="text-right">
               <p className="text-sm font-semibold tabular-nums text-ink-700">{formatShare(openingBaseline)}</p>

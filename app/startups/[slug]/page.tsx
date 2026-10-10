@@ -93,7 +93,7 @@ async function StartupView({ params }: Pick<PageProps<"/startups/[slug]">, "para
               Open markets
             </h2>
             {open.length === 0 ? (
-              <EmptyState title="No open markets" />
+              <EmptyState illustration="markets" title="No open markets" />
             ) : (
               <div className="grid gap-4 sm:grid-cols-2">
                 {open.map((market) => (
@@ -138,7 +138,7 @@ async function StartupView({ params }: Pick<PageProps<"/startups/[slug]">, "para
             </h2>
             <p className="mb-4 text-xs text-ink-500">Each item links to its source.</p>
             {startup.facts.length === 0 ? (
-              <EmptyState title="No sourced information yet" />
+              <EmptyState illustration="news" title="No sourced information yet" />
             ) : (
               <dl className="divide-y divide-ink-100 rounded-[var(--radius-card)] border border-ink-200 bg-surface">
                 {startup.facts.map((fact) => (
