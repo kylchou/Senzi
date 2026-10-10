@@ -136,14 +136,19 @@ test.describe("app chrome", () => {
     await expect(dialog).toBeHidden();
   });
 
-  test("theme toggle switches to dark and remembers it", async ({ page }) => {
+  test("theme toggle switches between light and dark and remembers it", async ({ page }) => {
+    await page.emulateMedia({ colorScheme: "light" });
     await page.goto("/");
-    await page.getByRole("button", { name: /^Theme:/ }).click();
-    await page.getByRole("menuitemradio", { name: "Dark" }).click();
-    await expect(page.locator("html")).toHaveClass(/\bdark\b/);
-    await page.reload();
-    await expect(page.locator("html")).toHaveClass(/\bdark\b/);
+    const html = page.locator("html");
+    await expect(html).not.toHaveClass(/\bdark\b/);
     await expectAccessible(page);
+    await page.getByRole("button", { name: "Toggle dark mode" }).click();
+    await expect(html).toHaveClass(/\bdark\b/);
+    await page.reload();
+    await expect(html).toHaveClass(/\bdark\b/);
+    await expectAccessible(page);
+    await page.getByRole("button", { name: "Toggle dark mode" }).click();
+    await expect(html).not.toHaveClass(/\bdark\b/);
   });
 });
 
