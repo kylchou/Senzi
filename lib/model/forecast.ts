@@ -17,10 +17,10 @@
 // fitted + resampled residuals; an anchored forecast keeps the observed last
 // week), widened if needed to include p_raw.
 
-import { clamp, median, normalCdf, quantile, robustScale, seededRandom, Z90 } from './math.js';
-import type { ModelParams } from './params.js';
-import type { WeeklyPoint, WeeklySeries } from './series.js';
-import { fitTrend, predict, predictionFactor, theilSen, type TrendFit } from './trend.js';
+import { clamp, median, normalCdf, quantile, robustScale, seededRandom, Z90 } from './math';
+import type { ModelParams } from './params';
+import type { WeeklyPoint, WeeklySeries } from './series';
+import { fitTrend, predict, predictionFactor, theilSen, type TrendFit } from './trend';
 
 export interface WeeklyForecast {
   status: 'ok' | 'insufficient_data';

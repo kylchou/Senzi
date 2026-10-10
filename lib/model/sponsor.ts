@@ -6,9 +6,9 @@
 // dashboard and cross-checked against scraped growth for information. No rule
 // yet decides what happens when they disagree.
 
-import { addDays, toDayNumber } from './dates.js';
-import { buildDailySeries, windowTotal } from './series.js';
-import type { DataPoint } from './types.js';
+import { addDays, toDayNumber } from './dates';
+import { buildDailySeries, windowTotal } from './series';
+import type { DataPoint } from './types';
 
 export type SponsorMetricKind = 'arr' | 'mrr' | 'users';
 

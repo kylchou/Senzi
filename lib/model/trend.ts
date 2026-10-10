@@ -2,7 +2,7 @@
 // median intercept, and a MAD-based residual scale. A single spike moves none
 // of these much, unlike least squares.
 
-import { median, robustScale } from './math.js';
+import { median, robustScale } from './math';
 
 export interface TrendFit {
   slope: number;

@@ -19,6 +19,7 @@ export function jobBoardUrl(b: JobBoard): string {
 }
 
 export const collectJobs: Collector = async (company, ctx) => {
+  if (!company.jobBoard) return { source: 'ashby', companyId: company.id, points: [], missing: ['No supported public job-board API verified; see the official careers page.'] };
   const url = jobBoardUrl(company.jobBoard);
   const source = company.jobBoard.provider;
   try {
