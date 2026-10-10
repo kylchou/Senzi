@@ -134,7 +134,9 @@ describe("study lifecycle against the shared schema", () => {
       forecastCount: 1,
       calibratedProbability: null,
     });
-    expect(detail.history.at(-1)?.yesShare).toBe(1);
+    // Legacy allocation snapshots must not be relabeled as LMSR prices.
+    expect(detail.history.at(-1)?.yesShare).toBeNull();
+    expect(detail.estimate?.generalPrice).toBeNull();
 
     await resolveMarket(w.admin, market.id, {
       outcome: "YES",
@@ -156,7 +158,7 @@ describe("study lifecycle against the shared schema", () => {
 
     const report = await services.reports.generate(w.ctx.analystA, study.id);
     expect(report.resolution?.outcome).toBe("YES");
-    expect(report.communityEstimate?.yesAllocationShare).toBe(1);
+    expect(report.communityEstimate?.yesAllocationShare).toBeNull();
   });
 
   it("opens restricted markets visible only to firm admins, the author, and participants", async () => {

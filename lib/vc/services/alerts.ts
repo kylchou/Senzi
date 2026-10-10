@@ -46,11 +46,11 @@ export function alertsForSubject(
       alerts.push({
         ...base,
         type: "FORECAST_MOVEMENT",
-        title: `Community allocation share moved ${formatPointChange(change)} in 24h`,
-        body: `${subject.question} — YES allocation share now ${formatShare(estimate.allocation.yesShare)} across ${estimate.participantCount} participants. This is a credit-allocation share, not a calibrated probability.`,
+        title: `General LMSR price moved ${formatPointChange(change)} in 24h`,
+        body: `${subject.question} — General LMSR price now ${formatShare((estimate.generalPrice ?? null))} across ${estimate.participantCount} participants. This is an LMSR market price, not a calibrated probability.`,
         payload: {
           change,
-          yesShare: estimate.allocation.yesShare,
+          yesShare: (estimate.generalPrice ?? null),
           participantCount: estimate.participantCount,
         },
         dedupeKey: `movement:${subject.kind}:${subject.id}:${dayKey(now)}`,

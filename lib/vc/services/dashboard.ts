@@ -24,7 +24,7 @@ export interface DashboardStudyRow {
   baseline: BaselineView;
   estimate: MarketEstimate | null;
   freshness: Freshness;
-  /** Change in YES allocation share over the last 7 days. */
+  /** Change in General LMSR price over the last 7 days. */
   change7d: number | null;
   followed: boolean;
 }

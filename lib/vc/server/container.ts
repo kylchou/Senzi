@@ -6,7 +6,7 @@ import { db } from "@/lib/db";
 import type { VcDeps } from "../ports";
 import { createVcServices, type VcServices } from "../services";
 import { createForecastingGateway } from "./forecasting-adapter";
-import { createPendingIndicatorGateway } from "./indicators-pending";
+import { createIndicatorGateway } from "./indicators-adapter";
 import { createPlatformGateway } from "./platform-adapter";
 import { createPrismaVcRepository } from "./prisma-repository";
 
@@ -18,9 +18,7 @@ export function getVcDeps(): VcDeps {
     repo: createPrismaVcRepository(db),
     platform: createPlatformGateway(db),
     forecasting: createForecastingGateway(db),
-    // Switch to createIndicatorGateway() (./indicators-adapter) once lib/model
-    // can be bundled; see indicators-pending.ts.
-    indicators: createPendingIndicatorGateway(),
+    indicators: createIndicatorGateway(),
     now: () => new Date(),
   };
   return deps;
