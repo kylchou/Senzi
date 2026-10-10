@@ -28,6 +28,7 @@ import { getMarket, getMarketHistory } from "@/lib/market-view/queries";
 import { breadcrumbs, JsonLd } from "@/components/ui/JsonLd";
 import { MarketTimeline } from "@/components/ui/MarketTimeline";
 import { MarketTour } from "@/components/ui/MarketTour";
+import { ReplayLauncher } from "@/components/ui/replay/ReplayLauncher";
 import { ShareButton } from "@/components/ui/ShareButton";
 import { Morph, PageTransition, StreamIn } from "@/components/ui/Transitions";
 
@@ -134,7 +135,10 @@ async function MarketView({ params }: Pick<PageProps<"/markets/[slug]">, "params
               <h2 id="history-heading" className="font-display text-lg font-bold text-ink-900">
                 Community allocation over time
               </h2>
-              <MarketMovement movement={shareMovement(history, 7, chartEnd)} />
+              <div className="flex items-center gap-2">
+                <MarketMovement movement={shareMovement(history, 7, chartEnd)} />
+                <ReplayLauncher slug={market.slug} startupName={market.startup.name} question={market.question} />
+              </div>
             </div>
             <ProbabilityChart
               history={history}
