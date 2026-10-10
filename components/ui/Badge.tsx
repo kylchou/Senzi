@@ -6,7 +6,7 @@ const badgeStyles = cva("inline-flex items-center gap-1.5 rounded-full px-2.5 py
     tone: {
       neutral: "bg-ink-100 text-ink-700",
       live: "bg-red-50 text-red-700",
-      dark: "bg-ink-900 text-white",
+      dark: "bg-ink-900 text-surface",
       outline: "border border-ink-200 text-ink-700",
     },
   },

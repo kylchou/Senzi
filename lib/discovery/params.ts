@@ -72,6 +72,24 @@ export function parseStartupParams(raw: RawParams): StartupQuery {
   };
 }
 
+export const NEWS_VERIFICATION = ["verified", "reported"] as const;
+
+export interface NewsQuery {
+  verification: (typeof NEWS_VERIFICATION)[number] | undefined;
+  industry: string | undefined;
+  cursor: string | undefined;
+  limit: number;
+}
+
+export function parseNewsParams(raw: RawParams): NewsQuery {
+  return {
+    verification: z.enum(NEWS_VERIFICATION).optional().catch(undefined).parse(first(raw, "verification") || undefined),
+    industry: fields.industry.catch(undefined).parse(first(raw, "industry") || undefined),
+    cursor: fields.cursor.catch(undefined).parse(first(raw, "cursor") || undefined),
+    limit: 20,
+  };
+}
+
 export function parseSearchQuery(raw: RawParams): string | undefined {
   return fields.q.catch(undefined).parse(first(raw, "q"));
 }

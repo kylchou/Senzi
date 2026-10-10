@@ -35,11 +35,11 @@ export function NewsFeed({
   emptyTitle?: string;
 }) {
   if (items.length === 0) {
-    return <EmptyState title={emptyTitle} body="Sourced coverage appears here once published." />;
+    return <EmptyState illustration="news" title={emptyTitle} body="Sourced coverage appears here once published." />;
   }
 
   return (
-    <ul className="divide-y divide-ink-100 rounded-[var(--radius-card)] border border-ink-200 bg-white">
+    <ul className="divide-y divide-ink-100 surface-card">
       {items.map((item) => (
         <li key={item.id} className="group relative p-5 transition-colors hover:bg-ink-50">
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-ink-500">
