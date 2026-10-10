@@ -104,9 +104,6 @@
     background: var(--color-page);
     color: var(--color-ink-900);
     font-family: var(--font-sans);
-    transition:
-      background-color 200ms ease,
-      color 200ms ease;
   }
   h1, h2, h3 {
     font-family: var(--font-display);
@@ -290,17 +287,22 @@
   }
 }
 
-/* Smooth color change while switching themes (class added for 300ms by theme.ts). */
-.theme-switching,
-.theme-switching *,
-.theme-switching *::before,
-.theme-switching *::after {
-  transition:
-    background-color 220ms ease,
-    border-color 220ms ease,
-    color 220ms ease,
-    fill 220ms ease,
-    stroke 220ms ease !important;
+/*
+ * Theme switch: a single cross-fade between snapshots of the old and new page
+ * (theme.ts adds .theme-transition while it runs). The navbar, which normally
+ * stays still during page transitions, fades along with everything else.
+ */
+html.theme-transition::view-transition-old(*),
+html.theme-transition::view-transition-new(*) {
+  animation-duration: 260ms;
+  animation-timing-function: ease;
+}
+html.theme-transition::view-transition-old(site-header) {
+  display: block;
+  animation: 260ms ease both vt-fade reverse;
+}
+html.theme-transition::view-transition-new(site-header) {
+  animation: 260ms ease both vt-fade;
 }
 
 @media (prefers-reduced-motion: reduce) {
