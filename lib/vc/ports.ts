@@ -24,7 +24,7 @@ import type {
   WatchlistItemType,
 } from "./types";
 import type { CreatedAlert, OrgMember, PersonalNotification } from "./alert-delivery";
-import type { CompareIndicators } from "./types";
+import type { CompareIndicators, StartupFactView, StartupNewsView } from "./types";
 
 //identity, organizations, startups, market creation
 
@@ -58,6 +58,11 @@ export interface PlatformGateway {
    */
   listPublicMarketsForStartups(startupIds: string[]): Promise<MarketSummary[]>;
   createMarketForStudy(input: CreateMarketForStudyInput): Promise<{ marketId: string }>;
+  /**
+   * Facts and news about published startups. News tied to a non-public market
+   * is excluded, so private markets never leak through news.
+   */
+  getStartupEvidence(startupIds: string[]): Promise<{ facts: StartupFactView[]; news: StartupNewsView[] }>;
   /** Current members of an organization, for alert delivery. */
   listOrgMembers(organizationId: string): Promise<OrgMember[]>;
   /** Writes personal inbox notifications (the shared Notification table). Returns rows written. */
@@ -133,6 +138,8 @@ export interface StudyFilter {
   startupIds?: string[];
   /** Only studies with a linked market. */
   hasMarket?: boolean;
+  /** Only studies resolved at or after this time. */
+  resolvedSince?: Date;
   limit?: number;
 }
 
