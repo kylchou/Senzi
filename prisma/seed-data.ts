@@ -11,33 +11,33 @@ export interface SeedStartup {
   name: string;
   tagline: string;
   description: string;
-  sector: string;
+  industry: string;
   stage: StartupStage;
   foundedYear: number;
   headquarters: string;
 }
 
 export const startups: SeedStartup[] = [
-  { slug: "lumen-grid", name: "Lumen Grid", tagline: "Grid-scale iron-air storage", description: "Builds 100-hour iron-air batteries for utilities.", sector: "Climate", stage: "SERIES_B", foundedYear: 2020, headquarters: "Boston, MA" },
-  { slug: "tessellate-bio", name: "Tessellate Bio", tagline: "Protein design for enzyme therapies", description: "Uses generative models to design stable therapeutic enzymes.", sector: "Biotech", stage: "SERIES_A", foundedYear: 2021, headquarters: "South San Francisco, CA" },
-  { slug: "quayside", name: "Quayside", tagline: "Freight booking for short-sea shipping", description: "A marketplace that matches European shippers with coastal vessels.", sector: "Logistics", stage: "SEED", foundedYear: 2023, headquarters: "Rotterdam, NL" },
-  { slug: "ledgerline", name: "Ledgerline", tagline: "Close the books in a day", description: "Accounting automation for mid-market finance teams.", sector: "Fintech", stage: "SERIES_C", foundedYear: 2018, headquarters: "New York, NY" },
-  { slug: "northwind-robotics", name: "Northwind Robotics", tagline: "Autonomous forklifts for cold storage", description: "Robots that work in -25°C warehouses without human operators.", sector: "Robotics", stage: "SERIES_B", foundedYear: 2019, headquarters: "Pittsburgh, PA" },
-  { slug: "parcelpilot", name: "ParcelPilot", tagline: "Same-day delivery APIs for retailers", description: "Routing and courier orchestration for regional retailers.", sector: "Logistics", stage: "SERIES_A", foundedYear: 2021, headquarters: "Austin, TX" },
-  { slug: "verdant-soil", name: "Verdant Soil", tagline: "Soil carbon measurement at scale", description: "Remote sensing plus sampling to verify soil carbon credits.", sector: "Climate", stage: "SEED", foundedYear: 2022, headquarters: "Des Moines, IA" },
-  { slug: "cobalt-health", name: "Cobalt Health", tagline: "Remote cardiac monitoring", description: "Wearable patches and a care team for post-operative heart patients.", sector: "Healthcare", stage: "SERIES_B", foundedYear: 2019, headquarters: "Nashville, TN" },
-  { slug: "stackwise", name: "Stackwise", tagline: "Cost observability for AI workloads", description: "Tracks and forecasts GPU and inference spend across clouds.", sector: "Developer tools", stage: "SERIES_A", foundedYear: 2022, headquarters: "San Francisco, CA" },
-  { slug: "harborview-energy", name: "Harborview Energy", tagline: "Offshore wind maintenance drones", description: "Inspection and repair drones for offshore turbines.", sector: "Climate", stage: "SERIES_A", foundedYear: 2021, headquarters: "Aberdeen, UK" },
-  { slug: "kindred-learning", name: "Kindred Learning", tagline: "Tutoring copilots for teachers", description: "Classroom tools that turn lesson plans into individual practice.", sector: "Education", stage: "SEED", foundedYear: 2023, headquarters: "Chicago, IL" },
-  { slug: "meridian-pay", name: "Meridian Pay", tagline: "Cross-border payroll in stablecoins", description: "Payroll for remote contractors in 60 countries.", sector: "Fintech", stage: "SERIES_B", foundedYear: 2020, headquarters: "Miami, FL" },
-  { slug: "fieldnote", name: "Fieldnote", tagline: "Voice notes to CRM for field sales", description: "Turns sales reps' voice memos into structured CRM updates.", sector: "Software", stage: "SEED", foundedYear: 2024, headquarters: "Denver, CO" },
-  { slug: "orbital-loom", name: "Orbital Loom", tagline: "In-orbit manufacturing of optical fiber", description: "Makes ZBLAN fiber in microgravity aboard small satellites.", sector: "Space", stage: "SERIES_A", foundedYear: 2020, headquarters: "Los Angeles, CA" },
-  { slug: "brightside-foods", name: "Brightside Foods", tagline: "Fermented dairy-free cheese", description: "Precision-fermented casein for plant-based cheese makers.", sector: "Food", stage: "SERIES_A", foundedYear: 2021, headquarters: "Oakland, CA" },
-  { slug: "sentinel-ops", name: "Sentinel Ops", tagline: "Incident response for small security teams", description: "Automated triage and playbooks for companies without a SOC.", sector: "Security", stage: "SERIES_B", foundedYear: 2019, headquarters: "Washington, DC" },
-  { slug: "tidewater-water", name: "Tidewater", tagline: "Modular desalination", description: "Container-sized solar desalination units for island communities.", sector: "Climate", stage: "SEED", foundedYear: 2023, headquarters: "San Diego, CA" },
-  { slug: "atlas-claims", name: "Atlas Claims", tagline: "Faster property insurance claims", description: "Photo-based damage estimates for home insurers.", sector: "Insurtech", stage: "SERIES_C", foundedYear: 2017, headquarters: "Columbus, OH" },
-  { slug: "polymath-labs", name: "Polymath Labs", tagline: "Lab automation for small biotechs", description: "Rentable robotic benches with a scheduling API.", sector: "Biotech", stage: "SEED", foundedYear: 2024, headquarters: "Cambridge, MA" },
-  { slug: "copperline-ev", name: "Copperline", tagline: "Fleet EV charging as a service", description: "Depot charging installs and energy management for delivery fleets.", sector: "Climate", stage: "SERIES_A", foundedYear: 2021, headquarters: "Atlanta, GA" },
+  { slug: "lumen-grid", name: "Lumen Grid", tagline: "Grid-scale iron-air storage", description: "Builds 100-hour iron-air batteries for utilities.", industry: "Climate", stage: "SERIES_B", foundedYear: 2020, headquarters: "Boston, MA" },
+  { slug: "tessellate-bio", name: "Tessellate Bio", tagline: "Protein design for enzyme therapies", description: "Uses generative models to design stable therapeutic enzymes.", industry: "Biotech", stage: "SERIES_A", foundedYear: 2021, headquarters: "South San Francisco, CA" },
+  { slug: "quayside", name: "Quayside", tagline: "Freight booking for short-sea shipping", description: "A marketplace that matches European shippers with coastal vessels.", industry: "Logistics", stage: "SEED", foundedYear: 2023, headquarters: "Rotterdam, NL" },
+  { slug: "ledgerline", name: "Ledgerline", tagline: "Close the books in a day", description: "Accounting automation for mid-market finance teams.", industry: "Fintech", stage: "SERIES_C", foundedYear: 2018, headquarters: "New York, NY" },
+  { slug: "northwind-robotics", name: "Northwind Robotics", tagline: "Autonomous forklifts for cold storage", description: "Robots that work in -25°C warehouses without human operators.", industry: "Robotics", stage: "SERIES_B", foundedYear: 2019, headquarters: "Pittsburgh, PA" },
+  { slug: "parcelpilot", name: "ParcelPilot", tagline: "Same-day delivery APIs for retailers", description: "Routing and courier orchestration for regional retailers.", industry: "Logistics", stage: "SERIES_A", foundedYear: 2021, headquarters: "Austin, TX" },
+  { slug: "verdant-soil", name: "Verdant Soil", tagline: "Soil carbon measurement at scale", description: "Remote sensing plus sampling to verify soil carbon credits.", industry: "Climate", stage: "SEED", foundedYear: 2022, headquarters: "Des Moines, IA" },
+  { slug: "cobalt-health", name: "Cobalt Health", tagline: "Remote cardiac monitoring", description: "Wearable patches and a care team for post-operative heart patients.", industry: "Healthcare", stage: "SERIES_B", foundedYear: 2019, headquarters: "Nashville, TN" },
+  { slug: "stackwise", name: "Stackwise", tagline: "Cost observability for AI workloads", description: "Tracks and forecasts GPU and inference spend across clouds.", industry: "Developer tools", stage: "SERIES_A", foundedYear: 2022, headquarters: "San Francisco, CA" },
+  { slug: "harborview-energy", name: "Harborview Energy", tagline: "Offshore wind maintenance drones", description: "Inspection and repair drones for offshore turbines.", industry: "Climate", stage: "SERIES_A", foundedYear: 2021, headquarters: "Aberdeen, UK" },
+  { slug: "kindred-learning", name: "Kindred Learning", tagline: "Tutoring copilots for teachers", description: "Classroom tools that turn lesson plans into individual practice.", industry: "Education", stage: "SEED", foundedYear: 2023, headquarters: "Chicago, IL" },
+  { slug: "meridian-pay", name: "Meridian Pay", tagline: "Cross-border payroll in stablecoins", description: "Payroll for remote contractors in 60 countries.", industry: "Fintech", stage: "SERIES_B", foundedYear: 2020, headquarters: "Miami, FL" },
+  { slug: "fieldnote", name: "Fieldnote", tagline: "Voice notes to CRM for field sales", description: "Turns sales reps' voice memos into structured CRM updates.", industry: "Software", stage: "SEED", foundedYear: 2024, headquarters: "Denver, CO" },
+  { slug: "orbital-loom", name: "Orbital Loom", tagline: "In-orbit manufacturing of optical fiber", description: "Makes ZBLAN fiber in microgravity aboard small satellites.", industry: "Space", stage: "SERIES_A", foundedYear: 2020, headquarters: "Los Angeles, CA" },
+  { slug: "brightside-foods", name: "Brightside Foods", tagline: "Fermented dairy-free cheese", description: "Precision-fermented casein for plant-based cheese makers.", industry: "Food", stage: "SERIES_A", foundedYear: 2021, headquarters: "Oakland, CA" },
+  { slug: "sentinel-ops", name: "Sentinel Ops", tagline: "Incident response for small security teams", description: "Automated triage and playbooks for companies without a SOC.", industry: "Security", stage: "SERIES_B", foundedYear: 2019, headquarters: "Washington, DC" },
+  { slug: "tidewater-water", name: "Tidewater", tagline: "Modular desalination", description: "Container-sized solar desalination units for island communities.", industry: "Climate", stage: "SEED", foundedYear: 2023, headquarters: "San Diego, CA" },
+  { slug: "atlas-claims", name: "Atlas Claims", tagline: "Faster property insurance claims", description: "Photo-based damage estimates for home insurers.", industry: "Insurtech", stage: "SERIES_C", foundedYear: 2017, headquarters: "Columbus, OH" },
+  { slug: "polymath-labs", name: "Polymath Labs", tagline: "Lab automation for small biotechs", description: "Rentable robotic benches with a scheduling API.", industry: "Biotech", stage: "SEED", foundedYear: 2024, headquarters: "Cambridge, MA" },
+  { slug: "copperline-ev", name: "Copperline", tagline: "Fleet EV charging as a service", description: "Depot charging installs and energy management for delivery fleets.", industry: "Climate", stage: "SERIES_A", foundedYear: 2021, headquarters: "Atlanta, GA" },
 ];
 
 export type SeedMarketState = "OPEN" | "DRAFT" | "CLOSED" | "RESOLVED_YES" | "RESOLVED_NO" | "CANCELLED";
@@ -53,7 +53,7 @@ export interface SeedMarket {
   state: SeedMarketState;
   /** Deadline as days from SEED_ANCHOR (negative = already passed). */
   closesInDays: number;
-  visibility?: "PUBLIC" | "UNLISTED" | "PRIVATE";
+  visibility?: "PUBLIC" | "ORGANIZATION" | "RESTRICTED";
   /** Hidden "true" probability that seeded forecasters lean toward. */
   lean: number;
 }
@@ -80,11 +80,11 @@ export const markets: SeedMarket[] = [
   { slug: "brightside-retail", startup: "brightside-foods", question: "Will Brightside Foods' cheese be sold in a top-10 US grocery chain by mid-2027?", criteria: "YES if a product containing Brightside casein is stocked by one of the ten largest US grocery chains (by revenue) on or before 2027-06-30.", source: "Retailer listings, company announcements", category: "Commercial", baseline: 0.3, state: "OPEN", closesInDays: 270, lean: 0.38 },
   { slug: "sentinel-soc2-customers", startup: "sentinel-ops", question: "Will Sentinel Ops announce 2,000 paying customers by March 2027?", criteria: "YES if Sentinel Ops publicly states at least 2,000 paying customers on or before 2027-03-31.", source: "Company announcements", category: "Growth", baseline: 0.45, state: "OPEN", closesInDays: 175, lean: 0.5 },
   { slug: "atlas-claims-ipo", startup: "atlas-claims", question: "Will Atlas Claims IPO or be acquired by the end of 2027?", criteria: "YES if Atlas Claims lists on a public exchange or a definitive acquisition agreement is announced on or before 2027-12-31.", source: "SEC EDGAR, exchange listings, acquirer announcements", category: "Exit", baseline: 0.25, state: "OPEN", closesInDays: 455, lean: 0.22 },
-  { slug: "copperline-100-depots", startup: "copperline-ev", question: "Will Copperline operate 100 fleet charging depots by June 2027?", criteria: "YES if Copperline publicly reports at least 100 operational depot charging sites on or before 2027-06-30.", source: "Company announcements", category: "Growth", baseline: 0.35, state: "OPEN", closesInDays: 270, lean: 0.41, visibility: "UNLISTED" },
+  { slug: "copperline-100-depots", startup: "copperline-ev", question: "Will Copperline operate 100 fleet charging depots by June 2027?", criteria: "YES if Copperline publicly reports at least 100 operational depot charging sites on or before 2027-06-30.", source: "Company announcements", category: "Growth", baseline: 0.35, state: "OPEN", closesInDays: 270, lean: 0.41 },
 
-  // Private research markets (Northstar Ventures only)
-  { slug: "northstar-tidewater-pilot", startup: "tidewater-water", question: "Will Tidewater complete a paid pilot with an island utility before July 2027?", criteria: "YES if Tidewater confirms (publicly or to Northstar in writing) a completed paid pilot with an island utility before 2027-07-01.", source: "Company confirmation", category: "Commercial", baseline: 0.4, state: "OPEN", closesInDays: 270, visibility: "PRIVATE", lean: 0.45 },
-  { slug: "northstar-polymath-seed", startup: "polymath-labs", question: "Will Polymath Labs raise a seed round of $8M+ by April 2027?", criteria: "YES if Polymath Labs closes priced seed financing of at least $8M on or before 2027-04-30, per company announcement or Form D.", source: "SEC Form D, company announcements", category: "Funding", baseline: 0.5, state: "OPEN", closesInDays: 210, visibility: "PRIVATE", lean: 0.55 },
+  // Opened from Northstar Ventures research studies (not public)
+  { slug: "northstar-tidewater-pilot", startup: "tidewater-water", question: "Will Tidewater complete a paid pilot with an island utility before July 2027?", criteria: "YES if Tidewater confirms (publicly or to Northstar in writing) a completed paid pilot with an island utility before 2027-07-01.", source: "Company confirmation", category: "Commercial", baseline: 0.4, state: "OPEN", closesInDays: 270, visibility: "ORGANIZATION", lean: 0.45 },
+  { slug: "northstar-polymath-seed", startup: "polymath-labs", question: "Will Polymath Labs raise a seed round of $8M+ by April 2027?", criteria: "YES if Polymath Labs closes priced seed financing of at least $8M on or before 2027-04-30, per company announcement or Form D.", source: "SEC Form D, company announcements", category: "Funding", baseline: 0.5, state: "OPEN", closesInDays: 210, visibility: "RESTRICTED", lean: 0.55 },
 
   // Drafts
   { slug: "tidewater-second-site", startup: "tidewater-water", question: "Will Tidewater deploy units at a second island site in 2027?", criteria: "YES if Tidewater units are publicly confirmed operating at a second distinct island site between 2027-01-01 and 2027-12-31.", source: "Company announcements", category: "Commercial", baseline: 0.4, state: "DRAFT", closesInDays: 455, lean: 0.4 },
@@ -136,4 +136,16 @@ export const achievements = [
   { key: "first-correct", name: "Called it", description: "Your first forecast on a market that resolved your way.", creditReward: 100 },
   { key: "early-bird", name: "Early bird", description: "Forecast within a day of a market opening.", creditReward: 25 },
   { key: "well-calibrated", name: "Well calibrated", description: "Strong calibration across 20 resolved forecasts.", creditReward: 250 },
+];
+
+/** Sourced facts shown on startup pages. `verified` = an admin checked the source. */
+export const facts = [
+  { startup: "lumen-grid", label: "Total funding", value: "$212M", sourceName: "Company press release", days: -60, verified: true },
+  { startup: "lumen-grid", label: "Employees", value: "~180", sourceName: "Careers page", days: -15, verified: false },
+  { startup: "ledgerline", label: "Customers", value: "4,000+", sourceName: "Company website", days: -30, verified: false },
+  { startup: "ledgerline", label: "Last round", value: "Series C, $140M", sourceName: "Company press release", days: -400, verified: true },
+  { startup: "cobalt-health", label: "Last round", value: "Series C", sourceName: "Company press release", days: -12, verified: true },
+  { startup: "stackwise", label: "Open-source stars", value: "11.2k", sourceName: "GitHub", days: -2, verified: true },
+  { startup: "meridian-pay", label: "Countries supported", value: "60", sourceName: "Company website", days: -20, verified: false },
+  { startup: "northwind-robotics", label: "Deployed units", value: "~350", sourceName: "CEO interview", days: -45, verified: false },
 ];

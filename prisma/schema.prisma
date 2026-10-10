@@ -1,16 +1,17 @@
 // Senzi database schema.
 //
-// Owned by Engineer 1 (Backend, Database & Security). Other engineers: request
-// changes through Engineer 1 rather than editing this file directly.
+// Owned by Kyler (backend). Felix, Darsh, and Sahil: request changes through
+// Kyler rather than editing this file directly.
 //
 // Conventions
 // - IDs are cuids (strings). Timestamps are UTC.
 // - Credits are virtual whole-number units with no cash value (Int).
 // - Probabilities are stored as fractions in [0, 1] (Float).
-// - Opening baselines, community credit-allocation shares, and calibrated
-//   probabilities are distinct measurements and live in distinct columns.
-// - CHECK constraints that Prisma cannot express are added by hand in the
-//   migration SQL (see prisma/migrations/*_init/migration.sql).
+// - Opening baselines, community estimates (allocation share or market price),
+//   and calibrated probabilities are distinct measurements and live in
+//   distinct columns.
+// - CHECK constraints and triggers that Prisma cannot express are written by
+//   hand in the migration SQL.
 
 generator client {
   provider = "prisma-client"
@@ -25,7 +26,7 @@ datasource db {
 // Enums
 // ---------------------------------------------------------------------------
 
-/// Platform-wide role. ADMIN can manage startups/markets and resolve markets.
+/// Platform-wide role. ADMIN manages startups/markets, reviews studies, and resolves markets.
 enum PlatformRole {
   USER
   ADMIN
@@ -59,10 +60,12 @@ enum MarketStatus {
   CANCELLED // voided; stakes are refunded by settlement
 }
 
+/// Same values as StudyVisibility. Non-PUBLIC markets belong to an organization
+/// and come from a private research study.
 enum MarketVisibility {
   PUBLIC // listed in the community platform
-  UNLISTED // reachable by direct link only, excluded from listings/search
-  PRIVATE // only members of Market.organization
+  ORGANIZATION // members of Market.organization
+  RESTRICTED // org owners/admins, the study author, and study participants
 }
 
 enum ForecastSide {
@@ -76,10 +79,11 @@ enum ForecastStatus {
   REFUNDED
 }
 
+/// VOID covers questions that can no longer be fairly answered; stakes are refunded.
 enum ResolutionOutcome {
   YES
   NO
-  CANCELLED
+  VOID
 }
 
 enum SettlementStatus {
@@ -94,6 +98,7 @@ enum CreditTransactionType {
   ADMIN_GRANT
   ADMIN_ADJUSTMENT
   FORECAST_STAKE
+  FORECAST_REVERSAL
   SETTLEMENT_PAYOUT
   MARKET_REFUND
   ACHIEVEMENT_REWARD
@@ -102,27 +107,43 @@ enum CreditTransactionType {
 enum SnapshotTrigger {
   OPENING
   FORECAST
-  SCHEDULED
-  RESOLUTION
+  MODEL_UPDATE
+  SETTLEMENT
+}
+
+/// What a community estimate number is. An allocation share is not a probability.
+enum EstimateKind {
+  ALLOCATION_SHARE
+  MARKET_PRICE
 }
 
 enum StudyStatus {
   DRAFT
-  ACTIVE
-  ARCHIVED
+  SUBMITTED
+  APPROVED
+  OPEN
+  CLOSED
+  RESOLVED
+  REJECTED
+  CANCELLED
 }
 
-/// ORGANIZATION: every member of the owning org can read the study.
-/// RESTRICTED: only org OWNER/ADMIN plus explicit StudyMembership rows.
-enum StudyAccess {
+enum StudyVisibility {
+  PUBLIC
   ORGANIZATION
   RESTRICTED
 }
 
-enum StudyRole {
-  LEAD
-  CONTRIBUTOR
-  VIEWER
+enum WatchlistItemType {
+  STARTUP
+  STUDY
+}
+
+enum VcAlertType {
+  FORECAST_MOVEMENT
+  DEADLINE_APPROACHING
+  STUDY_RESOLVED
+  STUDY_STATUS_CHANGED
 }
 
 enum NewsVerification {
@@ -136,7 +157,6 @@ enum NotificationType {
   MARKET_RESOLVED
   FORECAST_SETTLED
   CREDITS_GRANTED
-  WATCHLIST_ALERT
   STUDY_INVITE
   ORG_INVITE
   ACHIEVEMENT_EARNED
@@ -164,22 +184,26 @@ model User {
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
 
-  memberships        OrganizationMembership[]
-  forecasts          Forecast[]
-  creditTransactions CreditTransaction[]      @relation("CreditTransactionUser")
-  creditActions      CreditTransaction[]      @relation("CreditTransactionActor")
-  studyMemberships   StudyMembership[]
-  watchlists         Watchlist[]
-  notifications      Notification[]
-  achievements       UserAchievement[]
-  createdStartups    Startup[]
-  createdMarkets     Market[]                 @relation("MarketCreatedBy")
-  resolutions        Resolution[]
-  createdStudies     ResearchStudy[]
-  addedStudyStartups StudyStartup[]
-  addedStudyMarkets  StudyMarket[]
-  createdNews        NewsItem[]
-  invitedMembers     OrganizationMembership[] @relation("MembershipInvitedBy")
+  memberships         OrganizationMembership[]
+  invitedMembers      OrganizationMembership[] @relation("MembershipInvitedBy")
+  forecasts           Forecast[]
+  creditTransactions  CreditTransaction[]      @relation("CreditTransactionUser")
+  creditActions       CreditTransaction[]      @relation("CreditTransactionActor")
+  notifications       Notification[]
+  achievements        UserAchievement[]
+  createdStartups     Startup[]
+  createdMarkets      Market[]                 @relation("MarketCreatedBy")
+  resolutions         Resolution[]
+  createdNews         NewsItem[]
+  createdStudies      ResearchStudy[]          @relation("StudyCreatedBy")
+  studyParticipations StudyParticipant[]       @relation("StudyParticipantUser")
+  addedParticipants   StudyParticipant[]       @relation("StudyParticipantAddedBy")
+  studyEvents         StudyEvent[]
+  studyNotes          StudyNote[]
+  createdWatchlists   Watchlist[]
+  watchlistItemsAdded WatchlistItem[]
+  alertReceipts       VcAlertReceipt[]
+  createdReports      VcReport[]
 }
 
 model Organization {
@@ -192,9 +216,12 @@ model Organization {
   updatedAt   DateTime @updatedAt
 
   memberships OrganizationMembership[]
-  studies     ResearchStudy[]
-  watchlists  Watchlist[]
   markets     Market[]
+  studies     ResearchStudy[]
+  studyNotes  StudyNote[]
+  watchlists  Watchlist[]
+  alerts      VcAlert[]
+  reports     VcReport[]
 }
 
 model OrganizationMembership {
@@ -224,9 +251,9 @@ model Startup {
   name         String
   tagline      String
   description  String
-  website      String?
+  websiteUrl   String?
   logoUrl      String?
-  sector       String
+  industry     String
   stage        StartupStage
   foundedYear  Int?
   headquarters String?
@@ -237,80 +264,136 @@ model Startup {
   updatedAt    DateTime     @updatedAt
 
   createdBy      User?           @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  facts          StartupFact[]
   markets        Market[]
   news           NewsItem[]
-  studyStartups  StudyStartup[]
+  studies        ResearchStudy[]
   watchlistItems WatchlistItem[]
 
-  @@index([sector])
+  @@index([industry])
   @@index([isPublished, name])
 }
 
-model Market {
-  id                 String           @id @default(cuid())
-  slug               String           @unique
-  startupId          String
-  /// The YES/NO question, e.g. "Will Acme announce a Series B by 2027-06-30?"
-  question           String
-  description        String?
-  /// Measurable criteria that decide YES vs NO. Required before opening.
-  resolutionCriteria String
-  /// Where the resolver will look for evidence (e.g. "SEC filings, company press").
-  resolutionSource   String?
-  category           String?
-  /// Admin-set starting probability of YES, in (0, 1). Not a community signal.
-  openingBaseline    Float
-  status             MarketStatus     @default(DRAFT)
-  visibility         MarketVisibility @default(PUBLIC)
-  /// Required when visibility = PRIVATE (CHECK constraint).
-  organizationId     String?
-  opensAt            DateTime
-  /// Forecasting deadline. CHECK (closesAt > opensAt).
-  closesAt           DateTime
-  /// Date by which the market is expected to be resolved.
-  resolvesBy         DateTime?
-  /// Aggregates maintained by the forecasting engine (Engineer 2) in the same
-  /// transaction as each forecast. Community allocation share =
-  /// yesCredits / (yesCredits + noCredits).
-  yesCredits         Int              @default(0)
-  noCredits          Int              @default(0)
-  forecastCount      Int              @default(0)
-  createdById        String?
-  createdAt          DateTime         @default(now())
-  updatedAt          DateTime         @updatedAt
+/// Public, sourced information about a startup. Every fact cites a source;
+/// `verified` means an admin checked it against that source.
+model StartupFact {
+  id         String   @id @default(cuid())
+  startupId  String
+  label      String
+  value      String
+  sourceName String
+  sourceUrl  String
+  asOf       DateTime
+  verified   Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
-  startup        Startup               @relation(fields: [startupId], references: [id], onDelete: Restrict)
-  organization   Organization?         @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  createdBy      User?                 @relation("MarketCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
-  forecasts      Forecast[]
-  snapshots      ProbabilitySnapshot[]
-  resolution     Resolution?
-  creditTxns     CreditTransaction[]
-  news           NewsItem[]
-  studyMarkets   StudyMarket[]
-  watchlistItems WatchlistItem[]
+  startup Startup @relation(fields: [startupId], references: [id], onDelete: Cascade)
+
+  @@index([startupId])
+}
+
+model Market {
+  id                  String           @id @default(cuid())
+  slug                String           @unique
+  startupId           String
+  /// The YES/NO question, e.g. "Will Acme announce a Series B by 2027-06-30?"
+  question            String
+  description         String?
+  /// Measurable conditions for YES and for NO. Both required.
+  yesCriteria         String
+  noCriteria          String
+  category            String?
+  status              MarketStatus     @default(DRAFT)
+  visibility          MarketVisibility @default(PUBLIC)
+  /// Required when visibility is not PUBLIC (CHECK constraint).
+  organizationId      String?
+  opensAt             DateTime
+  /// Forecasting deadline. CHECK (closesAt > opensAt).
+  closesAt            DateTime
+  /// Date by which the market is expected to be resolved.
+  resolvesBy          DateTime?
+  /// Starting probability of YES in (0, 1), with how it was derived. Set by an
+  /// admin or the model service; frozen once the first forecast is accepted.
+  openingBaseline     Float?
+  baselineMethodology String?
+  baselineSetAt       DateTime?
+  /// Latest model value of YES (from the model service). Never moved by forecasts.
+  modelValue          Float?
+  modelVersion        String?
+  modelInputsNote     String?
+  modelUpdatedAt      DateTime?
+  /// Optional per-forecast limits in credits (inclusive).
+  minForecastCredits  Int?
+  maxForecastCredits  Int?
+  /// Aggregates maintained by the forecasting engine in the same transaction
+  /// as each forecast. Allocation share = yesCredits / (yesCredits + noCredits).
+  yesCredits          Int              @default(0)
+  noCredits           Int              @default(0)
+  forecastCount       Int              @default(0)
+  createdById         String?
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+
+  startup      Startup             @relation(fields: [startupId], references: [id], onDelete: Restrict)
+  organization Organization?       @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  createdBy    User?               @relation("MarketCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  /// The private research study this market was opened from, if any.
+  study        ResearchStudy?
+  sources      MarketSource[]
+  forecasts    Forecast[]
+  snapshots    MarketSnapshot[]
+  resolution   Resolution?
+  creditTxns   CreditTransaction[]
+  news         NewsItem[]
 
   @@index([status, visibility, closesAt])
   @@index([startupId])
   @@index([organizationId])
 }
 
+/// Where the resolver will look for evidence (filings, press, registries...).
+model MarketSource {
+  id          String    @id @default(cuid())
+  marketId    String
+  title       String
+  url         String
+  publisher   String?
+  publishedAt DateTime?
+  position    Int       @default(0)
+
+  market Market @relation(fields: [marketId], references: [id], onDelete: Cascade)
+
+  @@index([marketId, position])
+}
+
+/// Immutable record of one accepted forecast.
 model Forecast {
   id                String         @id @default(cuid())
   userId            String
   marketId          String
+  /// 1-based position in the market's forecast sequence.
+  sequence          Int
   side              ForecastSide
   /// Credits staked. CHECK (credits > 0).
   credits           Int
-  /// Optional probability of YES the forecaster states, in [0, 1].
-  /// Used for calibration/accuracy scoring, not for payouts.
+  /// Optional probability of YES the forecaster states, in [0, 1]. Used for
+  /// calibration scoring, not for payouts.
   statedProbability Float?
+  /// Client-supplied key; resubmitting the same key returns the original forecast.
+  idempotencyKey    String
+  /// Hash of the request payload, to detect a key reused with a different payload.
+  requestHash       String
+  /// The user was a verified user of the startup's product when forecasting.
+  verifiedAtEntry   Boolean        @default(false)
+  /// Market state captured at entry (baseline, model, estimates before/after).
+  entry             Json
+  /// Pricing-rule-specific fill details (e.g. LMSR shares).
+  fill              Json?
   status            ForecastStatus @default(ACTIVE)
   /// Credits returned at settlement (0 for a losing forecast).
   payout            Int?
   settledAt         DateTime?
-  /// Client-supplied key; resubmitting the same key returns the original forecast.
-  idempotencyKey    String
   createdAt         DateTime       @default(now())
 
   user       User                @relation(fields: [userId], references: [id], onDelete: Restrict)
@@ -318,47 +401,62 @@ model Forecast {
   creditTxns CreditTransaction[]
 
   @@unique([userId, idempotencyKey])
-  @@index([marketId, createdAt])
+  @@unique([marketId, sequence])
   @@index([userId, createdAt])
   @@index([marketId, status])
 }
 
-/// Point-in-time record of a market's community state. Each measurement has
-/// its own column so they are never conflated.
-model ProbabilitySnapshot {
-  id                       String          @id @default(cuid())
-  marketId                 String
-  trigger                  SnapshotTrigger
-  /// Copied from Market.openingBaseline for convenience.
-  openingBaseline          Float
-  yesCredits               Int
-  noCredits                Int
-  /// yesCredits / (yesCredits + noCredits); null when no credits allocated.
-  communityAllocationShare Float?
-  /// Model-calibrated probability of YES (Engineer 2); null until computed.
-  calibratedProbability    Float?
-  forecastCount            Int
-  uniqueForecasters        Int
-  capturedAt               DateTime        @default(now())
+/// Append-only, point-in-time record of a market's estimates. Every
+/// measurement has its own column so they are never conflated.
+model MarketSnapshot {
+  id                     String          @id @default(cuid())
+  marketId               String
+  /// Monotonic per market.
+  sequence               Int
+  trigger                SnapshotTrigger
+  /// The forecast that caused this snapshot, if any.
+  forecastId             String?
+  openingBaseline        Float?
+  modelValue             Float?
+  yesCredits             Int
+  noCredits              Int
+  /// yesCredits / (yesCredits + noCredits); null when no credits are allocated.
+  allocationShare        Float?
+  /// Community estimate from all forecasts under the configured rule.
+  generalEstimate        Float?
+  /// Same rule replayed over verified users' forecasts only.
+  specializedEstimate    Float?
+  estimateRuleId         String?
+  estimateKind           EstimateKind?
+  /// Only set once a calibration report supports calling it a probability.
+  calibratedProbability  Float?
+  forecastCount          Int
+  forecasterCount        Int
+  specializedForecasters Int             @default(0)
+  specializedCredits     Int             @default(0)
+  recordedAt             DateTime        @default(now())
 
   market Market @relation(fields: [marketId], references: [id], onDelete: Cascade)
 
-  @@index([marketId, capturedAt])
+  @@unique([marketId, sequence])
+  @@index([marketId, recordedAt])
 }
 
 model Resolution {
-  id               String            @id @default(cuid())
-  marketId         String            @unique
-  outcome          ResolutionOutcome
+  id                String            @id @default(cuid())
+  marketId          String            @unique
+  outcome           ResolutionOutcome
   /// Human-readable explanation of why the criteria were (not) met.
-  evidenceSummary  String
-  /// Links to the documented evidence. At least one is required by validation.
-  evidenceUrls     String[]
-  resolvedById     String?
-  resolvedAt       DateTime          @default(now())
-  settlementStatus SettlementStatus  @default(PENDING)
-  settledAt        DateTime?
-  settlementError  String?
+  evidenceSummary   String
+  /// Links to the documented evidence. At least one (CHECK constraint).
+  evidenceUrls      String[]
+  resolvedById      String?
+  resolvedAt        DateTime          @default(now())
+  settlementStatus  SettlementStatus  @default(PENDING)
+  /// Which settlement model paid this out (set by the forecasting engine).
+  settlementModelId String?
+  settledAt         DateTime?
+  settlementError   String?
 
   market     Market              @relation(fields: [marketId], references: [id], onDelete: Restrict)
   resolvedBy User?               @relation(fields: [resolvedById], references: [id], onDelete: SetNull)
@@ -385,7 +483,7 @@ model CreditTransaction {
   balanceAfter   Int
   type           CreditTransactionType
   /// Globally unique key that makes the write idempotent, e.g.
-  /// "forecast:<forecastId>" or "settlement:<resolutionId>:<forecastId>".
+  /// "forecast:<forecastId>" or "settlement:<marketId>:<forecastId>".
   idempotencyKey String                @unique
   marketId       String?
   forecastId     String?
@@ -409,117 +507,203 @@ model CreditTransaction {
 }
 
 // ---------------------------------------------------------------------------
-// VC Intelligence
+// VC Intelligence (Darsh)
 // ---------------------------------------------------------------------------
 
+/// One private research question from a VC firm. Lifecycle:
+/// DRAFT -> SUBMITTED -> APPROVED -> OPEN -> CLOSED -> RESOLVED, with REJECTED
+/// and CANCELLED side branches. Opening creates the linked Market.
 model ResearchStudy {
-  id             String      @id @default(cuid())
-  organizationId String
-  slug           String
-  title          String
-  summary        String?
-  thesis         String?
-  status         StudyStatus @default(DRAFT)
-  access         StudyAccess @default(ORGANIZATION)
-  createdById    String?
-  createdAt      DateTime    @default(now())
-  updatedAt      DateTime    @updatedAt
+  id                  String             @id @default(cuid())
+  organizationId      String
+  createdById         String
+  startupId           String
+  /// Set when the study opens; the market is created by lib/admin.ts createMarketForStudy.
+  marketId            String?            @unique
+  question            String
+  yesCriteria         String
+  noCriteria          String
+  context             String?
+  /// Opening baseline in (0, 1) and how it was derived.
+  baselineValue       Float?
+  baselineMethodology String?
+  deadline            DateTime
+  visibility          StudyVisibility    @default(ORGANIZATION)
+  status              StudyStatus        @default(DRAFT)
+  rejectionReason     String?
+  cancellationReason  String?
+  submittedAt         DateTime?
+  approvedAt          DateTime?
+  openedAt            DateTime?
+  closedAt            DateTime?
+  resolvedAt          DateTime?
+  resolvedOutcome     ResolutionOutcome?
+  /// Optimistic concurrency: every transition compares and increments this.
+  version             Int                @default(1)
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
 
-  organization Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  createdBy    User?             @relation(fields: [createdById], references: [id], onDelete: SetNull)
-  members      StudyMembership[]
-  startups     StudyStartup[]
-  markets      StudyMarket[]
+  organization   Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdBy      User               @relation("StudyCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  startup        Startup            @relation(fields: [startupId], references: [id], onDelete: Restrict)
+  market         Market?            @relation(fields: [marketId], references: [id], onDelete: Restrict)
+  sources        StudySource[]
+  participants   StudyParticipant[]
+  events         StudyEvent[]
+  notes          StudyNote[]
+  reports        VcReport[]
+  watchlistItems WatchlistItem[]
 
-  @@unique([organizationId, slug])
   @@index([organizationId, status])
+  @@index([visibility, status])
+  @@index([startupId])
 }
 
-/// Explicit study access. A member must also belong to the study's org;
-/// lib/permissions.ts enforces this on every write and read.
-model StudyMembership {
-  id        String    @id @default(cuid())
-  studyId   String
-  userId    String
-  role      StudyRole @default(VIEWER)
-  createdAt DateTime  @default(now())
+model StudySource {
+  id          String    @id @default(cuid())
+  studyId     String
+  url         String
+  title       String
+  publisher   String?
+  publishedAt DateTime?
+  position    Int       @default(0)
 
   study ResearchStudy @relation(fields: [studyId], references: [id], onDelete: Cascade)
-  user  User          @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@unique([studyId, userId])
+  @@index([studyId])
+}
+
+/// People invited to a study, possibly from outside the organization.
+model StudyParticipant {
+  studyId   String
+  userId    String
+  addedById String
+  createdAt DateTime @default(now())
+
+  study   ResearchStudy @relation(fields: [studyId], references: [id], onDelete: Cascade)
+  user    User          @relation("StudyParticipantUser", fields: [userId], references: [id], onDelete: Cascade)
+  addedBy User          @relation("StudyParticipantAddedBy", fields: [addedById], references: [id], onDelete: Restrict)
+
+  @@id([studyId, userId])
   @@index([userId])
 }
 
-model StudyStartup {
-  id        String   @id @default(cuid())
-  studyId   String
-  startupId String
-  note      String?
-  addedById String?
-  createdAt DateTime @default(now())
+/// Append-only trail of study lifecycle transitions.
+model StudyEvent {
+  id         String       @id @default(cuid())
+  studyId    String
+  /// Null for system actions.
+  actorId    String?
+  action     String
+  fromStatus StudyStatus?
+  toStatus   StudyStatus
+  reason     String?
+  createdAt  DateTime     @default(now())
 
-  study   ResearchStudy @relation(fields: [studyId], references: [id], onDelete: Cascade)
-  startup Startup       @relation(fields: [startupId], references: [id], onDelete: Cascade)
-  addedBy User?         @relation(fields: [addedById], references: [id], onDelete: SetNull)
+  study ResearchStudy @relation(fields: [studyId], references: [id], onDelete: Cascade)
+  actor User?         @relation(fields: [actorId], references: [id], onDelete: Restrict)
 
-  @@unique([studyId, startupId])
-  @@index([startupId])
+  @@index([studyId, createdAt])
 }
 
-model StudyMarket {
-  id        String   @id @default(cuid())
-  studyId   String
-  marketId  String
-  note      String?
-  addedById String?
-  createdAt DateTime @default(now())
-
-  study   ResearchStudy @relation(fields: [studyId], references: [id], onDelete: Cascade)
-  market  Market        @relation(fields: [marketId], references: [id], onDelete: Cascade)
-  addedBy User?         @relation(fields: [addedById], references: [id], onDelete: SetNull)
-
-  @@unique([studyId, marketId])
-  @@index([marketId])
-}
-
-/// A personal watchlist (organizationId null) or one shared with an org.
-model Watchlist {
+/// Private to the owning organization. Never exposed through public APIs.
+model StudyNote {
   id             String   @id @default(cuid())
-  ownerId        String
-  organizationId String?
-  name           String
+  studyId        String
+  organizationId String
+  authorId       String
+  body           String
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
-  owner        User            @relation(fields: [ownerId], references: [id], onDelete: Cascade)
-  organization Organization?   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  items        WatchlistItem[]
+  study        ResearchStudy @relation(fields: [studyId], references: [id], onDelete: Cascade)
+  organization Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  author       User          @relation(fields: [authorId], references: [id], onDelete: Restrict)
 
-  @@index([ownerId])
-  @@index([organizationId])
+  @@index([studyId, createdAt])
 }
 
-/// Exactly one of startupId / marketId is set (CHECK constraint).
-model WatchlistItem {
+model Watchlist {
   id             String   @id @default(cuid())
-  watchlistId    String
-  startupId      String?
-  marketId       String?
-  note           String?
-  /// Alert when the community allocation share moves by at least this much
-  /// (absolute, in [0, 1]) between snapshots. Null = no movement alerts.
-  alertThreshold Float?
+  organizationId String
+  name           String
+  createdById    String
   createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
-  watchlist Watchlist @relation(fields: [watchlistId], references: [id], onDelete: Cascade)
-  startup   Startup?  @relation(fields: [startupId], references: [id], onDelete: Cascade)
-  market    Market?   @relation(fields: [marketId], references: [id], onDelete: Cascade)
+  organization Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdBy    User            @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  items        WatchlistItem[]
+
+  @@unique([organizationId, name])
+}
+
+/// Exactly one of startupId / studyId is set, matching `type` (CHECK constraint).
+model WatchlistItem {
+  id          String            @id @default(cuid())
+  watchlistId String
+  type        WatchlistItemType
+  startupId   String?
+  studyId     String?
+  addedById   String
+  createdAt   DateTime          @default(now())
+
+  watchlist Watchlist      @relation(fields: [watchlistId], references: [id], onDelete: Cascade)
+  startup   Startup?       @relation(fields: [startupId], references: [id], onDelete: Cascade)
+  study     ResearchStudy? @relation(fields: [studyId], references: [id], onDelete: Cascade)
+  addedBy   User           @relation(fields: [addedById], references: [id], onDelete: Restrict)
 
   @@unique([watchlistId, startupId])
-  @@unique([watchlistId, marketId])
-  @@index([startupId])
-  @@index([marketId])
+  @@unique([watchlistId, studyId])
+}
+
+model VcAlert {
+  id             String      @id @default(cuid())
+  organizationId String
+  type           VcAlertType
+  studyId        String?
+  startupId      String?
+  marketId       String?
+  title          String
+  body           String
+  payload        Json        @default("{}")
+  dedupeKey      String
+  createdAt      DateTime    @default(now())
+
+  organization Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  receipts     VcAlertReceipt[]
+
+  @@unique([organizationId, dedupeKey])
+  @@index([organizationId, createdAt])
+}
+
+/// Per-user read state for organization alerts.
+model VcAlertReceipt {
+  alertId String
+  userId  String
+  readAt  DateTime @default(now())
+
+  alert VcAlert @relation(fields: [alertId], references: [id], onDelete: Cascade)
+  user  User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([alertId, userId])
+}
+
+/// Frozen report snapshot. Access is re-checked against the study on every read.
+model VcReport {
+  id             String   @id @default(cuid())
+  organizationId String
+  studyId        String
+  createdById    String
+  title          String
+  content        Json
+  createdAt      DateTime @default(now())
+
+  organization Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  study        ResearchStudy @relation(fields: [studyId], references: [id], onDelete: Cascade)
+  createdBy    User          @relation(fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@index([organizationId, createdAt])
 }
 
 // ---------------------------------------------------------------------------
@@ -532,8 +716,8 @@ model NewsItem {
   marketId     String?
   title        String
   summary      String?
-  sourceName   String
-  sourceUrl    String
+  publisher    String
+  url          String
   publishedAt  DateTime
   /// Whether an admin has verified the reported facts against the source.
   verification NewsVerification @default(UNVERIFIED)

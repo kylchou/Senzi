@@ -1,4 +1,5 @@
 import "dotenv/config";
+import { createHash } from "node:crypto";
 import {
   CreditTransactionType,
   ForecastSide,
@@ -9,15 +10,17 @@ import {
   PlatformRole,
   ResolutionOutcome,
   SnapshotTrigger,
-  StudyAccess,
-  StudyRole,
   StudyStatus,
+  StudyVisibility,
+  VcAlertType,
+  WatchlistItemType,
 } from "../generated/prisma/enums";
 import { applyCreditTransaction, grantSignupCredits } from "../lib/credits";
 import { db } from "../lib/db";
 import { PENDING_AUTH_PREFIX, SIGNUP_GRANT_CREDITS } from "../lib/types";
 import {
   achievements,
+  facts,
   markets,
   news,
   SEED_ANCHOR,
@@ -33,6 +36,7 @@ import {
 
 const DAY = 24 * 60 * 60 * 1000;
 const daysFrom = (days: number) => new Date(SEED_ANCHOR.getTime() + days * DAY);
+const sha = (value: unknown) => createHash("sha256").update(JSON.stringify(value)).digest("hex");
 
 /** mulberry32: tiny seeded PRNG so every run produces the same forecasts. */
 function rng(seed: number) {
@@ -114,13 +118,26 @@ async function main() {
     },
   });
 
-  // --- Startups ---------------------------------------------------------------
+  // --- Startups and facts -----------------------------------------------------
   const startupIds = new Map<string, string>();
   for (const s of startups) {
     const row = await db.startup.create({
-      data: { ...s, website: `https://${s.slug}.example.com`, isPublished: true, createdById: adminId },
+      data: { ...s, websiteUrl: `https://${s.slug}.example.com`, isPublished: true, createdById: adminId },
     });
     startupIds.set(s.slug, row.id);
+  }
+  for (const f of facts) {
+    await db.startupFact.create({
+      data: {
+        startupId: startupIds.get(f.startup)!,
+        label: f.label,
+        value: f.value,
+        sourceName: f.sourceName,
+        sourceUrl: `https://${f.startup}.example.com/press`,
+        asOf: daysFrom(f.days),
+        verified: f.verified,
+      },
+    });
   }
 
   // --- Markets and forecasts --------------------------------------------------
@@ -133,41 +150,49 @@ async function main() {
     const status = marketStatus(m);
     const closesAt = daysFrom(m.closesInDays);
     const opensAt = daysFrom(Math.min(-45, m.closesInDays - 60));
+    const visibility = m.visibility ?? MarketVisibility.PUBLIC;
     const market = await db.market.create({
       data: {
         slug: m.slug,
         startupId: startupIds.get(m.startup)!,
         question: m.question,
-        resolutionCriteria: m.criteria,
-        resolutionSource: m.source,
+        yesCriteria: m.criteria,
+        noCriteria: "Resolves NO if the YES criteria are not met by the deadline.",
         category: m.category,
         openingBaseline: m.baseline,
+        baselineMethodology: "Admin estimate from historical base rates for companies at this stage.",
+        baselineSetAt: opensAt,
         status: MarketStatus.OPEN, // forecasts first, final status below
-        visibility: m.visibility ?? MarketVisibility.PUBLIC,
-        organizationId: m.visibility === "PRIVATE" ? northstar.id : null,
+        visibility,
+        organizationId: visibility === MarketVisibility.PUBLIC ? null : northstar.id,
         opensAt,
         closesAt,
         resolvesBy: new Date(closesAt.getTime() + 30 * DAY),
         createdById: adminId,
+        sources: {
+          create: [{ title: m.source, url: `https://${m.startup}.example.com/news`, position: 0 }],
+        },
       },
     });
     marketIds.set(m.slug, market.id);
 
     if (status !== MarketStatus.DRAFT) {
-      await db.probabilitySnapshot.create({
+      let snapshotSeq = 1;
+      await db.marketSnapshot.create({
         data: {
           marketId: market.id,
+          sequence: snapshotSeq,
           trigger: SnapshotTrigger.OPENING,
           openingBaseline: m.baseline,
           yesCredits: 0,
           noCredits: 0,
           forecastCount: 0,
-          uniqueForecasters: 0,
-          capturedAt: opensAt,
+          forecasterCount: 0,
+          recordedAt: opensAt,
         },
       });
 
-      const pool = m.visibility === "PRIVATE" ? ["maya", "theo", "priya"] : forecasters;
+      const pool = visibility === MarketVisibility.PUBLIC ? forecasters : ["maya", "theo"];
       const count = 3 + Math.floor(random() * 6);
       const windowEnd = Math.min(SEED_ANCHOR.getTime(), closesAt.getTime());
       const times = Array.from({ length: count }, () => opensAt.getTime() + random() * (windowEnd - opensAt.getTime())).sort((a, b) => a - b);
@@ -186,15 +211,29 @@ async function main() {
         const createdAt = new Date(time);
         forecastCount += 1;
 
+        const before = yes + no > 0 ? yes / (yes + no) : null;
+        const nextYes = yes + (side === ForecastSide.YES ? credits : 0);
+        const nextNo = no + (side === ForecastSide.NO ? credits : 0);
+        const after = nextYes / (nextYes + nextNo);
+        const idempotencyKey = `seed:${m.slug}:${i}`;
+        const sequence = forecastCount;
+        snapshotSeq += 1;
+        const snapshotSequence = snapshotSeq;
+        seen.add(handle);
+        const forecasterCount = seen.size;
+
         await db.$transaction(async (tx) => {
           const forecast = await tx.forecast.create({
             data: {
               userId: uid(handle),
               marketId: market.id,
+              sequence,
               side,
               credits,
               statedProbability: Math.round(stated * 100) / 100,
-              idempotencyKey: `seed:${m.slug}:${i}`,
+              idempotencyKey,
+              requestHash: sha({ marketId: market.id, side, credits, idempotencyKey }),
+              entry: { openingBaseline: m.baseline, generalBefore: before, generalAfter: after, estimateKind: "ALLOCATION_SHARE" },
               createdAt,
             },
           });
@@ -207,24 +246,24 @@ async function main() {
             forecastId: forecast.id,
             memo: "Seed forecast stake",
           });
+          await tx.marketSnapshot.create({
+            data: {
+              marketId: market.id,
+              sequence: snapshotSequence,
+              trigger: SnapshotTrigger.FORECAST,
+              forecastId: forecast.id,
+              openingBaseline: m.baseline,
+              yesCredits: nextYes,
+              noCredits: nextNo,
+              allocationShare: after,
+              forecastCount: sequence,
+              forecasterCount,
+              recordedAt: createdAt,
+            },
+          });
         });
-
-        if (side === ForecastSide.YES) yes += credits;
-        else no += credits;
-        seen.add(handle);
-        await db.probabilitySnapshot.create({
-          data: {
-            marketId: market.id,
-            trigger: SnapshotTrigger.FORECAST,
-            openingBaseline: m.baseline,
-            yesCredits: yes,
-            noCredits: no,
-            communityAllocationShare: yes / (yes + no),
-            forecastCount,
-            uniqueForecasters: seen.size,
-            capturedAt: createdAt,
-          },
-        });
+        yes = nextYes;
+        no = nextNo;
       }
       await db.market.update({
         where: { id: market.id },
@@ -240,7 +279,7 @@ async function main() {
           marketId: market.id,
           outcome,
           evidenceSummary:
-            outcome === ResolutionOutcome.CANCELLED
+            outcome === ResolutionOutcome.VOID
               ? "The trial site's permit was withdrawn, so the question can no longer be fairly answered. Stakes will be refunded."
               : `Demo resolution: the published record ${outcome === ResolutionOutcome.YES ? "meets" : "does not meet"} the criteria by the deadline.`,
           evidenceUrls: [`https://${m.startup}.example.com/news`],
@@ -251,95 +290,158 @@ async function main() {
     }
   }
 
-  // --- Research studies -------------------------------------------------------
-  await db.researchStudy.create({
+  // --- Research studies (VC Intelligence) ---------------------------------------
+  // Two studies already opened as markets, one waiting for review, one draft.
+  type Step = [StudyStatus | null, StudyStatus, string, number];
+  const studyEvents = (author: string, steps: Step[]) =>
+    steps.map(([fromStatus, toStatus, action, days]) => ({
+      actorId: action === "approve" || action === "open" ? adminId : uid(author),
+      action,
+      fromStatus,
+      toStatus,
+      createdAt: daysFrom(days),
+    }));
+  const openedSteps = (days: number): Step[] => [
+    [null, StudyStatus.DRAFT, "create", days - 6],
+    [StudyStatus.DRAFT, StudyStatus.SUBMITTED, "submit", days - 4],
+    [StudyStatus.SUBMITTED, StudyStatus.APPROVED, "approve", days - 1],
+    [StudyStatus.APPROVED, StudyStatus.OPEN, "open", days],
+  ];
+  const noCriteria = "Resolves NO if the YES criteria are not met by the deadline.";
+
+  const tidewater = markets.find((m) => m.slug === "northstar-tidewater-pilot")!;
+  const tidewaterStudy = await db.researchStudy.create({
     data: {
       organizationId: northstar.id,
-      slug: "climate-infrastructure-2027",
-      title: "Climate infrastructure 2027",
-      summary: "Which long-duration storage and water companies hit commercial milestones next year.",
-      status: StudyStatus.ACTIVE,
-      access: StudyAccess.ORGANIZATION,
-      createdById: uid("maya"),
-      members: { create: [{ userId: uid("theo"), role: StudyRole.LEAD }] },
-      startups: {
-        create: ["lumen-grid", "tidewater-water", "verdant-soil", "copperline-ev"].map((slug) => ({
-          startupId: startupIds.get(slug)!,
-          addedById: uid("theo"),
-        })),
-      },
-      markets: {
-        create: ["lumen-grid-utility-contract", "northstar-tidewater-pilot", "verdant-registry-approval"].map((slug) => ({
-          marketId: marketIds.get(slug)!,
-          addedById: uid("theo"),
-        })),
-      },
-    },
-  });
-  await db.researchStudy.create({
-    data: {
-      organizationId: northstar.id,
-      slug: "lab-automation-diligence",
-      title: "Lab automation diligence",
-      summary: "Restricted: active diligence on Polymath Labs.",
-      status: StudyStatus.ACTIVE,
-      access: StudyAccess.RESTRICTED,
       createdById: uid("theo"),
-      members: { create: [{ userId: uid("theo"), role: StudyRole.LEAD }] },
-      startups: { create: [{ startupId: startupIds.get("polymath-labs")!, addedById: uid("theo") }] },
-      markets: { create: [{ marketId: marketIds.get("northstar-polymath-seed")!, addedById: uid("theo") }] },
-    },
-  });
-  await db.researchStudy.create({
-    data: {
-      organizationId: harbor.id,
-      slug: "fintech-back-office",
-      title: "Fintech back office",
-      summary: "Tracking accounting and payroll infrastructure players.",
-      status: StudyStatus.ACTIVE,
-      access: StudyAccess.ORGANIZATION,
-      createdById: uid("jonas"),
-      members: { create: [{ userId: uid("lena"), role: StudyRole.CONTRIBUTOR }] },
-      startups: {
-        create: ["ledgerline", "meridian-pay", "atlas-claims"].map((slug) => ({
-          startupId: startupIds.get(slug)!,
-          addedById: uid("lena"),
-        })),
-      },
-      markets: {
-        create: ["ledgerline-ipo-filing", "meridian-license"].map((slug) => ({
-          marketId: marketIds.get(slug)!,
-          addedById: uid("lena"),
-        })),
+      startupId: startupIds.get("tidewater-water")!,
+      marketId: marketIds.get(tidewater.slug),
+      question: tidewater.question,
+      yesCriteria: tidewater.criteria,
+      noCriteria,
+      context: "Diligence input for a possible seed extension.",
+      baselineValue: tidewater.baseline,
+      baselineMethodology: "Share of comparable water-tech pilots that converted within 12 months.",
+      deadline: daysFrom(tidewater.closesInDays),
+      visibility: StudyVisibility.ORGANIZATION,
+      status: StudyStatus.OPEN,
+      submittedAt: daysFrom(-49),
+      approvedAt: daysFrom(-46),
+      openedAt: daysFrom(-45),
+      version: 4,
+      sources: { create: [{ url: "https://tidewater-water.example.com/news", title: "Tidewater newsroom" }] },
+      events: { create: studyEvents("theo", openedSteps(-45)) },
+      notes: {
+        create: [{ organizationId: northstar.id, authorId: uid("theo"), body: "Utility procurement cycles look like 6-9 months." }],
       },
     },
   });
 
-  // --- Watchlists -------------------------------------------------------------
+  const polymath = markets.find((m) => m.slug === "northstar-polymath-seed")!;
+  const polymathStudy = await db.researchStudy.create({
+    data: {
+      organizationId: northstar.id,
+      createdById: uid("theo"),
+      startupId: startupIds.get("polymath-labs")!,
+      marketId: marketIds.get(polymath.slug),
+      question: polymath.question,
+      yesCriteria: polymath.criteria,
+      noCriteria,
+      baselineValue: polymath.baseline,
+      baselineMethodology: "Seed close rates for lab-automation companies after a demo day.",
+      deadline: daysFrom(polymath.closesInDays),
+      visibility: StudyVisibility.RESTRICTED,
+      status: StudyStatus.OPEN,
+      submittedAt: daysFrom(-49),
+      approvedAt: daysFrom(-46),
+      openedAt: daysFrom(-45),
+      version: 4,
+      sources: { create: [{ url: "https://polymath-labs.example.com/news", title: "SEC Form D filings" }] },
+      participants: { create: [{ userId: uid("maya"), addedById: uid("theo") }] },
+      events: { create: studyEvents("theo", openedSteps(-45)) },
+    },
+  });
+
+  await db.researchStudy.create({
+    data: {
+      organizationId: harbor.id,
+      createdById: uid("lena"),
+      startupId: startupIds.get("meridian-pay")!,
+      question: "Will Meridian Pay launch payroll in Brazil by June 30, 2027?",
+      yesCriteria: "YES if Meridian Pay publicly lists Brazil as a supported payroll country on or before 2027-06-30.",
+      noCriteria: "Resolves NO if Brazil is not listed as supported by the deadline.",
+      baselineValue: 0.35,
+      baselineMethodology: "Historical pace of Meridian's country launches.",
+      deadline: daysFrom(270),
+      visibility: StudyVisibility.PUBLIC,
+      status: StudyStatus.SUBMITTED,
+      submittedAt: daysFrom(-2),
+      version: 2,
+      sources: { create: [{ url: "https://meridian-pay.example.com/countries", title: "Meridian supported countries" }] },
+      events: {
+        create: studyEvents("lena", [
+          [null, StudyStatus.DRAFT, "create", -5],
+          [StudyStatus.DRAFT, StudyStatus.SUBMITTED, "submit", -2],
+        ]),
+      },
+    },
+  });
+
+  await db.researchStudy.create({
+    data: {
+      organizationId: harbor.id,
+      createdById: uid("lena"),
+      startupId: startupIds.get("ledgerline")!,
+      question: "Will Ledgerline announce an acquisition of another company in 2027?",
+      yesCriteria: "YES if Ledgerline announces a signed acquisition of another company between 2027-01-01 and 2027-12-31.",
+      noCriteria: "Resolves NO if no acquisition is announced in 2027.",
+      deadline: daysFrom(455),
+      visibility: StudyVisibility.ORGANIZATION,
+      status: StudyStatus.DRAFT,
+      events: { create: studyEvents("lena", [[null, StudyStatus.DRAFT, "create", -1]]) },
+    },
+  });
+
+  // --- Watchlists and alerts ----------------------------------------------------
   await db.watchlist.create({
     data: {
-      ownerId: uid("theo"),
       organizationId: northstar.id,
-      name: "Northstar pipeline",
+      name: "Pipeline",
+      createdById: uid("theo"),
       items: {
         create: [
-          { startupId: startupIds.get("tidewater-water")! },
-          { startupId: startupIds.get("polymath-labs")! },
-          { marketId: marketIds.get("lumen-grid-series-c-2027")!, alertThreshold: 0.1 },
+          { type: WatchlistItemType.STARTUP, startupId: startupIds.get("lumen-grid")!, addedById: uid("theo") },
+          { type: WatchlistItemType.STARTUP, startupId: startupIds.get("copperline-ev")!, addedById: uid("theo") },
+          { type: WatchlistItemType.STUDY, studyId: tidewaterStudy.id, addedById: uid("theo") },
+          { type: WatchlistItemType.STUDY, studyId: polymathStudy.id, addedById: uid("theo") },
         ],
       },
     },
   });
   await db.watchlist.create({
     data: {
-      ownerId: uid("sam"),
-      name: "My watchlist",
+      organizationId: harbor.id,
+      name: "Fintech",
+      createdById: uid("jonas"),
       items: {
-        create: [
-          { startupId: startupIds.get("stackwise")! },
-          { marketId: marketIds.get("fieldnote-salesforce-app")!, alertThreshold: 0.05 },
-        ],
+        create: ["ledgerline", "meridian-pay", "atlas-claims"].map((slug) => ({
+          type: WatchlistItemType.STARTUP,
+          startupId: startupIds.get(slug)!,
+          addedById: uid("jonas"),
+        })),
       },
+    },
+  });
+  await db.vcAlert.create({
+    data: {
+      organizationId: northstar.id,
+      type: VcAlertType.DEADLINE_APPROACHING,
+      studyId: polymathStudy.id,
+      marketId: marketIds.get(polymath.slug),
+      title: "Polymath seed study closes in 7 months",
+      body: "The forecasting deadline for this study is approaching.",
+      dedupeKey: `deadline:${polymathStudy.id}:210d`,
+      createdAt: SEED_ANCHOR,
     },
   });
 
@@ -350,8 +452,8 @@ async function main() {
         startupId: startupIds.get(n.startup)!,
         title: n.title,
         summary: "Fictional article for demo purposes.",
-        sourceName: n.sourceName,
-        sourceUrl: `https://news.example.com/${n.startup}/${i + 1}`,
+        publisher: n.sourceName,
+        url: `https://news.example.com/${n.startup}/${i + 1}`,
         publishedAt: daysFrom(n.days),
         verification: n.verified ? NewsVerification.VERIFIED : NewsVerification.UNVERIFIED,
         createdById: adminId,
@@ -370,6 +472,7 @@ async function main() {
     startups: await db.startup.count(),
     markets: await db.market.count(),
     forecasts: await db.forecast.count(),
+    studies: await db.researchStudy.count(),
     ledgerRows: await db.creditTransaction.count(),
   };
   console.log("Seeded Senzi demo data:", counts);
@@ -389,7 +492,7 @@ function marketStatus(m: SeedMarket): MarketStatus {
 function resolutionOutcome(m: SeedMarket): ResolutionOutcome | null {
   if (m.state === "RESOLVED_YES") return ResolutionOutcome.YES;
   if (m.state === "RESOLVED_NO") return ResolutionOutcome.NO;
-  if (m.state === "CANCELLED") return ResolutionOutcome.CANCELLED;
+  if (m.state === "CANCELLED") return ResolutionOutcome.VOID;
   return null;
 }
 
