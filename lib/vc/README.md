@@ -123,7 +123,7 @@ All alerts go through one publisher (`services/alert-publisher.ts`). It writes t
 - a track record: YES rate with a 95% interval, and Brier scores for the opening baseline and the final allocation share, scored with the forecasting engine's own `brierScore` / `wilsonInterval`
 - public indicators
 
-Each column only includes public markets, published PUBLIC studies, and studies the caller's firm can see. Indicators come from the model through `server/indicators-adapter.ts`, which uses scraped public data only, never sponsor-provided figures. Until `lib/model` can be bundled by Next.js (see [`REQUESTS.md`](./REQUESTS.md)), the app uses `server/indicators-pending.ts` instead, and the page shows indicators as temporarily unavailable.
+Each column only includes public markets, published PUBLIC studies, and studies the caller's firm can see. Indicators come from the model through `server/indicators-adapter.ts`, which uses scraped public data only, never sponsor-provided figures. Startups the model doesn't track show as "not tracked".
 
 ## AI research assistant
 
