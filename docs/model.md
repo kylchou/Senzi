@@ -4,7 +4,9 @@ Code: `lib/model/`. Collectors: `scripts/scrapers/`. Model scripts (refresh, bac
 
 ## Active demo selection
 
-The selected six are Stripe, Vercel, Supabase, PostHog, Resend, and Convex. Their primary question metrics are the official npm packages `stripe`, `vercel`, `@supabase/supabase-js`, `posthog-js`, `resend`, and `convex`. Databricks and Hugging Face are no longer in the active model catalog, questions, data, or baselines.
+The original six are Stripe, Vercel, Supabase, PostHog, Resend, and Convex. Their primary question metrics are the official npm packages `stripe`, `vercel`, `@supabase/supabase-js`, `posthog-js`, `resend`, and `convex`. They keep the hand-picked model questions in `questions.json`.
+
+On 2026-10-10 we added 25 more from the expansion list, picked for having the most public data: an official npm SDK and GitHub repo for all of them, PyPI for 22, and a public job board for 23. They are OpenAI, Anthropic, Sentry, ClickHouse, Linear, Clerk, Pinecone, Temporal, PlanetScale, WorkOS, Inngest, E2B, Exa, LangChain, LlamaIndex, Chroma, Cohere, Hugging Face, ElevenLabs, Plaid, Together AI, Browserbase, OpenRouter, Mistral AI, and fal. Each question metric is the company's main npm SDK (see `lib/model/catalog.ts`). None has a verified SEC CIK yet, so there are no Form D questions for them. The scraped-data seed (`lib/model/cli/seed-real-markets.ts`) builds markets for all 31.
 
 The active dataset was freshly collected and checked against public package, repository, and SEC metadata. See `data/model/validation-report.json` for dates, continuity, provenance, flagged counter zeros, and missing secondary sources; `data/model/identity-report.json` records verified identities. Raw download histories begin January 2023 and are current through the latest complete day, October 8, 2026. Sponsor KPIs remain explicitly simulated and do not affect these questions.
 
