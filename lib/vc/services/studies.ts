@@ -74,8 +74,7 @@ const PENDING_STATUSES: readonly StudyStatus[] = ["SUBMITTED", "APPROVED"];
 export function createStudyService(deps: VcDeps) {
   const { repo, platform, forecasting, now } = deps;
   const alertPublisher = createAlertPublisher(deps);
-  // Pricing never needs the AI; it only proposes links in the draft preview.
-  const openingLine = createOpeningLineService(deps, null);
+  const openingLine = createOpeningLineService(deps);
 
   /** Loads a study and enforces view access; hides existence from unauthorized callers. */
   async function loadVisible(ctx: VcContext, studyId: string) {
@@ -248,18 +247,13 @@ export function createStudyService(deps: VcDeps) {
     const deadlineIssue = checkDeadline(input.deadline, now());
     if (deadlineIssue) throw new VcError("VALIDATION_ERROR", deadlineIssue, [{ path: "deadline", message: deadlineIssue }]);
 
-    const { estimate, figures } = await openingLine.estimateFor(
-      ctx.activeOrg.organizationId,
-      startup,
-      input.modelLink ? linkOf(input.modelLink) : null,
-      input.deadline,
-    );
+    const { estimate, figures } = await openingLine.estimateFor(ctx.activeOrg.organizationId, startup, linkOf(input.modelLink), input.deadline);
 
     const study = await repo.createStudy({
       organizationId: ctx.activeOrg.organizationId,
       createdById: ctx.user.id,
       startupId: input.startupId,
-      ...fieldsFrom(estimate, input),
+      ...fieldsFrom(estimate, { question: input.question ?? "", yesCriteria: input.yesCriteria ?? "", noCriteria: input.noCriteria ?? "" }),
       context: input.context ?? null,
       deadline: input.deadline,
       visibility: input.visibility ?? visibilityFor(audienceOf(input)),
@@ -312,7 +306,7 @@ export function createStudyService(deps: VcDeps) {
 
     // Re-price whenever anything the estimate depends on changes. Undefined modelLink keeps the stored link.
     const stored = await repo.findModelEstimate(study.id);
-    const link = modelLink === undefined ? (stored?.link ?? null) : modelLink && linkOf(modelLink);
+    const link = modelLink === undefined ? (stored?.link ?? null) : linkOf(modelLink);
     const repriced =
       modelLink !== undefined || !stored || startupId !== study.startupId || (!!fields.deadline && !!link);
     const { estimate, figures } = repriced
