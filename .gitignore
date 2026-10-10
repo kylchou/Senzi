@@ -41,6 +41,10 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
+# per-developer AI agent skills (e.g. from `clerk init`)
+/.agents/
+/skills-lock.json
+
 # prisma client (generated on install)
 /generated/
 
