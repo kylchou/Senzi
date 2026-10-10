@@ -9,7 +9,9 @@ import { ForecastPanel } from "@/components/ForecastPanel";
 const refresh = vi.fn();
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh }) }));
 // Clerk's modal is out of scope here; render the trigger as-is.
-vi.mock("@clerk/nextjs", () => ({ SignInButton: ({ children }: { children: ReactNode }) => children }));
+// Signed in unless a test says otherwise; the API still decides (401 means the session expired).
+const auth = vi.hoisted(() => ({ isLoaded: true, isSignedIn: true }));
+vi.mock("@clerk/nextjs", () => ({ SignInButton: ({ children }: { children: ReactNode }) => children, useAuth: () => auth }));
 
 const json = (status: number, body: unknown) =>
   new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
@@ -25,7 +27,7 @@ function mockApi({ balance, submit }: { balance: Handler; submit?: Handler }) {
   });
 }
 
-const me = (creditBalance: number) => json(200, { data: { creditBalance } });
+const me = (creditBalance: number, accountType: "VC" | "TRADER" | null = "TRADER") => json(200, { data: { creditBalance, accountType } });
 const fail = (status: number, code: string) => json(status, { error: { code, message: code } });
 const renderPanel = (isOpen = true) => render(createElement(ForecastPanel, { marketId: "m1", isOpen }));
 
@@ -57,6 +59,32 @@ describe("ForecastPanel", () => {
     mockApi({ balance: () => fail(401, "UNAUTHENTICATED") });
     renderPanel();
     expect(await screen.findByRole("button", { name: "Sign in" })).toBeInTheDocument();
+  });
+
+  it("tells VC accounts they can't trade instead of showing the form", async () => {
+    mockApi({ balance: () => me(1000, "VC") });
+    renderPanel();
+    expect(await screen.findByText(/VC accounts can.t trade/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Place forecast/i })).not.toBeInTheDocument();
+  });
+
+  it("sends accounts without a type to finish setup", async () => {
+    mockApi({ balance: () => me(1000, null) });
+    renderPanel();
+    expect(await screen.findByRole("link", { name: "Finish setup" })).toHaveAttribute("href", "/onboarding");
+  });
+
+  it("skips the API when Clerk already knows the visitor is signed out", async () => {
+    const balance = vi.fn<Handler>(() => me(1000));
+    mockApi({ balance });
+    auth.isSignedIn = false;
+    try {
+      renderPanel();
+      expect(await screen.findByRole("button", { name: "Sign in" })).toBeInTheDocument();
+      expect(balance).not.toHaveBeenCalled();
+    } finally {
+      auth.isSignedIn = true;
+    }
   });
 
   it("submits a forecast and shows the server receipt", async () => {
