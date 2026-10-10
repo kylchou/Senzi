@@ -8,7 +8,7 @@ import { VcError } from "@/lib/vc/errors";
 import { getVcDeps } from "@/lib/vc/server/container";
 import { createVcServices } from "@/lib/vc/services";
 import type { StudyVisibility, VcContext } from "@/lib/vc/types";
-import { makeAdmin, makeOrg, makeStartup, makeUser, placeForecast, resetDatabase } from "../helpers";
+import { makeAdmin, makeMarket, makeOrg, makeStartup, makeUser, placeForecast, resetDatabase } from "../helpers";
 
 beforeEach(resetDatabase);
 afterAll(() => db.$disconnect());
@@ -140,7 +140,7 @@ describe("study lifecycle against the shared schema", () => {
       evidenceSummary: "The company announced a $25M Series B in a press release.",
       evidenceUrls: ["https://example.com/series-b"],
     });
-    expect(await services.studies.syncWithMarkets()).toEqual({ closed: 0, resolved: 1 });
+    expect(await services.studies.syncWithMarkets()).toEqual({ closed: 0, resolved: 1, failed: 0 });
     const resolved = await services.studies.get(w.ctx.analystA, study.id);
     expect(resolved.study).toMatchObject({ status: "RESOLVED", resolvedOutcome: "YES" });
     expect(resolved.estimate?.resolution?.evidenceUrls).toEqual(["https://example.com/series-b"]);
@@ -164,13 +164,23 @@ describe("study lifecycle against the shared schema", () => {
     expect((await services.studies.get(w.ctx.expert, study.id)).permissions.viewLevel).toBe("limited");
   });
 
-  it("opens public markets that appear in public listings", async () => {
+  it("opens public markets, which are listed through their study rather than as plain markets", async () => {
     const w = await world();
     const study = await openStudy(w, "PUBLIC");
     const market = await db.market.findUniqueOrThrow({ where: { id: study.marketId! } });
     expect(market).toMatchObject({ visibility: MarketVisibility.PUBLIC, organizationId: null });
+    const plain = await makeMarket(w.admin, { startupId: w.startup.id });
     const listed = await deps.platform.listPublicMarketsForStartups([w.startup.id]);
-    expect(listed.map((m) => m.id)).toEqual([market.id]);
+    expect(listed.map((m) => m.id)).toEqual([plain.id]);
+  });
+
+  it("closes the market when the study is closed, so forecasting stops", async () => {
+    const w = await world();
+    const study = await openStudy(w, "ORGANIZATION");
+    await services.studies.transition(w.ctx.admin, study.id, { action: "close", expectedVersion: study.version });
+    expect((await db.market.findUniqueOrThrow({ where: { id: study.marketId! } })).status).toBe("CLOSED");
+    expect((await deps.repo.findStudy(study.id))!.status).toBe("CLOSED");
+    expect(await db.auditLog.count({ where: { action: "market.closeFromStudy", entityId: study.marketId! } })).toBe(1);
   });
 
   it("keeps other firms out of private studies, notes, and reports", async () => {
@@ -214,8 +224,8 @@ describe("adapters", () => {
 
     const hidden = await db.startup.update({ where: { id: (await makeStartup()).id }, data: { isPublished: false, name: "Hidden Co" } });
     expect(await deps.platform.searchStartups("Hidden", 10)).toEqual([]);
+    expect(await deps.platform.getStartups([hidden.id])).toEqual([]);
     expect((await deps.platform.getStartups([w.startup.id]))[0]).toMatchObject({ id: w.startup.id, industry: "Testing" });
-    expect(hidden.isPublished).toBe(false);
   });
 
   it("dedupes alerts and keeps watchlist names unique per firm", async () => {

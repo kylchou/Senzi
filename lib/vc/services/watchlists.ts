@@ -1,13 +1,14 @@
 import { VcError, forbidden, notFound } from "../errors";
 import { canProposeInActiveOrg, getStudyPermissions, redactStudy, type StudyView } from "../permissions";
 import type { VcDeps } from "../ports";
-import type {
-  MarketEstimate,
-  MarketSummary,
-  StartupSummary,
-  Watchlist,
-  WatchlistItem,
-  VcContext,
+import {
+  PUBLISHED_STATUSES,
+  type MarketEstimate,
+  type MarketSummary,
+  type StartupSummary,
+  type Watchlist,
+  type WatchlistItem,
+  type VcContext,
 } from "../types";
 import type { WatchlistItemInput } from "../validation";
 
@@ -22,7 +23,7 @@ export interface WatchlistStartupEntry {
   item: WatchlistItem;
   kind: "STARTUP";
   startup: StartupSummary | null;
-  /** Public markets plus this firm's visible studies about the startup. */
+  /** Public markets not opened from a study, plus visible studies about the startup (this firm's and published public ones). */
   markets: { market: MarketSummary; estimate: MarketEstimate | null }[];
   studies: { study: StudyView; estimate: MarketEstimate | null }[];
 }
@@ -55,24 +56,28 @@ export function createWatchlistService(deps: VcDeps) {
     const studyIds = items.filter((i) => i.type === "STUDY").map((i) => i.studyId!);
     const startupIds = [...new Set(items.filter((i) => i.type === "STARTUP").map((i) => i.startupId!))];
 
-    const [watchedStudies, startups, publicMarkets, orgStartupStudies] = await Promise.all([
+    const [watchedStudies, startups, markets, orgStartupStudies, publicStartupStudies] = await Promise.all([
       studyIds.length ? repo.listStudies({ ids: studyIds }) : Promise.resolve([]),
       startupIds.length ? platform.getStartups(startupIds) : Promise.resolve([]),
+      // Excludes every market opened from a study (any firm's): those appear through their study.
       startupIds.length ? platform.listPublicMarketsForStartups(startupIds) : Promise.resolve([]),
       startupIds.length
         ? repo.listStudies({ organizationId: org.organizationId, startupIds, hasMarket: true })
         : Promise.resolve([]),
+      startupIds.length
+        ? repo.listStudies({ visibility: "PUBLIC", statuses: PUBLISHED_STATUSES, startupIds, hasMarket: true })
+        : Promise.resolve([]),
     ]);
 
+    const startupStudies = [
+      ...new Map([...orgStartupStudies, ...publicStartupStudies].map((s) => [s.id, s])).values(),
+    ];
     const visibleStudies = new Map(
-      [...watchedStudies, ...orgStartupStudies]
+      [...watchedStudies, ...startupStudies]
         .map((s) => ({ s, p: getStudyPermissions(ctx, s) }))
         .filter(({ p }) => p.canView)
         .map(({ s, p }) => [s.id, { raw: s, view: redactStudy(ctx, s, p) }]),
     );
-    // Study-linked markets are surfaced through the study, never as anonymous public markets.
-    const studyMarketIds = new Set(orgStartupStudies.map((s) => s.marketId));
-    const markets = publicMarkets.filter((m) => !studyMarketIds.has(m.id));
 
     const marketIds = [
       ...[...visibleStudies.values()].map((s) => s.raw.marketId),
@@ -103,7 +108,7 @@ export function createWatchlistService(deps: VcDeps) {
             markets: markets
               .filter((m) => m.startupId === item.startupId)
               .map((market) => ({ market, estimate: estimateFor(market.id) })),
-            studies: orgStartupStudies
+            studies: startupStudies
               .filter((s) => s.startupId === item.startupId && visibleStudies.has(s.id))
               .map((s) => ({ study: visibleStudies.get(s.id)!.view, estimate: estimateFor(s.marketId) })),
           };
@@ -165,7 +170,14 @@ export function createWatchlistService(deps: VcDeps) {
     if (!removed) throw notFound("Watchlist item");
   }
 
-  return { list, create, remove, addItem, removeItem };
+  /** Watchlist names for "Add to watchlist" pickers; null if the caller can't edit watchlists. */
+  async function listForPicker(ctx: VcContext): Promise<{ id: string; name: string }[] | null> {
+    if (!ctx.activeOrg || !canProposeInActiveOrg(ctx)) return null;
+    const watchlists = await repo.listWatchlists(ctx.activeOrg.organizationId);
+    return watchlists.map((w) => ({ id: w.id, name: w.name }));
+  }
+
+  return { list, listForPicker, create, remove, addItem, removeItem };
 }
 
 export type WatchlistService = ReturnType<typeof createWatchlistService>;

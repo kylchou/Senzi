@@ -226,6 +226,14 @@ export function createPrismaVcRepository(prisma: PrismaClient): VcRepository {
         }),
       );
     },
+    async countUnreadAlertsByStudy(organizationId, userId) {
+      const rows = await prisma.vcAlert.groupBy({
+        by: ["studyId"],
+        where: { organizationId, receipts: { none: { userId } } },
+        _count: { _all: true },
+      });
+      return rows.map((r) => ({ studyId: r.studyId, count: r._count._all }));
+    },
     async markAlertsRead(organizationId, userId, alertIds, at) {
       const owned = await prisma.vcAlert.findMany({
         where: { id: { in: alertIds }, organizationId },

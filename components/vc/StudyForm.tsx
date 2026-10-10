@@ -39,6 +39,11 @@ function toLocalInput(d: Date | string | null | undefined): string {
   return new Date(date.getTime() - off).toISOString().slice(0, 16);
 }
 
+/** 0.355 → "35.5", without floating-point noise like "35.49999999". */
+function toPercentText(fraction: number): string {
+  return String(Number((fraction * 100).toPrecision(10)));
+}
+
 export function StudyForm({ initial }: { initial?: StudyFormInitial }) {
   const router = useRouter();
   const [startup, setStartup] = useState(initial?.startup ?? null);
@@ -46,9 +51,8 @@ export function StudyForm({ initial }: { initial?: StudyFormInitial }) {
   const [yesCriteria, setYes] = useState(initial?.yesCriteria ?? "");
   const [noCriteria, setNo] = useState(initial?.noCriteria ?? "");
   const [context, setContext] = useState(initial?.context ?? "");
-  const [baseline, setBaseline] = useState(
-    initial?.baselineValue != null ? String(Math.round(initial.baselineValue * 100)) : "",
-  );
+  const initialBaseline = initial?.baselineValue != null ? toPercentText(initial.baselineValue) : "";
+  const [baseline, setBaseline] = useState(initialBaseline);
   const [methodology, setMethodology] = useState(initial?.baselineMethodology ?? "");
   const [deadline, setDeadline] = useState(toLocalInput(initial?.deadline));
   const [visibility, setVisibility] = useState<StudyVisibility>(initial?.visibility ?? "ORGANIZATION");
@@ -73,13 +77,15 @@ export function StudyForm({ initial }: { initial?: StudyFormInitial }) {
       return;
     }
     const baselineNum = baseline.trim() === "" ? null : Number(baseline) / 100;
+    // When editing, leave the stored baseline untouched unless the field was changed.
+    const baselineChanged = !initial || baseline.trim() !== initialBaseline;
     const payload = {
       startupId: startup.id,
       question,
       yesCriteria,
       noCriteria,
       context: context.trim() || null,
-      baselineValue: baselineNum,
+      ...(baselineChanged && { baselineValue: baselineNum }),
       baselineMethodology: methodology.trim() || null,
       deadline: deadline ? new Date(deadline).toISOString() : "",
       visibility,
@@ -204,7 +210,8 @@ export function StudyForm({ initial }: { initial?: StudyFormInitial }) {
             <input
               id="baseline"
               type="number"
-              inputMode="numeric"
+              inputMode="decimal"
+              step="any"
               min={1}
               max={99}
               className={`${inputClass} mt-1`}
