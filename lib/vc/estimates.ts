@@ -83,6 +83,30 @@ export function shareChangeOverWindow(
   return latest - earlier;
 }
 
+/**
+ * Change in one series (crowd, verified-user or model) over a trailing window.
+ * Null when the series has no value at both ends of the window.
+ */
+export function seriesChangeOverWindow(
+  points: EstimatePoint[],
+  pick: (p: EstimatePoint) => number | null | undefined,
+  windowMs: number,
+  now: Date,
+): number | null {
+  let latest: number | null = null;
+  let earlier: number | null = null;
+  const cutoff = now.getTime() - windowMs;
+  for (const p of sortPoints(points)) {
+    const t = p.at.getTime();
+    if (t > now.getTime()) break;
+    const v = pick(p);
+    if (v == null) continue;
+    latest = v;
+    if (t <= cutoff) earlier = v;
+  }
+  return latest == null || earlier == null ? null : latest - earlier;
+}
+
 /** Change from the first recorded share (or the baseline when no early share exists). */
 export function shareChangeSinceOpen(points: EstimatePoint[], baseline: number | null): number | null {
   const sorted = sortPoints(points).filter((p) => p.yesShare != null);

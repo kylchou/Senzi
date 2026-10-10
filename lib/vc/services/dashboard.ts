@@ -21,10 +21,12 @@ import type { ReportService, SavedReportSummary } from "./reports";
 export interface DashboardStudyRow {
   study: StudyView;
   startupName: string | null;
+  /** For linking to the company hub. */
+  startupSlug: string | null;
   baseline: BaselineView;
   estimate: MarketEstimate | null;
   freshness: Freshness;
-  /** Change in General LMSR price over the last 7 days. */
+  /** Change in crowd price over the last 7 days. */
   change7d: number | null;
   followed: boolean;
 }
@@ -84,6 +86,7 @@ export function createDashboardService(
       platform.getStartups([...new Set(visible.map(({ s }) => s.startupId))]),
     ]);
     const startupName = new Map(startups.map((s) => [s.id, s.name]));
+    const startupSlug = new Map(startups.map((s) => [s.id, s.slug]));
 
     const openWithMarket = visible
       .filter(({ s }) => s.status === "OPEN" && s.marketId)
@@ -103,6 +106,7 @@ export function createDashboardService(
       return {
         study: redactStudy(ctx, s, p),
         startupName: startupName.get(s.startupId) ?? null,
+        startupSlug: startupSlug.get(s.startupId) ?? null,
         baseline: resolveBaseline(s, estimate),
         estimate,
         freshness: describeFreshness(estimate, s.status, at),
