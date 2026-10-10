@@ -102,8 +102,6 @@ export const studyListQuery = z.object({
   status: z.enum(STUDY_STATUSES).optional(),
 });
 
-export const createWatchlistInput = z.object({ name: z.string().trim().min(1).max(80) });
-
 export const watchlistItemInput = z.discriminatedUnion("type", [
   z.object({ type: z.literal("STARTUP"), startupId: id }),
   z.object({ type: z.literal("STUDY"), studyId: id }),

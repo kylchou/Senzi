@@ -39,7 +39,8 @@ export interface VcDashboard {
   pipeline: DashboardStudyRow[];
   movements: DashboardStudyRow[];
   upcomingDeadlines: DashboardStudyRow[];
-  watchlistSummary: { id: string; name: string; itemCount: number }[];
+  /** What the firm follows: startup names, and how many questions. */
+  following: { startups: { id: string; name: string }[]; studyCount: number };
   recentReports: SavedReportSummary[];
   unreadAlerts: number;
   /** Latest unread alerts the user can see, and unread counts per alert type. */
@@ -144,6 +145,11 @@ export function createDashboardService(
       services.alerts.list(ctx, { unreadOnly: true, limit: 100 }),
     ]);
 
+    const followedStartupIds = [
+      ...new Set(watchlists.flatMap((w) => w.items.filter((i) => i.type === "STARTUP").map((i) => i.startupId!))),
+    ];
+    const followedStartups = followedStartupIds.length ? await platform.getStartups(followedStartupIds) : [];
+
     return {
       organization: { id: org.organizationId, name: org.organizationName, role: org.role },
       generatedAt: at,
@@ -152,7 +158,7 @@ export function createDashboardService(
       pipeline,
       movements,
       upcomingDeadlines,
-      watchlistSummary: watchlists.map((w) => ({ id: w.id, name: w.name, itemCount: w.items.length })),
+      following: { startups: followedStartups.map((s) => ({ id: s.id, name: s.name })), studyCount: watchedIds.size },
       recentReports,
       unreadAlerts,
       alertSummary: {

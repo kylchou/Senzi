@@ -40,7 +40,7 @@ export function AlertList({
   if (alerts.length === 0) {
     if (compact) return <p className="text-sm text-slate-500 dark:text-slate-400">{emptyText ?? "No unread alerts."}</p>;
     return (
-      <EmptyState title="No alerts" action={{ href: "/vc/watchlists", label: "Manage watchlists" }}>
+      <EmptyState title="No alerts" action={{ href: "/vc/companies", label: "Follow companies" }}>
         {emptyText ??
           "Alerts appear for significant forecast movements, upcoming deadlines and resolutions on studies and startups you follow."}
       </EmptyState>
