@@ -15,12 +15,23 @@ const MARKER = /\[\[([^\]]+)\]\]/g;
 const NUMBER_TOLERANCE_PTS = 1;
 const NUMERIC_KINDS: readonly EvidenceKind[] = ["community_estimate", "baseline", "calibrated_probability"];
 
-/** Sentences that need no citation: headings, questions, very short connectives. */
+/**
+ * Statements about the data's limits or what the assistant can do, rather than
+ * claims about the subject: declines, "that isn't in your data", offers to help.
+ */
+const META_STATEMENT =
+  /\b(?:I can(?:no|')t|I cannot|I can|I'll|I will|I'm (?:not )?able|isn't in your data|aren't in your data|not in your data|(?:doesn't|does not) (?:include|cover|contain|break out|have)|includes? no\b|would help|would be needed|if (?:that|it) would help|want me to)\b/i;
+
+/** "No calibrated probability is in your data", "No revenue figures are in your evidence". */
+const NOT_IN_DATA = /^(?:-\s*)?(?:[\w ]+:\s*)?no\b[^.]{0,80}\b(?:is|are) in your (?:data|evidence)\b/i;
+
+/** Sentences that need no citation: headings, questions, short connectives, and meta statements without numbers. */
 function exempt(text: string): boolean {
   const t = text.trim();
   if (!t) return true;
   if (/^#+\s|:$/.test(t)) return true;
   if (t.endsWith("?")) return true;
+  if ((META_STATEMENT.test(t) || NOT_IN_DATA.test(t)) && !/\d/.test(t)) return true;
   return t.split(/\s+/).length < 4;
 }
 
@@ -30,17 +41,24 @@ function exempt(text: string): boolean {
  * trail a sentence's punctuation are attached to that sentence.
  */
 export function splitSentences(answer: string): string[] {
-  const out: string[] = [];
+  return splitSentenceParts(answer).map((p) => p.text);
+}
+
+/** Like splitSentences, also noting which sentences start a new line (for paragraph and bullet layout). */
+export function splitSentenceParts(answer: string): { text: string; startsLine: boolean }[] {
+  const out: { text: string; startsLine: boolean }[] = [];
   for (const line of answer.split(/\n+/)) {
     const parts = line.split(/(?<=[.!?])\s+(?=\[\[|[A-Z0-9"“(•\-*])/);
+    let first = true;
     for (const raw of parts) {
       const part = raw.trim();
       if (!part) continue;
       // A fragment that is only markers belongs to the previous sentence.
       if (out.length && part.replace(MARKER, "").trim() === "") {
-        out[out.length - 1] += ` ${part}`;
+        out[out.length - 1].text += ` ${part}`;
       } else {
-        out.push(part);
+        out.push({ text: part, startsLine: first });
+        first = false;
       }
     }
   }
@@ -67,7 +85,7 @@ export function checkCitations(answer: string, pkg: ContextPackage): CitationRep
   const cited = new Set<string>();
   const unknown = new Set<string>();
 
-  for (const raw of splitSentences(answer)) {
+  for (const { text: raw, startsLine } of splitSentenceParts(answer)) {
     const ids = [...raw.matchAll(MARKER)].flatMap((m) => m[1].split(/[,;]\s*/).map((s) => s.trim()).filter(Boolean));
     const text = raw.replace(MARKER, "").replace(/\s+([.,;:!?])/g, "$1").replace(/\s{2,}/g, " ").trim();
     const issues: CitationIssue[] = [];
@@ -123,7 +141,7 @@ export function checkCitations(answer: string, pkg: ContextPackage): CitationRep
     }
 
     const citations: CheckedCitation[] = items.map((i) => ({ id: i.id, kind: i.kind, label: i.label, href: i.href, sourceUrl: i.sourceUrl }));
-    sentences.push({ text, citations, issues, unsupported: valid.length === 0 && !exempt(text) });
+    sentences.push({ text, startsLine, citations, issues, unsupported: valid.length === 0 && !exempt(text) });
   }
 
   const all = sentences.flatMap((s) => s.issues);

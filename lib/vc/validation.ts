@@ -123,3 +123,20 @@ export const startupSearchQuery = z.object({
 export function formatIssues(error: z.ZodError) {
   return error.issues.map((i) => ({ path: i.path.map(String).join("."), message: i.message }));
 }
+
+// ---------------------------------------------------------------------------
+// Tyche (AI research assistant)
+// ---------------------------------------------------------------------------
+
+export const assistantAskInput = z.object({
+  scope: z.discriminatedUnion("kind", [
+    z.object({ kind: z.literal("study"), studyId: id }),
+    z.object({ kind: z.literal("comparison"), startupIds: z.array(id).min(2).max(4) }),
+  ]),
+  question: z.string().trim().min(1, "Ask a question").max(1000),
+  history: z
+    .array(z.object({ role: z.enum(["user", "assistant"]), content: z.string().max(8000) }))
+    .max(20)
+    .default([]),
+});
+export type AssistantAskInput = z.infer<typeof assistantAskInput>;

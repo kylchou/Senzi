@@ -30,7 +30,7 @@ export function Button({
   variant,
   size,
   ...props
-}: React.ButtonHTMLAttributes<HTMLButtonElement> & ButtonVariants) {
+}: React.ComponentProps<"button"> & ButtonVariants) {
   return <button className={cn(buttonStyles({ variant, size }), className)} {...props} />;
 }
 
