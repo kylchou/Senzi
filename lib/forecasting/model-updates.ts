@@ -4,7 +4,7 @@
 import { marketLockKey, type EngineDeps } from './deps.js';
 import { ForecastingError } from './errors.js';
 import { validateBaseline } from './estimates.js';
-import { buildSnapshot } from './history.js';
+import { buildSnapshot, nextSnapshotSequence } from './history.js';
 import type { AuthContext } from './ports.js';
 import type { Baseline, Market } from './types.js';
 
@@ -52,7 +52,7 @@ export async function recordModelValue(
         rule: deps.estimateRule,
         trigger: 'model_update',
         at: deps.clock.now(),
-        sequence: (await deps.repo.listSnapshots(marketId)).length + 1,
+        sequence: await nextSnapshotSequence(deps.repo, marketId),
       }),
     );
     return { market: updated, openingBaselineUpdated };

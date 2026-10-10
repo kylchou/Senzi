@@ -15,7 +15,9 @@ export type ForecastingErrorCode =
   | 'SETTLEMENT_CONFLICT'
   | 'SETTLEMENT_NOT_ALLOWED'
   | 'NOT_CONFIGURED'
-  | 'INVARIANT_VIOLATION';
+  | 'INVARIANT_VIOLATION'
+  /** The price moved more than the allowed tolerance since the client's quote. */
+  | 'PRICE_MOVED';
 
 export class ForecastingError extends Error {
   constructor(

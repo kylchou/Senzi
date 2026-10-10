@@ -16,7 +16,7 @@ import { selectHistory, snapshotsToCsv, toChartSeries, type HistoryQuery } from 
 import { recordModelValue } from './model-updates.js';
 import { getPortfolio } from './portfolio.js';
 import { settleMarket, type SettleMarketInput } from './settlement.js';
-import { submitForecast, type SubmitForecastInput } from './submission.js';
+import { quoteForecast, submitForecast, type SubmitForecastInput } from './submission.js';
 import type { AuthContext } from './ports.js';
 import type { Baseline } from './types.js';
 
@@ -36,6 +36,7 @@ export function createForecastingEngine(options: EngineOptions) {
 
     // 1. Forecast submission
     submitForecast: (auth: AuthContext, input: SubmitForecastInput) => submitForecast(deps, auth, input),
+    quoteForecast: (input: { marketId: string; side: 'YES' | 'NO'; amount: number }) => quoteForecast(deps, input),
 
     // 2. Probability calculations: baseline and community estimates, kept apart
     async getMarketEstimates(marketId: string) {

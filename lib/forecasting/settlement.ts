@@ -12,7 +12,7 @@
 import { marketLockKey, requireSettlementModel, type EngineDeps } from './deps.js';
 import { ForecastingError } from './errors.js';
 import { buildSnapshot } from './history.js';
-import type { AuthContext } from './ports.js';
+import type { AuthContext, CreditLedger } from './ports.js';
 import type { Forecast, Market, Outcome, Payout, SettlementRecord } from './types.js';
 
 export interface SettleMarketInput {
@@ -43,7 +43,7 @@ function validate(input: SettleMarketInput): void {
   }
 }
 
-function planPayouts(deps: EngineDeps, market: Market, outcome: Outcome, forecasts: Forecast[]): { modelId: string; payouts: Payout[] } {
+export function planPayouts(deps: Pick<EngineDeps, 'settlementModel'>, market: Market, outcome: Outcome, forecasts: Forecast[]): { modelId: string; payouts: Payout[] } {
   if (outcome === 'VOID') {
     return {
       modelId: VOID_REFUND_MODEL_ID,
@@ -86,6 +86,57 @@ function planPayouts(deps: EngineDeps, market: Market, outcome: Outcome, forecas
     });
   }
   return { modelId: model.id, payouts };
+}
+
+/**
+ * Pays out a planned settlement through the ledger. Every write has a
+ * deterministic idempotency key, so calling this again after a crash pays
+ * nobody twice. With a market-maker account, the market maker funds payouts
+ * from the stakes it received; any shortfall (the LMSR subsidy) is minted to
+ * it once per market first, so the ledger balances. Returns the ledger
+ * transaction id for each payout, keyed by forecast id.
+ */
+export async function applyPayouts(
+  ledger: CreditLedger,
+  input: { marketId: string; outcome: Outcome; payouts: readonly Payout[]; marketMakerAccountId?: string },
+): Promise<Map<string, string>> {
+  const { marketId, outcome, payouts, marketMakerAccountId: mm } = input;
+  const txIds = new Map<string, string>();
+  if (mm) {
+    const totalPayout = payouts.reduce((s, p) => s + p.payout, 0);
+    const totalStakes = payouts.reduce((s, p) => s + p.stake, 0);
+    const shortfall = totalPayout - totalStakes;
+    if (shortfall > 0) {
+      await ledger.credit({
+        userId: mm,
+        amount: shortfall,
+        reason: 'market_maker_mint',
+        reference: marketId,
+        idempotencyKey: `market-maker:mint:${marketId}`,
+      });
+    }
+  }
+  for (const p of payouts) {
+    if (p.payout === 0) continue;
+    if (mm) {
+      await ledger.debit({
+        userId: mm,
+        amount: p.payout,
+        reason: 'market_maker_pay',
+        reference: p.forecastId,
+        idempotencyKey: `market-maker:out:${marketId}:${p.forecastId}`,
+      });
+    }
+    const tx = await ledger.credit({
+      userId: p.userId,
+      amount: p.payout,
+      reason: outcome === 'VOID' ? 'forecast_refund_void' : 'forecast_payout',
+      reference: p.forecastId,
+      idempotencyKey: `settlement:${marketId}:${p.forecastId}`,
+    });
+    txIds.set(p.forecastId, tx.id);
+  }
+  return txIds;
 }
 
 export async function settleMarket(
@@ -147,18 +198,15 @@ export async function settleMarket(
       await repo.saveSettlement(record);
     }
 
-    for (const p of record.payouts) {
-      if (p.payout === 0 || p.ledgerTransactionId) continue;
-      const tx = await ledger.credit({
-        userId: p.userId,
-        amount: p.payout,
-        reason: input.outcome === 'VOID' ? 'forecast_refund_void' : 'forecast_payout',
-        reference: p.forecastId,
-        idempotencyKey: `settlement:${record.marketId}:${p.forecastId}`,
-      });
-      p.ledgerTransactionId = tx.id;
-      await repo.saveSettlement(record);
-    }
+    // Ledger idempotency keys make this safe to repeat on a resumed run.
+    const txIds = await applyPayouts(ledger, {
+      marketId: record.marketId,
+      outcome: input.outcome,
+      payouts: record.payouts,
+      ...(deps.marketMakerAccountId ? { marketMakerAccountId: deps.marketMakerAccountId } : {}),
+    });
+    for (const p of record.payouts) p.ledgerTransactionId = txIds.get(p.forecastId) ?? p.ledgerTransactionId;
+    await repo.saveSettlement(record);
 
     // Each remaining step is safe to repeat if a resumed run gets here again.
     const settledAt = deps.clock.now();
@@ -173,7 +221,7 @@ export async function settleMarket(
           rule: deps.estimateRule,
           trigger: 'settlement',
           at: settledAt,
-          sequence: snapshots.length + 1,
+          sequence: snapshots.reduce((m, s) => Math.max(m, s.sequence), 0) + 1,
         }),
       );
     }
