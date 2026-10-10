@@ -23,7 +23,7 @@ import type { ContextPackage, DataTier, EvidenceItem, OmittedEvidence } from "./
 export const CONTEXT_LIMITS = { facts: 20, news: 10, notes: 10, indicators: 15 } as const;
 
 export const CAVEATS = {
-  allocationShare: "Community YES credit-allocation share: where virtual credits were placed. Not a calibrated probability.",
+  allocationShare: "General LMSR market-maker price from all trades. Not a calibrated probability.",
   baseline: "Opening baseline set before forecasting began. A reference point, not a forecast.",
   calibrated: "Calibrated probability from the forecasting engine.",
   studySource: "Cited by the study's author; not independently verified by VentureCast.",
@@ -104,10 +104,10 @@ function estimateItem(marketId: string, e: MarketEstimate, href: string): Eviden
     kind: "community_estimate",
     label: ALLOCATION_SHARE_LABEL,
     value:
-      a.yesShare == null
-        ? `No credits allocated yet (${e.participantCount} forecasters).`
-        : `${formatShare(a.yesShare, 1)} YES allocation share (${a.yesCredits.toLocaleString("en-US")} YES / ${a.noCredits.toLocaleString("en-US")} NO virtual credits, ${e.participantCount} forecasters, ${e.forecastCount} forecasts).`,
-    numeric: a.yesShare,
+      e.generalPrice == null
+        ? `LMSR price unavailable (${e.participantCount} forecasters).`
+        : `${formatShare(e.generalPrice, 1)} General LMSR price (${a.yesCredits.toLocaleString("en-US")} YES / ${a.noCredits.toLocaleString("en-US")} NO virtual credits, ${e.participantCount} forecasters, ${e.forecastCount} forecasts).`,
+    numeric: e.generalPrice ?? null,
     asOf: iso(e.asOf),
     sourceUrl: null,
     caveat: CAVEATS.allocationShare,
@@ -273,7 +273,7 @@ export function buildStudyContext(input: StudyContextInput): ContextPackage {
         id: `snapshot:${p.id}`,
         kind: "community_estimate",
         label,
-        value: `${formatShare(p.yesShare, 1)} YES allocation share with ${p.participantCount} forecasters on ${day(p.at)}.`,
+        value: `${formatShare(p.yesShare, 1)} General LMSR price with ${p.participantCount} forecasters on ${day(p.at)}.`,
         numeric: p.yesShare,
         asOf: iso(p.at),
         sourceUrl: null,
@@ -336,7 +336,7 @@ export function buildStudyContext(input: StudyContextInput): ContextPackage {
       now,
       current:
         estimate && currentId
-          ? { id: currentId, share: estimate.allocation.yesShare, forecasters: estimate.participantCount, totalCredits: estimate.allocation.totalCredits }
+          ? { id: currentId, share: (estimate.generalPrice ?? null), forecasters: estimate.participantCount, totalCredits: estimate.allocation.totalCredits }
           : null,
       baseline: baseline.value != null ? { id: baselineId, value: baseline.value } : null,
       calibrated: estimate?.calibratedProbability && calibratedId ? { id: calibratedId, value: estimate.calibratedProbability.value } : null,
@@ -400,7 +400,7 @@ export function buildComparisonContext(input: ComparisonContextInput): ContextPa
         value:
           q.allocationShare == null
             ? `${q.question} No credits allocated yet. Status ${q.status}.`
-            : `${q.question} ${formatShare(q.allocationShare, 1)} YES allocation share, ${q.forecasters} forecasters. Status ${q.status}${
+            : `${q.question} ${formatShare(q.allocationShare, 1)} General LMSR price, ${q.forecasters} forecasters. Status ${q.status}${
                 q.change7d != null ? `; ${formatPointChange(q.change7d)} over 7 days` : ""
               }.`,
         numeric: q.allocationShare,
@@ -476,7 +476,7 @@ export function buildComparisonContext(input: ComparisonContextInput): ContextPa
       value:
         t.decided === 0
           ? "No resolved questions yet."
-          : `${t.yes} of ${t.decided} resolved questions resolved YES${t.yesRateInterval ? ` (95% interval ${formatShare(t.yesRateInterval[0])}–${formatShare(t.yesRateInterval[1])})` : ""}. Brier score: opening baseline ${t.baselineBrier?.toFixed(3) ?? "—"}, final allocation share ${t.allocationShareBrier?.toFixed(3) ?? "—"}.${t.voided ? ` ${t.voided} voided.` : ""}`,
+          : `${t.yes} of ${t.decided} resolved questions resolved YES${t.yesRateInterval ? ` (95% interval ${formatShare(t.yesRateInterval[0])}–${formatShare(t.yesRateInterval[1])})` : ""}. Brier score: opening baseline ${t.baselineBrier?.toFixed(3) ?? "—"}, final LMSR price ${t.allocationShareBrier?.toFixed(3) ?? "—"}.${t.voided ? ` ${t.voided} voided.` : ""}`,
       numeric: null,
       asOf: input.now.toISOString(),
       sourceUrl: null,

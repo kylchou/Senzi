@@ -4,7 +4,7 @@
  * Answers cite evidence with markers like [[snapshot:abc]] or
  * [[fact:x, news:y]], placed before the sentence's final punctuation. The
  * checker never trusts the model: an id must exist in this exact package, a
- * percentage must match the estimate it cites, and the allocation share must
+ * percentage must match the estimate it cites, and the LMSR price must
  * never be called a probability. It can't prove a claim is true, which is
  * what the eval set is for.
  */
@@ -113,7 +113,7 @@ export function checkCitations(answer: string, pkg: ContextPackage): CitationRep
       issues.push({
         code: "share_called_probability",
         severity: "error",
-        message: "Describes the community allocation share as a probability.",
+        message: "Describes the general LMSR price as a probability.",
         ids: items.filter((i) => i.kind === "community_estimate").map((i) => i.id),
       });
     }

@@ -19,7 +19,7 @@ export const FLAG_THRESHOLDS = {
   baselineGap: 0.25,
   /** …with at least this many forecasters. */
   baselineGapForecasters: 3,
-  /** Calibrated probability this far from the allocation share. */
+  /** Calibrated probability this far from the LMSR price. */
   calibrationGap: 0.15,
   /** An unverified report this close before a large move is flagged as coinciding with it. */
   unverifiedReportWindowDays: 7,
@@ -77,7 +77,7 @@ export function computeConflictFlags(input: FlagInput): EvidenceItem[] {
         input,
         "thin-move",
         "Large move on thin participation",
-        `The YES allocation share moved ${formatPointChange(input.change7d.value)} in 7 days with only ${cur.forecasters} forecaster${cur.forecasters === 1 ? "" : "s"}; a few allocations can cause a move this size.`,
+        `The General LMSR price moved ${formatPointChange(input.change7d.value)} in 7 days with only ${cur.forecasters} forecaster${cur.forecasters === 1 ? "" : "s"}; a few allocations can cause a move this size.`,
         [input.change7d.fromId, input.change7d.toId, cur.id],
       ),
     );
@@ -92,21 +92,21 @@ export function computeConflictFlags(input: FlagInput): EvidenceItem[] {
           input,
           "baseline-gap",
           "Community allocation far from the opening baseline",
-          `The YES allocation share (${formatShare(cur.share)}) is ${formatPointChange(gap)} from the opening baseline (${formatShare(input.baseline.value)}).`,
+          `The General LMSR price (${formatShare(cur.share)}) is ${formatPointChange(gap)} from the opening baseline (${formatShare(input.baseline.value)}).`,
           [cur.id, input.baseline.id],
         ),
       );
     }
   }
 
-  // 3. The calibrated probability and the allocation share disagree.
+  // 3. The calibrated probability and the LMSR price disagree.
   if (cur?.share != null && input.calibrated && Math.abs(input.calibrated.value - cur.share) >= t.calibrationGap) {
     out.push(
       flag(
         input,
         "calibration-gap",
-        "Calibrated probability differs from the allocation share",
-        `The calibrated probability (${formatShare(input.calibrated.value)}) and the YES allocation share (${formatShare(cur.share)}) differ by ${formatPointChange(input.calibrated.value - cur.share).replace(/^[+−±]/, "")}.`,
+        "Calibrated probability differs from the LMSR price",
+        `The calibrated probability (${formatShare(input.calibrated.value)}) and the General LMSR price (${formatShare(cur.share)}) differ by ${formatPointChange(input.calibrated.value - cur.share).replace(/^[+−±]/, "")}.`,
         [input.calibrated.id, cur.id],
       ),
     );
@@ -114,7 +114,7 @@ export function computeConflictFlags(input: FlagInput): EvidenceItem[] {
 
   // 4. Open for forecasting, but nobody has allocated credits.
   if (open && cur && cur.totalCredits === 0) {
-    out.push(flag(input, "no-participation", "No community forecasts yet", "No credits have been allocated, so there is no community allocation share.", [cur.id]));
+    out.push(flag(input, "no-participation", "No community forecasts yet", "No credits have been allocated, so there is no general LMSR price.", [cur.id]));
   }
 
   // 5. Disputed reports.

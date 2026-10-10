@@ -67,6 +67,7 @@ export function getTransitionIssues(action: StudyAction, study: Study, now: Date
     if (study.baselineValue == null || !study.baselineMethodology) {
       issues.push("An opening baseline and its methodology are required.");
     }
+    if (!study.sources.length) issues.push("A named third-party resolution source is required.");
     if (study.visibility === "RESTRICTED" && study.participantIds.length === 0) {
       issues.push("Restricted studies need at least one invited participant.");
     }
