@@ -2,12 +2,20 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import { Prisma, PrismaClient } from "@/generated/prisma/client";
 
 /**
+ * Connections per pool. On Vercel every server instance has its own pool, and the
+ * database role allows only a few connections in total, so instances keep it small
+ * (pg's default of 10 exhausted it). DATABASE_POOL_MAX overrides.
+ */
+const POOL_MAX = Number(process.env.DATABASE_POOL_MAX) || (process.env.VERCEL ? 2 : 5);
+
+/**
  * Shared Prisma client. Import `db` everywhere instead of constructing a new
  * PrismaClient: each instance owns a connection pool.
  */
 function createClient(connectionString = process.env.DATABASE_URL) {
   return new PrismaClient({
-    adapter: new PrismaPg({ connectionString }),
+    // Idle connections close after 10s, so instances Vercel keeps warm don't hold slots.
+    adapter: new PrismaPg({ connectionString, max: POOL_MAX, idleTimeoutMillis: 10_000 }),
     log: process.env.NODE_ENV === "development" ? ["warn", "error"] : ["error"],
   });
 }
