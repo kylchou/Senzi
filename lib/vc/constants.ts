@@ -49,3 +49,12 @@ export const STANDARD_LIMITATIONS = [
 ];
 
 export const ACTIVE_ORG_COOKIE = "vc_org";
+
+/**
+ * Shared demo firm with PostHog starter data (created by lib/model/cli/seed-real-markets.ts).
+ * Verified VC accounts with no firm are added to it on first visit. The id matches the
+ * sponsor-data check in lib/vc/server/company-model.ts, so its metric entries are labelled simulated.
+ */
+export const DEMO_ORG_ID = "demo_org_vc";
+export const DEMO_ORG_NAME = "Demo Ventures";
+export const DEMO_ORG_SLUG = "demo-ventures";

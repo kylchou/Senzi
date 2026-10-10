@@ -19,8 +19,8 @@
 // It TRUNCATES every table first (local development only; refuses non-local
 // databases). Run Ky's `npm run db:seed` to get his demo data back.
 
-import type { Prisma } from "@/generated/prisma/client";
-import { AccountType, ResolutionOutcome, SnapshotTrigger } from "@/generated/prisma/enums";
+import type { Market, Prisma } from "@/generated/prisma/client";
+import { AccountType, OrgRole, ResolutionOutcome, SnapshotTrigger, StudyStatus, StudyVisibility, WatchlistItemType } from "@/generated/prisma/enums";
 import { createMarket } from "@/lib/admin";
 import { grantSignupCredits } from "@/lib/credits";
 import { db } from "@/lib/db";
@@ -29,6 +29,7 @@ import { engineFor } from "@/lib/forecasting/server/service";
 import { forecastingSettle } from "@/lib/forecasting/server/settle";
 import { runSettlement } from "@/lib/settlement";
 import { PENDING_AUTH_PREFIX, type SessionUser } from "@/lib/types";
+import { DEMO_ORG_ID, DEMO_ORG_NAME, DEMO_ORG_SLUG } from "@/lib/vc/constants";
 import { createMarketSchema } from "@/lib/validation";
 import { computeBaseline } from "../baseline";
 import { COMPANIES, metricIds } from "../catalog";
@@ -57,6 +58,20 @@ const HIRING_DAY = "2026-11-08";
 const HIRING_MULTIPLE = 1.05;
 const FUNDING_BY = "2026-12-31";
 const TRADERS = 40;
+
+/**
+ * Starter data for the shared demo VC firm (Demo Ventures): every PostHog question, plus
+ * two extra "verified users" questions that only invited traders can trade on. The firm
+ * is created here; verified VC accounts join it on their first visit (lib/vc/server/demo-org.ts).
+ */
+const DEMO_COMPANY = "posthog";
+/** Traders invited to the verified-users questions. */
+const INVITED_TRADERS = 8;
+/** Extra download thresholds, as multiples of the last observed week, for the verified-users questions. */
+const VERIFIED_DOWNLOAD_QUESTIONS = [
+  { windowEnd: "2026-10-25", multiple: 0.9 },
+  { windowEnd: "2026-11-08", multiple: 1.3 },
+] as const;
 
 /** Hand-written descriptions. Everything numeric on the startup page comes from scraped facts. */
 const PROFILES: Record<string, { tagline: string; description: string; website: string; stage: "SERIES_A" | "SERIES_B" | "GROWTH" }> = {
@@ -165,8 +180,20 @@ async function writeBaselineSnapshot(marketId: string, b: BaselineResult) {
   });
 }
 
-/** Creates the market as a draft through Ky's createMarket, then opens it at `opensAt` at the model baseline. */
-async function createQuestionMarket(admin: SessionUser, startupId: string, q: MarketQuestion, points: DataPoint[], opensAt: Date) {
+/** A question that belongs in the demo firm's study list. */
+interface DemoStudyEntry {
+  market: Market;
+  q: MarketQuestion;
+  startupId: string;
+  verifiedOnly: boolean;
+  outcome: "YES" | "NO" | null;
+}
+
+/**
+ * Creates the market as a draft through Ky's createMarket, then opens it at `opensAt` at the model baseline.
+ * Pass `restrictedToOrgId` for a verified-users market (invited traders only) owned by that firm.
+ */
+async function createQuestionMarket(admin: SessionUser, startupId: string, q: MarketQuestion, points: DataPoint[], opensAt: Date, restrictedToOrgId?: string) {
   const baseline = baselineFor(q, points, opensAt);
   if (baseline.status !== "ok" || baseline.probability === null) {
     console.warn(`  skip ${q.id}: ${baseline.missing.join(" ") || baseline.status}`);
@@ -182,7 +209,8 @@ async function createQuestionMarket(admin: SessionUser, startupId: string, q: Ma
     category: q.category,
     openingBaseline: opening,
     baselineMethodology: methodology(q, baseline),
-    visibility: "PUBLIC",
+    visibility: restrictedToOrgId ? "RESTRICTED" : "PUBLIC",
+    ...(restrictedToOrgId ? { organizationId: restrictedToOrgId } : {}),
     opensAt,
     closesAt: new Date(q.closesAt),
     resolvesBy: new Date(`${addDays(q.windowEnd, 3)}T00:00:00.000Z`),
@@ -266,6 +294,96 @@ async function simulateTrades(marketId: string, baseline: number, traders: Sessi
   return placed;
 }
 
+/** The shared demo firm and its owner. VC accounts can't trade, so the owner never appears as a trader. */
+async function createDemoFirm() {
+  const owner = await db.user.create({
+    data: {
+      authId: `${PENDING_AUTH_PREFIX}demo-vc-owner`,
+      email: "demo-vc-owner@simulated.senzi.invalid",
+      displayName: `${DEMO_ORG_NAME} (simulated)`,
+      accountType: AccountType.VC,
+      accountVerifiedAt: new Date(),
+    },
+    select: { id: true },
+  });
+  await db.organization.create({
+    data: {
+      id: DEMO_ORG_ID,
+      name: DEMO_ORG_NAME,
+      slug: DEMO_ORG_SLUG,
+      description: "Simulated firm with PostHog starter data. New VC accounts join it automatically.",
+      memberships: { create: { userId: owner.id, role: OrgRole.OWNER } },
+    },
+  });
+  return owner.id;
+}
+
+/** One study per PostHog question, a PostHog watchlist, and the invite list for verified-users studies. */
+async function seedDemoStudies(ownerId: string, adminId: string, entries: DemoStudyEntry[], invitedIds: string[]) {
+  const DAY = 86_400_000;
+  const studyIds: string[] = [];
+  for (const { market, q, startupId, verifiedOnly, outcome } of entries) {
+    const at = (offsetDays: number, base = market.opensAt) => new Date(base.getTime() + offsetDays * DAY);
+    const resolved = outcome !== null;
+    type Step = [StudyStatus | null, StudyStatus, string, string, Date];
+    const steps: Step[] = [
+      [null, StudyStatus.DRAFT, "create", ownerId, at(-3)],
+      [StudyStatus.DRAFT, StudyStatus.SUBMITTED, "submit", ownerId, at(-2)],
+      [StudyStatus.SUBMITTED, StudyStatus.APPROVED, "approve", adminId, at(-1)],
+      [StudyStatus.APPROVED, StudyStatus.OPEN, "open", adminId, market.opensAt],
+      ...(resolved
+        ? ([
+            [StudyStatus.OPEN, StudyStatus.CLOSED, "close", adminId, market.closesAt],
+            [StudyStatus.CLOSED, StudyStatus.RESOLVED, "resolve", adminId, NOW],
+          ] as Step[])
+        : []),
+    ];
+    const study = await db.researchStudy.create({
+      data: {
+        organizationId: DEMO_ORG_ID,
+        createdById: ownerId,
+        startupId,
+        marketId: market.id,
+        question: market.question,
+        yesCriteria: market.yesCriteria,
+        noCriteria: market.noCriteria,
+        context: "Starter question from the shared demo firm. Prices and trades are simulated; the underlying data is real.",
+        baselineValue: market.openingBaseline,
+        baselineMethodology: market.baselineMethodology,
+        deadline: market.closesAt,
+        visibility: verifiedOnly ? StudyVisibility.RESTRICTED : StudyVisibility.PUBLIC,
+        status: resolved ? StudyStatus.RESOLVED : StudyStatus.OPEN,
+        submittedAt: at(-2),
+        approvedAt: at(-1),
+        openedAt: market.opensAt,
+        ...(resolved ? { closedAt: market.closesAt, resolvedAt: NOW, resolvedOutcome: outcome === "YES" ? ResolutionOutcome.YES : ResolutionOutcome.NO } : {}),
+        version: steps.length,
+        sources: { create: [{ url: q.resolutionUrl, title: q.resolutionTitle }] },
+        events: { create: steps.map(([fromStatus, toStatus, action, actor, createdAt]) => ({ actorId: actor, action, fromStatus, toStatus, createdAt })) },
+        ...(verifiedOnly ? { participants: { create: invitedIds.map((userId) => ({ userId, addedById: ownerId })) } } : {}),
+      },
+      select: { id: true },
+    });
+    studyIds.push(study.id);
+  }
+  if (entries.length === 0) return 0;
+
+  await db.watchlist.create({
+    data: {
+      organizationId: DEMO_ORG_ID,
+      name: "PostHog",
+      createdById: ownerId,
+      items: {
+        create: [
+          { type: WatchlistItemType.STARTUP, startupId: entries[0]!.startupId, addedById: ownerId },
+          ...studyIds.map((studyId) => ({ type: WatchlistItemType.STUDY, studyId, addedById: ownerId })),
+        ],
+      },
+    },
+  });
+  return studyIds.length;
+}
+
 async function main() {
   if (!process.argv.includes("--yes")) {
     console.error("This truncates every table in the local database. Re-run with --yes.");
@@ -283,6 +401,9 @@ async function main() {
     const n = String(i).padStart(2, "0");
     traders.push(await makeUser(`sim-trader-${n}`, `Simulated trader ${n}`));
   }
+  const demoOwnerId = await createDemoFirm();
+  const invited = traders.slice(0, INVITED_TRADERS);
+  const demoEntries: DemoStudyEntry[] = [];
 
   const summary: string[] = [];
   for (const company of COMPANIES) {
@@ -335,10 +456,19 @@ async function main() {
         .at(-1);
 
     // Each market opens only once its data was public.
-    const planned: Array<{ q: MarketQuestion; opensAt: Date; refreshModel: boolean }> = [];
+    const planned: Array<{ q: MarketQuestion; opensAt: Date; refreshModel: boolean; verifiedOnly?: boolean }> = [];
     if (lastWeek) {
       for (const spec of DOWNLOAD_QUESTIONS) {
         planned.push({ q: downloadsQuestion(company.id, niceRound(lastWeek * spec.multiple), spec.windowEnd, OPEN_AT.toISOString()), opensAt: OPEN_AT, refreshModel: true });
+      }
+      // Demo firm only: extra questions that invited (verified) traders alone can trade.
+      if (company.id === DEMO_COMPANY) {
+        const taken = new Set(planned.map(({ q }) => `${q.windowEnd}:${q.threshold}`));
+        for (const spec of VERIFIED_DOWNLOAD_QUESTIONS) {
+          const q = downloadsQuestion(company.id, niceRound(lastWeek * spec.multiple), spec.windowEnd, OPEN_AT.toISOString());
+          if (taken.has(`${q.windowEnd}:${q.threshold}`)) continue;
+          planned.push({ q, opensAt: OPEN_AT, refreshModel: true, verifiedOnly: true });
+        }
       }
     }
     const rank = latestOf(metricIds.trancoRank);
@@ -354,14 +484,15 @@ async function main() {
     const funding = fundingQuestion(company.id, FUNDING_BY, OPEN_AT.toISOString());
     if (funding) planned.push({ q: funding, opensAt: OPEN_AT, refreshModel: false });
 
-    for (const { q, opensAt, refreshModel } of planned) {
-      const made = await createQuestionMarket(admin, startup.id, q, points, opensAt);
+    for (const { q, opensAt, refreshModel, verifiedOnly = false } of planned) {
+      const made = await createQuestionMarket(admin, startup.id, q, points, opensAt, verifiedOnly ? DEMO_ORG_ID : undefined);
       if (!made) continue;
+      if (company.id === DEMO_COMPANY) demoEntries.push({ market: made.market, q, startupId: startup.id, verifiedOnly, outcome: null });
       const from = new Date(opensAt.getTime() + 15 * 60_000);
       const until = new Date(Math.min(NOW.getTime() - 5 * 60_000, made.market.closesAt.getTime() - 3_600_000));
       const span = until.getTime() - from.getTime();
       const count = span < 30 * 60_000 ? 0 : span < 24 * 3_600_000 ? 4 : 9 + Math.floor(rand() * 6);
-      const placed = count ? await simulateTrades(made.market.id, made.baseline.probability!, traders, from, until, count, rand) : 0;
+      const placed = count ? await simulateTrades(made.market.id, made.baseline.probability!, verifiedOnly ? invited : traders, from, until, count, rand) : 0;
 
       // Download markets: the model refreshes on newer data (trades never feed it).
       if (refreshModel) {
@@ -414,12 +545,16 @@ async function main() {
     });
     const settled = await runSettlement(r.id, forecastingSettle);
     await db.market.update({ where: { id: past.market.id }, data: { status: "RESOLVED" } });
+    if (company.id === DEMO_COMPANY) demoEntries.push({ market: past.market, q: pastQ, startupId: startup.id, verifiedOnly: false, outcome: resolution.outcome });
     summary.push(`${company.name} [past] ${pastQ.text} -> resolved ${resolution.outcome} (${fmt(resolution.observedTotal!)}), ${placed} trades, settlement ${settled.status}`);
   }
+
+  const demoStudies = await seedDemoStudies(demoOwnerId, admin.id, demoEntries, invited.map((t) => t.id));
 
   const [startups, markets, forecasts, facts] = await Promise.all([db.startup.count(), db.market.count(), db.forecast.count(), db.startupFact.count()]);
   console.log(summary.join("\n"));
   console.log(`\nDone: ${startups} startups, ${facts} facts, ${markets} markets, ${forecasts} simulated forecasts.`);
+  console.log(`${DEMO_ORG_NAME}: ${demoStudies} PostHog studies. Verified VC accounts join it on their first /vc visit.`);
   await db.$disconnect();
 }
 
