@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useFocusTrap } from "../a11y/useFocusTrap";
 import { Maximize2, Minimize2, X } from "lucide-react";
 import { formatLongDate, requestTime } from "@/lib/market-view/format";
 import {
@@ -46,6 +47,7 @@ export function MarketReplay({
   const [attempt, setAttempt] = useState(0);
   const [expanded, setExpanded] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(panelRef);
 
   useEffect(() => {
     const controller = new AbortController();

@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { AllocationBar } from "@/components/ui/AllocationBar";
 import { Button, ButtonLink } from "@/components/ui/Button";
+import { ReadAloud } from "@/components/ui/a11y/ReadAloud";
 import { cn } from "@/components/ui/cn";
 import { formatShare } from "@/lib/market-view/format";
 import {
@@ -432,11 +433,16 @@ export function HowItWorksTutorial() {
                 <div className="h-full rounded-full bg-red-500 transition-all duration-500" style={{ width: `${((stepIndex + 1) / TUTORIAL_STEPS.length) * 100}%` }} />
               </div>
 
-              <h3 id={titleId} className="mt-5 text-2xl font-bold">
-                {isLast && <PartyPopper className="mr-2 inline size-6 text-red-500" aria-hidden />}
-                {step.title}
-              </h3>
-              <p className="mt-2 text-ink-600">{step.body}</p>
+              <div className="mt-5 flex items-start justify-between gap-2">
+                <h3 id={titleId} className="text-2xl font-bold">
+                  {isLast && <PartyPopper className="mr-2 inline size-6 text-red-500" aria-hidden />}
+                  {step.title}
+                </h3>
+                <ReadAloud key={step.id} targetId={[titleId, `${titleId}-body`]} label="this step" className="-mr-1.5 mt-0.5" />
+              </div>
+              <p id={`${titleId}-body`} className="mt-2 text-ink-600">
+                {step.body}
+              </p>
 
               {step.id === "numbers" && <NumbersQuiz answer={practice.quizAnswer} onAnswer={(quizAnswer) => update({ quizAnswer })} />}
 
@@ -485,7 +491,7 @@ export function HowItWorksTutorial() {
                 ))}
               </ol>
               <p className="mt-5 text-sm text-ink-500">
-                Two minutes, a made-up startup, and {PRACTICE_BALANCE} practice credits. Nothing touches your account.
+                {`Two minutes, a made-up startup, and ${PRACTICE_BALANCE} practice credits. Nothing touches your account.`}
               </p>
               <p className="mt-4 text-xs text-ink-500">
                 Or skip ahead and <Link href="/markets" className="underline hover:text-ink-900">browse real markets</Link>.

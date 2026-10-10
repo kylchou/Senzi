@@ -9,6 +9,7 @@ import { HeroGreeting } from "@/components/ui/HeroGreeting";
 import { SignInCta } from "@/components/ui/AuthControls";
 import { ButtonLink } from "@/components/ui/Button";
 import { Container } from "@/components/ui/Container";
+import { Secondary } from "@/components/ui/a11y/Secondary";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { SectionHeading } from "@/components/ui/SectionHeading";
@@ -27,6 +28,7 @@ export default function HomePage() {
         {/* Sits on the page itself (no framed card) and follows the light or dark theme. */}
         <section
           id="top"
+          data-focus-plain=""
           className="relative scroll-mt-6 bg-[radial-gradient(ellipse_70%_60%_at_50%_0%,color-mix(in_srgb,var(--color-red-500)_6%,transparent),transparent)]"
         >
           <Container className="flex flex-col items-center pb-14 pt-20 text-center sm:pb-20 sm:pt-28">
@@ -75,7 +77,8 @@ export default function HomePage() {
           </Container>
         </section>
 
-        <Container id="startups" className="home-reveal grid scroll-mt-6 gap-16 py-16 sm:py-20 lg:grid-cols-[1.4fr_1fr]">
+        <Container id="startups" className="scroll-mt-6">
+          <Secondary label="startups and news" className="py-8" bodyClassName="home-reveal grid gap-16 py-8 sm:py-12 lg:grid-cols-[1.4fr_1fr]">
           <div>
             <SectionHeading title="Startups" href="/startups" />
             <StreamIn fallback={<CardGridSkeleton count={4} variant="startup" className="lg:grid-cols-2" />}>
@@ -88,6 +91,7 @@ export default function HomePage() {
               <LatestNews />
             </StreamIn>
           </div>
+          </Secondary>
         </Container>
 
         <Container className="home-reveal pb-4 pt-12 text-center sm:pt-16">
@@ -130,12 +134,14 @@ async function Moves() {
   if (!result.data || result.data.moves.length === 0) return null;
   return (
     <Container className="pb-16 sm:pb-20">
+      <Secondary label="biggest moves">
       <SectionHeading
         title={result.data.days === 7 ? "Biggest moves this week" : "Biggest moves this month"}
         href="/markets?sort=active"
         linkLabel="Most forecasts"
       />
       <BiggestMoves moves={result.data.moves} />
+      </Secondary>
     </Container>
   );
 }
