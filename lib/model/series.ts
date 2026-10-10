@@ -7,9 +7,9 @@
 // - Weeks: 7-day totals aligned so one window ends exactly on the question's
 //   window end. A week with any missing day is left out, never filled in.
 
-import { fromDayNumber, toDayNumber } from './dates.js';
-import { median } from './math.js';
-import type { DataPoint } from './types.js';
+import { fromDayNumber, toDayNumber } from './dates';
+import { median } from './math';
+import type { DataPoint } from './types';
 
 export interface DailySeries {
   metricId: string;

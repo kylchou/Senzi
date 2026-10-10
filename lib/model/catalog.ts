@@ -1,7 +1,7 @@
 // Demo companies and the public identifiers we collect for each.
 // Every identifier here was checked against the live source on 2026-10-09.
 
-import type { MetricDef, SourceId } from './types.js';
+import type { MetricDef, SourceId } from './types';
 
 export type JobBoard =
   | { provider: 'greenhouse'; board: string }
@@ -17,7 +17,8 @@ export interface Company {
   githubRepos: string[];
   /** SEC CIK for Form D lookups. Null when no Form D filings were found. */
   secCik: string | null;
-  jobBoard: JobBoard;
+  /** Null when no supported public job-board API has been verified. */
+  jobBoard: JobBoard | null;
   hnQuery: string;
   /** Metric used for demo threshold questions (also the resolution source). */
   questionMetricId: string;
@@ -61,28 +62,28 @@ export const COMPANIES: Company[] = [
     questionMetricId: 'npm_downloads:stripe',
   },
   {
-    id: 'databricks',
-    name: 'Databricks',
-    domain: 'databricks.com',
-    npmPackages: [],
-    pypiPackages: ['databricks-sdk'],
-    githubRepos: ['databricks/databricks-sdk-py'],
-    secCik: '0001587468',
-    jobBoard: { provider: 'greenhouse', board: 'databricks' },
-    hnQuery: 'databricks',
-    questionMetricId: 'pypi_downloads:databricks-sdk',
+    id: 'resend',
+    name: 'Resend',
+    domain: 'resend.com',
+    npmPackages: ['resend'],
+    pypiPackages: ['resend'],
+    githubRepos: ['resend/resend-node'],
+    secCik: null,
+    jobBoard: null, // Official careers page uses a custom site, not a verified supported board.
+    hnQuery: 'resend',
+    questionMetricId: 'npm_downloads:resend',
   },
   {
-    id: 'huggingface',
-    name: 'Hugging Face',
-    domain: 'huggingface.co',
-    npmPackages: ['@huggingface/inference'],
-    pypiPackages: ['huggingface_hub'],
-    githubRepos: ['huggingface/transformers'],
-    secCik: '0001739138',
-    jobBoard: { provider: 'workable', board: 'huggingface' },
-    hnQuery: 'hugging face',
-    questionMetricId: 'pypi_downloads:huggingface_hub',
+    id: 'convex',
+    name: 'Convex',
+    domain: 'convex.dev',
+    npmPackages: ['convex'],
+    pypiPackages: [],
+    githubRepos: ['get-convex/convex-js'],
+    secCik: null,
+    jobBoard: { provider: 'ashby', board: 'convex-dev' },
+    hnQuery: 'convex',
+    questionMetricId: 'npm_downloads:convex',
   },
   {
     id: 'posthog',
@@ -132,7 +133,7 @@ export function metricsFor(c: Company): MetricDef[] {
     ...c.pypiPackages.map((p) => def(metricIds.pypi(p), 'pypistats', `PyPI downloads of ${p}`, 'downloads', 'daily_count')),
     ...c.githubRepos.map((r) => def(metricIds.githubStars(r), 'github', `GitHub stars on ${r}`, 'stars', 'snapshot')),
     ...c.githubRepos.map((r) => def(metricIds.githubCommits(r), 'github', `Weekly commits to ${r}`, 'commits', 'weekly_count')),
-    def(metricIds.openJobs, c.jobBoard.provider, 'Open job postings', 'postings', 'snapshot'),
+    ...(c.jobBoard ? [def(metricIds.openJobs, c.jobBoard.provider, 'Open job postings', 'postings', 'snapshot')] : []),
     def(metricIds.formDAmountSold, 'sec_edgar', 'Form D amount sold', 'USD', 'event'),
     def(metricIds.formDOffering, 'sec_edgar', 'Form D total offering amount', 'USD', 'event'),
     def(metricIds.trancoRank, 'tranco', `Tranco rank of ${c.domain}`, 'rank', 'rank', false),

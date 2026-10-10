@@ -1,0 +1,244 @@
+{
+  "collectedAt": "2026-10-10T03:59:23.884Z",
+  "companies": {
+    "supabase": {
+      "npm": {
+        "points": 1377,
+        "missing": [],
+        "ms": 1238
+      },
+      "pypi": {
+        "points": 184,
+        "missing": [],
+        "ms": 217
+      },
+      "github": {
+        "points": 52,
+        "missing": [],
+        "ms": 824
+      },
+      "sec": {
+        "points": 16,
+        "missing": [],
+        "ms": 1739
+      },
+      "jobs": {
+        "points": 1,
+        "missing": [],
+        "ms": 144
+      },
+      "tranco": {
+        "points": 40,
+        "missing": [],
+        "ms": 419
+      },
+      "hn": {
+        "points": 26,
+        "missing": [],
+        "ms": 10179
+      },
+      "storedPoints": 1696
+    },
+    "vercel": {
+      "npm": {
+        "points": 2754,
+        "missing": [],
+        "ms": 2263
+      },
+      "pypi": {
+        "points": 0,
+        "missing": [],
+        "ms": 0
+      },
+      "github": {
+        "points": 52,
+        "missing": [],
+        "ms": 732
+      },
+      "sec": {
+        "points": 2,
+        "missing": [],
+        "ms": 470
+      },
+      "jobs": {
+        "points": 1,
+        "missing": [],
+        "ms": 101
+      },
+      "tranco": {
+        "points": 40,
+        "missing": [],
+        "ms": 365
+      },
+      "hn": {
+        "points": 26,
+        "missing": [],
+        "ms": 10385
+      },
+      "storedPoints": 2875
+    },
+    "stripe": {
+      "npm": {
+        "points": 1377,
+        "missing": [],
+        "ms": 930
+      },
+      "pypi": {
+        "points": 184,
+        "missing": [],
+        "ms": 218
+      },
+      "github": {
+        "points": 52,
+        "missing": [],
+        "ms": 465
+      },
+      "sec": {
+        "points": 16,
+        "missing": [],
+        "ms": 1728
+      },
+      "jobs": {
+        "points": 1,
+        "missing": [],
+        "ms": 90
+      },
+      "tranco": {
+        "points": 40,
+        "missing": [],
+        "ms": 301
+      },
+      "hn": {
+        "points": 26,
+        "missing": [],
+        "ms": 38638
+      },
+      "storedPoints": 1696
+    },
+    "resend": {
+      "npm": {
+        "points": 1377,
+        "missing": [],
+        "ms": 651
+      },
+      "pypi": {
+        "points": 184,
+        "missing": [],
+        "ms": 179
+      },
+      "github": {
+        "points": 52,
+        "missing": [],
+        "ms": 438
+      },
+      "sec": {
+        "points": 0,
+        "missing": [
+          "No Form D filer found on EDGAR for this company"
+        ],
+        "ms": 0
+      },
+      "jobs": {
+        "points": 0,
+        "missing": [
+          "No supported public job-board API verified; see the official careers page."
+        ],
+        "ms": 0
+      },
+      "tranco": {
+        "points": 40,
+        "missing": [],
+        "ms": 314
+      },
+      "hn": {
+        "points": 26,
+        "missing": [],
+        "ms": 54384
+      },
+      "storedPoints": 1679
+    },
+    "convex": {
+      "npm": {
+        "points": 1377,
+        "missing": [],
+        "ms": 659
+      },
+      "pypi": {
+        "points": 0,
+        "missing": [],
+        "ms": 0
+      },
+      "github": {
+        "points": 1,
+        "missing": [
+          "GitHub commit activity get-convex/convex-js: Still computing after 5 tries: https://api.github.com/repos/get-convex/convex-js/stats/commit_activity"
+        ],
+        "ms": 16870
+      },
+      "sec": {
+        "points": 0,
+        "missing": [
+          "No Form D filer found on EDGAR for this company"
+        ],
+        "ms": 0
+      },
+      "jobs": {
+        "points": 1,
+        "missing": [],
+        "ms": 91
+      },
+      "tranco": {
+        "points": 40,
+        "missing": [],
+        "ms": 1346
+      },
+      "hn": {
+        "points": 26,
+        "missing": [],
+        "ms": 44150
+      },
+      "storedPoints": 1445
+    },
+    "posthog": {
+      "npm": {
+        "points": 1377,
+        "missing": [],
+        "ms": 1021
+      },
+      "pypi": {
+        "points": 184,
+        "missing": [],
+        "ms": 183
+      },
+      "github": {
+        "points": 52,
+        "missing": [],
+        "ms": 774
+      },
+      "sec": {
+        "points": 0,
+        "missing": [
+          "No Form D filer found on EDGAR for this company"
+        ],
+        "ms": 0
+      },
+      "jobs": {
+        "points": 1,
+        "missing": [],
+        "ms": 110
+      },
+      "tranco": {
+        "points": 40,
+        "missing": [],
+        "ms": 342
+      },
+      "hn": {
+        "points": 26,
+        "missing": [],
+        "ms": 29311
+      },
+      "storedPoints": 1680
+    }
+  },
+  "requests": 228
+}

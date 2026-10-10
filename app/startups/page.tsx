@@ -1,54 +1,73 @@
 import type { Metadata } from "next";
-import { Suspense } from "react";
 import { io } from "next/cache";
 import { Search } from "lucide-react";
 import { StartupCard } from "@/components/StartupCard";
-import { Button, ButtonLink } from "@/components/ui/Button";
+import { Button, buttonStyles } from "@/components/ui/Button";
 import { Container } from "@/components/ui/Container";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Input, Label, Select } from "@/components/ui/Field";
-import { FilterForm } from "@/components/ui/FilterForm";
+import { ClearFiltersLink, FilterForm } from "@/components/ui/FilterForm";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Pagination } from "@/components/ui/Pagination";
-import { Skeleton } from "@/components/ui/Skeleton";
-import { parseStartupParams } from "@/lib/discovery/params";
+import { CardGridSkeleton } from "@/components/ui/Skeleton";
+import { parseStartupParams, type StartupQuery } from "@/lib/discovery/params";
 import { listIndustries, listStartups } from "@/lib/discovery/queries";
+import { PageTransition, StreamIn } from "@/components/ui/Transitions";
 
-export const metadata: Metadata = { title: "Startups" };
+export const metadata: Metadata = {
+  title: "Startups",
+  description: "Startups with public markets on Senzi, with sourced facts and coverage.",
+};
 
 export default function StartupsPage({ searchParams }: PageProps<"/startups">) {
   return (
-    <main id="main" className="flex-1">
-      <PageHeader title="Startups" subtitle="Companies with public markets and sourced coverage.">
-        <Suspense fallback={<Skeleton className="h-10 w-full" />}>
-          <Filters searchParams={searchParams} />
-        </Suspense>
-      </PageHeader>
-      <Container className="py-10">
-        <Suspense fallback={<ResultsSkeleton />}>
-          <Results searchParams={searchParams} />
-        </Suspense>
-      </Container>
-    </main>
+    <PageTransition>
+      <main id="main" className="flex-1">
+        <PageHeader title="Startups" subtitle="Companies with public markets and sourced coverage.">
+          <StreamIn fallback={<FiltersView params={parseStartupParams({})} industries={[]} />}>
+            <Filters searchParams={searchParams} />
+          </StreamIn>
+        </PageHeader>
+        <Container className="py-10">
+          <StreamIn fallback={<CardGridSkeleton count={6} variant="startup" />}>
+            <Results searchParams={searchParams} />
+          </StreamIn>
+        </Container>
+      </main>
+    </PageTransition>
   );
 }
 
 async function Filters({ searchParams }: Pick<PageProps<"/startups">, "searchParams">) {
   const params = parseStartupParams(await searchParams);
   const industries = await listIndustries();
+  return <FiltersView params={params} industries={industries} />;
+}
 
+/** The filter form. Also rendered with defaults while loading, so the page does not shift. */
+function FiltersView({ params, industries }: { params: StartupQuery; industries: string[] }) {
   return (
     <FilterForm action="/startups">
       <div className="relative flex-1">
         <Label htmlFor="q" className="sr-only">
           Search startups
         </Label>
-        <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-500" aria-hidden />
-        <Input id="q" name="q" type="search" placeholder="Search by name or industry" defaultValue={params.q} className="pl-9" />
+        <Search
+          className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-ink-500"
+          aria-hidden
+        />
+        <Input
+          id="q"
+          name="q"
+          type="search"
+          placeholder="Search by name or industry"
+          defaultValue={params.q}
+          className="rounded-full pl-10"
+        />
       </div>
       <div className="flex flex-col gap-1 sm:w-56">
         <Label htmlFor="industry">Industry</Label>
-        <Select id="industry" name="industry" defaultValue={params.industry ?? ""}>
+        <Select id="industry" name="industry" defaultValue={params.industry ?? ""} className="rounded-full">
           <option value="">All</option>
           {industries.map((industry) => (
             <option key={industry} value={industry}>
@@ -57,7 +76,7 @@ async function Filters({ searchParams }: Pick<PageProps<"/startups">, "searchPar
           ))}
         </Select>
       </div>
-      <Button type="submit" className="sm:self-end">
+      <Button type="submit" size="lg" className="h-11 sm:self-end">
         Search
       </Button>
     </FilterForm>
@@ -72,18 +91,20 @@ async function Results({ searchParams }: Pick<PageProps<"/startups">, "searchPar
 
   return (
     <>
+      <h2 className="sr-only">Results</h2>
       <p className="mb-5 text-sm text-ink-600" aria-live="polite">
         {result.total} {result.total === 1 ? "startup" : "startups"}
       </p>
       {result.items.length === 0 ? (
         <EmptyState
+          illustration="startups"
           title={filtered ? "No matching startups" : "No startups yet"}
           body={filtered ? "Try a different search or industry." : undefined}
           action={
             filtered ? (
-              <ButtonLink href="/startups" variant="outline" size="sm">
+              <ClearFiltersLink path="/startups" className={buttonStyles({ variant: "outline", size: "sm" })}>
                 Clear filters
-              </ButtonLink>
+              </ClearFiltersLink>
             ) : undefined
           }
         />
@@ -101,15 +122,5 @@ async function Results({ searchParams }: Pick<PageProps<"/startups">, "searchPar
         nextCursor={result.nextCursor}
       />
     </>
-  );
-}
-
-function ResultsSkeleton() {
-  return (
-    <div role="status" aria-label="Loading" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-      {Array.from({ length: 6 }, (_, index) => (
-        <Skeleton key={index} className="h-44 rounded-[var(--radius-card)]" />
-      ))}
-    </div>
   );
 }

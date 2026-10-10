@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { computeBaseline, confidenceFor } from './baseline.js';
-import { addDays } from './dates.js';
-import { defaultParams } from './params.js';
-import { sponsorPoint } from './sponsor.js';
-import { asOfAfter, syntheticDaily, testQuestion } from './test-helpers.js';
+import { computeBaseline, confidenceFor } from './baseline';
+import { addDays } from './dates';
+import { defaultParams } from './params';
+import { sponsorPoint } from './sponsor';
+import { asOfAfter, syntheticDaily, testQuestion } from './test-helpers';
 
 const START = '2026-04-01';
 // 26 weeks of data: 2026-04-01 .. 2026-09-29

@@ -13,11 +13,11 @@
 
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { COMPANIES } from '../catalog.js';
-import { addDays } from '../dates.js';
-import { makeQuestion } from '../questions.js';
-import { sponsorPoint } from '../sponsor.js';
-import { DEFAULT_DATA_DIR } from '../store.js';
+import { COMPANIES } from '../catalog';
+import { addDays } from '../dates';
+import { makeQuestion } from '../questions';
+import { sponsorPoint } from '../sponsor';
+import { DEFAULT_DATA_DIR } from '../store';
 
 const OPENS_AT = '2026-10-10T00:00:00.000Z';
 const WINDOW_END = '2026-11-08';
@@ -26,8 +26,8 @@ const thresholds: Record<string, number> = {
   supabase: 35_000_000,
   vercel: 5_000_000,
   stripe: 25_000_000,
-  databricks: 22_000_000,
-  huggingface: 65_000_000,
+  resend: 16_000_000,
+  convex: 2_000_000,
   posthog: 17_000_000,
 };
 

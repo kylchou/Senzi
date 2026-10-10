@@ -2,7 +2,9 @@ import Link from "next/link";
 import { Clock, Users } from "lucide-react";
 import { AllocationBar } from "@/components/ui/AllocationBar";
 import { MarketStatusBadge } from "@/components/ui/MarketStatusBadge";
+import { CardSparkline } from "@/components/ui/CardSparkline";
 import { StartupMark } from "@/components/ui/StartupMark";
+import { Morph } from "@/components/ui/Transitions";
 import { formatDate, formatDeadline, formatShare } from "@/lib/market-view/format";
 import type { MarketSummary } from "@/lib/market-view/types";
 
@@ -11,7 +13,7 @@ export function MarketCard({ market }: { market: MarketSummary }) {
   const isLive = market.status === "OPEN";
 
   return (
-    <article className="group relative flex h-full flex-col rounded-[var(--radius-card)] border border-ink-200 bg-white p-5 shadow-[var(--shadow-card)] transition-[box-shadow,border-color,transform] duration-200 hover:-translate-y-0.5 hover:border-ink-300 hover:shadow-[var(--shadow-lift)]">
+    <article className="group relative flex h-full flex-col surface-card card-hover p-5">
       <div className="flex items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-2.5">
           <StartupMark name={market.startup.name} logoUrl={market.startup.logoUrl} size="sm" />
@@ -23,20 +25,23 @@ export function MarketCard({ market }: { market: MarketSummary }) {
         <MarketStatusBadge status={market.status} outcome={market.outcome} closesAt={market.closesAt} />
       </div>
 
-      <h3 className="mt-4 line-clamp-3 font-display text-[17px] font-semibold leading-snug text-ink-900">
-        <Link href={`/markets/${market.slug}`} className="after:absolute after:inset-0 after:rounded-[var(--radius-card)]">
-          {market.question}
-        </Link>
-      </h3>
+      <Morph name={`market-title-${market.id}`}>
+        <h3 className="mt-4 line-clamp-3 font-display text-[17px] font-semibold leading-snug text-ink-900">
+          <Link href={`/markets/${market.slug}`} className="after:absolute after:inset-0 after:rounded-[var(--radius-card)]">
+            {market.question}
+          </Link>
+        </h3>
+      </Morph>
 
       <div className="mt-auto pt-5">
         <div className="mb-2.5 flex items-end justify-between gap-2">
           <div>
-            <p className="font-display text-2xl font-bold tabular-nums text-ink-900">
+            <p className="font-display text-3xl font-semibold tracking-tight tabular-nums text-ink-900">
               {allocation.share === null ? "N/A" : formatShare(allocation.share)}
             </p>
             <p className="text-xs text-ink-500">YES allocation</p>
           </div>
+          <CardSparkline slug={market.slug} />
           {openingBaseline !== null && (
             <div className="text-right">
               <p className="text-sm font-semibold tabular-nums text-ink-700">{formatShare(openingBaseline)}</p>

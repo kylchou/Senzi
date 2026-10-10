@@ -27,6 +27,9 @@ export function getVcDeps(): VcDeps {
 }
 
 export function getVcServices(): VcServices {
-  services ??= createVcServices(getVcDeps());
+  services ??= createVcServices(getVcDeps(), {
+    // What the team has approved sending to an AI provider; "standard" unless set.
+    assistantTier: process.env.VC_ASSISTANT_DATA_TIER === "extended" ? "extended" : "standard",
+  });
   return services;
 }

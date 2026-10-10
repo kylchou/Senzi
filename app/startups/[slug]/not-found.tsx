@@ -7,6 +7,7 @@ export default function StartupNotFound() {
     <main id="main" className="flex-1">
       <Container className="py-16">
         <EmptyState
+          illustration="startups"
           title="Startup not found"
           action={
             <ButtonLink href="/startups" variant="outline" size="sm">

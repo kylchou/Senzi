@@ -2,6 +2,23 @@
 
 Code: `lib/model/`. Collectors: `scripts/scrapers/`. Model scripts (refresh, backtest, demo data): `lib/model/cli/`. Data: `data/model/`.
 
+## Active demo selection
+
+The selected six are Stripe, Vercel, Supabase, PostHog, Resend, and Convex. Their primary question metrics are the official npm packages `stripe`, `vercel`, `@supabase/supabase-js`, `posthog-js`, `resend`, and `convex`. Databricks and Hugging Face are no longer in the active model catalog, questions, data, or baselines.
+
+The active dataset was freshly collected and checked against public package, repository, and SEC metadata. See `data/model/validation-report.json` for dates, continuity, provenance, flagged counter zeros, and missing secondary sources; `data/model/identity-report.json` records verified identities. Raw download histories begin January 2023 and are current through the latest complete day, October 8, 2026. Sponsor KPIs remain explicitly simulated and do not affect these questions.
+
+The previous active dataset is preserved in `data/model/archive/pre-six-company-refresh-20261010/`. Candidate evaluation data and its report remain separate historical research in `data/model/candidate-evaluation/`. Backtest generation now scores the actual settings from `params.ts` without silently replacing them with a new all-data fit.
+
+To stage and validate a future refresh before replacing the active dataset:
+
+```sh
+node node_modules/tsx/dist/cli.mjs scripts/scrapers/run.ts --data-dir=data/model/refresh-staging
+node node_modules/tsx/dist/cli.mjs lib/model/cli/validate-demo-data.ts --data-dir=data/model/refresh-staging --verify-identities
+```
+
+Resend's official careers site has no verified supported job-board API. Convex's commit-activity endpoint returned "still computing" in this collection. These values stay missing; both companies have complete primary npm histories. An absent SEC identifier means no verified filer is configured, not proof that no filings exist.
+
 ## Calling it
 
 ```ts
@@ -45,7 +62,7 @@ See `docs/model-backtest.md` for performance, `docs/model-data-sources.md` for s
 
 ## Known issues (fix later)
 
-Found while checking the first real baselines on 2026-10-10. None blocks the demo, but each can make a baseline wrong. Numbers below are from `data/model/` as collected that day.
+Found while checking the first real baselines on 2026-10-10 UTC. None blocks the demo, but each can make a baseline wrong. Numbers below describe the original six-company dataset, now preserved in `data/model/archive/pre-six-company-refresh-20261010/`. Databricks and Hugging Face examples are historical; the active dataset uses Resend and Convex instead.
 
 ### 1. npm and PyPI counts shifted for the whole ecosystem at once (most important)
 
@@ -70,11 +87,11 @@ Zero-valued days that are implausible for the series are treated as missing, and
 
 ### 4. No ground truth beyond downloads
 
-None of the demo companies publish revenue, the backtest questions are synthetic, and the model has never been checked against a real sponsor question. See the limits in `docs/model-backtest.md`.
+Revenue disclosures are not inputs to these download forecasts. The backtest questions are synthetic, and the model has never been checked against a real sponsor question. See the limits in `docs/model-backtest.md`.
 
 ### 5. Smaller items
 
-- Workable's widget endpoint (Hugging Face jobs) is undocumented.
+- Resend hiring is unavailable through the supported collectors; Convex commit history was still computing at refresh time.
 - Hacker News keyword matching is crude.
 - Tranco history is about 40 days.
-- Form D collection hasn't been run (needs `SEC_USER_AGENT`).
+- Form D collection succeeded for Supabase, Vercel and Stripe. The other three have no verified filer configured, which does not imply they have no filings.

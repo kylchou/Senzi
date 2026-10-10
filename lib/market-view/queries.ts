@@ -4,7 +4,8 @@ import type { Prisma } from "@/generated/prisma/client";
 import { db } from "@/lib/db";
 import type { MarketQuery } from "@/lib/discovery/params";
 import { PUBLIC_MARKET_WHERE, PUBLIC_STARTUP_WHERE } from "@/lib/permissions";
-import { marketDetailSelect, marketSummarySelect, toHistoryPoint, toMarketDetail, toMarketSummary } from "./mappers";
+import { rankMoves, type MarketMove } from "./insights";
+import { cleanShare, marketDetailSelect, marketSummarySelect, toHistoryPoint, toMarketDetail, toMarketSummary } from "./mappers";
 import type { CursorPage, HistoryPoint, MarketDetail, MarketSummary } from "./types";
 
 const HISTORY_LIMIT = 1000;
@@ -97,4 +98,36 @@ export async function getPublicCounts(): Promise<{ openMarkets: number; startups
     db.startup.count({ where: PUBLIC_STARTUP_WHERE }),
   ]);
   return { openMarkets, startups };
+}
+
+/**
+ * Open markets whose YES allocation moved most over the last week, or the
+ * last month when nothing moved this week. Compares the current allocation
+ * with the latest snapshot recorded before the window started.
+ */
+export async function listBiggestMoves(now: number, limit = 4): Promise<{ days: number; moves: MarketMove[] }> {
+  const rows = await db.market.findMany({
+    where: { AND: [PUBLIC_MARKET_WHERE, { status: "OPEN" }] },
+    select: marketSummarySelect,
+    take: 300,
+  });
+  const markets = rows.map(toMarketSummary);
+  const ids = markets.map((market) => market.id);
+  if (ids.length === 0) return { days: 7, moves: [] };
+
+  for (const days of [7, 30]) {
+    const past = await db.marketSnapshot.findMany({
+      where: { marketId: { in: ids }, recordedAt: { lte: new Date(now - days * 86_400_000) } },
+      orderBy: [{ marketId: "asc" }, { sequence: "desc" }],
+      distinct: ["marketId"],
+      select: { marketId: true, allocationShare: true },
+    });
+    const from = new Map(past.map((row) => [row.marketId, cleanShare(row.allocationShare)]));
+    const moves = rankMoves(
+      markets.map((market) => ({ market, from: from.get(market.id) ?? null })),
+      limit,
+    );
+    if (moves.length > 0) return { days, moves };
+  }
+  return { days: 7, moves: [] };
 }

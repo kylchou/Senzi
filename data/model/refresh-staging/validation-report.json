@@ -1,0 +1,187 @@
+{
+  "validatedAt": "2026-10-10T04:06:03.518Z",
+  "status": "valid",
+  "totalPoints": 11071,
+  "latestCompleteDownloadDay": "2026-10-08",
+  "companies": [
+    {
+      "companyId": "supabase",
+      "metric": "npm_downloads:@supabase/supabase-js",
+      "points": 1377,
+      "firstDay": "2023-01-01",
+      "latestDay": "2026-10-08",
+      "fetchedAt": "2026-10-10T03:59:23.884Z",
+      "counterZerosExcludedByModel": [
+        "2023-11-03",
+        "2026-06-05",
+        "2026-07-12",
+        "2026-08-14",
+        "2026-09-03",
+        "2026-09-07",
+        "2026-09-08",
+        "2026-09-15",
+        "2026-10-06"
+      ],
+      "sourceIssues": []
+    },
+    {
+      "companyId": "vercel",
+      "metric": "npm_downloads:vercel",
+      "points": 1377,
+      "firstDay": "2023-01-01",
+      "latestDay": "2026-10-08",
+      "fetchedAt": "2026-10-10T03:59:23.884Z",
+      "counterZerosExcludedByModel": [
+        "2023-11-03",
+        "2026-06-05",
+        "2026-07-12",
+        "2026-08-14",
+        "2026-09-03",
+        "2026-09-07",
+        "2026-09-08",
+        "2026-09-15",
+        "2026-10-06"
+      ],
+      "sourceIssues": []
+    },
+    {
+      "companyId": "stripe",
+      "metric": "npm_downloads:stripe",
+      "points": 1377,
+      "firstDay": "2023-01-01",
+      "latestDay": "2026-10-08",
+      "fetchedAt": "2026-10-10T03:59:23.884Z",
+      "counterZerosExcludedByModel": [
+        "2023-11-03",
+        "2026-06-03",
+        "2026-07-12",
+        "2026-08-14",
+        "2026-09-03",
+        "2026-09-07",
+        "2026-09-08",
+        "2026-09-15",
+        "2026-10-06"
+      ],
+      "sourceIssues": []
+    },
+    {
+      "companyId": "resend",
+      "metric": "npm_downloads:resend",
+      "points": 1377,
+      "firstDay": "2023-01-01",
+      "latestDay": "2026-10-08",
+      "fetchedAt": "2026-10-10T03:59:23.884Z",
+      "counterZerosExcludedByModel": [
+        "2023-11-03",
+        "2026-06-05",
+        "2026-07-12",
+        "2026-08-14",
+        "2026-09-03",
+        "2026-09-07",
+        "2026-09-08",
+        "2026-09-15",
+        "2026-10-06"
+      ],
+      "sourceIssues": [
+        {
+          "source": "sec",
+          "details": {
+            "points": 0,
+            "missing": [
+              "No Form D filer found on EDGAR for this company"
+            ],
+            "ms": 0
+          }
+        },
+        {
+          "source": "jobs",
+          "details": {
+            "points": 0,
+            "missing": [
+              "No supported public job-board API verified; see the official careers page."
+            ],
+            "ms": 0
+          }
+        }
+      ]
+    },
+    {
+      "companyId": "convex",
+      "metric": "npm_downloads:convex",
+      "points": 1377,
+      "firstDay": "2023-01-01",
+      "latestDay": "2026-10-08",
+      "fetchedAt": "2026-10-10T03:59:23.884Z",
+      "counterZerosExcludedByModel": [
+        "2023-11-03",
+        "2026-06-25",
+        "2026-07-12",
+        "2026-08-14",
+        "2026-09-03",
+        "2026-09-07",
+        "2026-09-08",
+        "2026-09-15",
+        "2026-10-06"
+      ],
+      "sourceIssues": [
+        {
+          "source": "github",
+          "details": {
+            "points": 1,
+            "missing": [
+              "GitHub commit activity get-convex/convex-js: Still computing after 5 tries: https://api.github.com/repos/get-convex/convex-js/stats/commit_activity"
+            ],
+            "ms": 16870
+          }
+        },
+        {
+          "source": "sec",
+          "details": {
+            "points": 0,
+            "missing": [
+              "No Form D filer found on EDGAR for this company"
+            ],
+            "ms": 0
+          }
+        }
+      ]
+    },
+    {
+      "companyId": "posthog",
+      "metric": "npm_downloads:posthog-js",
+      "points": 1377,
+      "firstDay": "2023-01-01",
+      "latestDay": "2026-10-08",
+      "fetchedAt": "2026-10-10T03:59:23.884Z",
+      "counterZerosExcludedByModel": [
+        "2023-11-03",
+        "2026-06-03",
+        "2026-07-12",
+        "2026-08-14",
+        "2026-09-03",
+        "2026-09-07",
+        "2026-09-08",
+        "2026-09-15",
+        "2026-10-06"
+      ],
+      "sourceIssues": [
+        {
+          "source": "sec",
+          "details": {
+            "points": 0,
+            "missing": [
+              "No Form D filer found on EDGAR for this company"
+            ],
+            "ms": 0
+          }
+        }
+      ]
+    }
+  ],
+  "limitations": [
+    "Downloads are public counter measurements, not users or revenue.",
+    "npm zeros are retained verbatim and flagged as missing by the model; missing weeks are never imputed.",
+    "HN values count keyword-matching stories, not verified company coverage.",
+    "Unavailable secondary sources remain missing."
+  ]
+}

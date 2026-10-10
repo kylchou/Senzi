@@ -1,0 +1,108 @@
+[
+  {
+    "id": "q-supabase-2026-11-08",
+    "companyId": "supabase",
+    "metricId": "npm_downloads:@supabase/supabase-js",
+    "threshold": 35000000,
+    "windowEnd": "2026-11-08",
+    "opensAt": "2026-10-10T00:00:00.000Z",
+    "windowDays": 7,
+    "text": "Will npm downloads of @supabase/supabase-js in the 7 days ending November 8, 2026 (UTC) be at least 35,000,000?",
+    "resolutionSource": {
+      "source": "npm",
+      "url": "https://api.npmjs.org/downloads/range/2026-11-02:2026-11-08/@supabase/supabase-js",
+      "description": "Sum of daily downloads from the public npm downloads API for the 7-day window."
+    }
+  },
+  {
+    "id": "q-vercel-2026-11-08",
+    "companyId": "vercel",
+    "metricId": "npm_downloads:vercel",
+    "threshold": 5000000,
+    "windowEnd": "2026-11-08",
+    "opensAt": "2026-10-10T00:00:00.000Z",
+    "windowDays": 7,
+    "text": "Will npm downloads of vercel in the 7 days ending November 8, 2026 (UTC) be at least 5,000,000?",
+    "resolutionSource": {
+      "source": "npm",
+      "url": "https://api.npmjs.org/downloads/range/2026-11-02:2026-11-08/vercel",
+      "description": "Sum of daily downloads from the public npm downloads API for the 7-day window."
+    }
+  },
+  {
+    "id": "q-stripe-2026-11-08",
+    "companyId": "stripe",
+    "metricId": "npm_downloads:stripe",
+    "threshold": 25000000,
+    "windowEnd": "2026-11-08",
+    "opensAt": "2026-10-10T00:00:00.000Z",
+    "windowDays": 7,
+    "text": "Will npm downloads of stripe in the 7 days ending November 8, 2026 (UTC) be at least 25,000,000?",
+    "resolutionSource": {
+      "source": "npm",
+      "url": "https://api.npmjs.org/downloads/range/2026-11-02:2026-11-08/stripe",
+      "description": "Sum of daily downloads from the public npm downloads API for the 7-day window."
+    }
+  },
+  {
+    "id": "q-databricks-2026-11-08",
+    "companyId": "databricks",
+    "metricId": "pypi_downloads:databricks-sdk",
+    "threshold": 22000000,
+    "windowEnd": "2026-11-08",
+    "opensAt": "2026-10-10T00:00:00.000Z",
+    "windowDays": 7,
+    "text": "Will PyPI downloads of databricks-sdk in the 7 days ending November 8, 2026 (UTC) be at least 22,000,000?",
+    "resolutionSource": {
+      "source": "pypistats",
+      "url": "https://pypistats.org/api/packages/databricks-sdk/overall?mirrors=false",
+      "description": "Sum of daily downloads (without mirrors) from pypistats.org for the 7-day window."
+    }
+  },
+  {
+    "id": "q-huggingface-2026-11-08",
+    "companyId": "huggingface",
+    "metricId": "pypi_downloads:huggingface_hub",
+    "threshold": 65000000,
+    "windowEnd": "2026-11-08",
+    "opensAt": "2026-10-10T00:00:00.000Z",
+    "windowDays": 7,
+    "text": "Will PyPI downloads of huggingface_hub in the 7 days ending November 8, 2026 (UTC) be at least 65,000,000?",
+    "resolutionSource": {
+      "source": "pypistats",
+      "url": "https://pypistats.org/api/packages/huggingface_hub/overall?mirrors=false",
+      "description": "Sum of daily downloads (without mirrors) from pypistats.org for the 7-day window."
+    }
+  },
+  {
+    "id": "q-posthog-2026-11-08",
+    "companyId": "posthog",
+    "metricId": "npm_downloads:posthog-js",
+    "threshold": 17000000,
+    "windowEnd": "2026-11-08",
+    "opensAt": "2026-10-10T00:00:00.000Z",
+    "windowDays": 7,
+    "text": "Will npm downloads of posthog-js in the 7 days ending November 8, 2026 (UTC) be at least 17,000,000?",
+    "resolutionSource": {
+      "source": "npm",
+      "url": "https://api.npmjs.org/downloads/range/2026-11-02:2026-11-08/posthog-js",
+      "description": "Sum of daily downloads from the public npm downloads API for the 7-day window."
+    }
+  },
+  {
+    "id": "q-supabase-2026-10-04-past",
+    "companyId": "supabase",
+    "metricId": "npm_downloads:@supabase/supabase-js",
+    "threshold": 27500000,
+    "windowEnd": "2026-10-04",
+    "opensAt": "2026-09-06T00:00:00.000Z",
+    "note": "Demo of a past question resolved live from real data. Baseline computed as of opensAt.",
+    "windowDays": 7,
+    "text": "Will npm downloads of @supabase/supabase-js in the 7 days ending October 4, 2026 (UTC) be at least 27,500,000?",
+    "resolutionSource": {
+      "source": "npm",
+      "url": "https://api.npmjs.org/downloads/range/2026-09-28:2026-10-04/@supabase/supabase-js",
+      "description": "Sum of daily downloads from the public npm downloads API for the 7-day window."
+    }
+  }
+]

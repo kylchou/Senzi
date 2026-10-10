@@ -7,7 +7,7 @@
 // Writes data/model/collection-report.json with counts, missing data and errors.
 
 import { mkdirSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 import { COMPANIES } from '../../lib/model/catalog.js';
 import { DEFAULT_DATA_DIR, FileModelStore } from '../../lib/model/store.js';
 import { describeError, type CollectContext, type Collector } from './common.js';
@@ -44,7 +44,8 @@ async function main() {
   const collectors = Object.entries(COLLECTORS).filter(([name]) => !only || only.includes(name));
   const http = new PoliteHttp();
   const ctx: CollectContext = { http, now: new Date(), env };
-  const store = new FileModelStore();
+  const dataDir = arg('data-dir') ? resolve(arg('data-dir')!) : DEFAULT_DATA_DIR;
+  const store = new FileModelStore(dataDir);
 
   if (!env.githubToken) console.warn('GITHUB_TOKEN not set: GitHub allows 60 requests/hour unauthenticated.');
 
@@ -69,8 +70,8 @@ async function main() {
     (report.companies as Record<string, unknown>)[company.id] = { ...companyReport, storedPoints: merged.length };
   }
   report.requests = http.requests;
-  mkdirSync(DEFAULT_DATA_DIR, { recursive: true });
-  writeFileSync(join(DEFAULT_DATA_DIR, 'collection-report.json'), JSON.stringify(report, null, 2) + '\n');
+  mkdirSync(dataDir, { recursive: true });
+  writeFileSync(join(dataDir, 'collection-report.json'), JSON.stringify(report, null, 2) + '\n');
   console.log(`Done: ${http.requests} requests.`);
 }
 

@@ -54,6 +54,7 @@ function studyWhere(filter: StudyFilter): Prisma.ResearchStudyWhereInput {
     ...(filter.ids && { id: { in: filter.ids } }),
     ...(filter.startupIds && { startupId: { in: filter.startupIds } }),
     ...(filter.hasMarket && { marketId: { not: null } }),
+    ...(filter.resolvedSince && { resolvedAt: { gte: filter.resolvedSince } }),
     ...(filter.participantUserId && { participants: { some: { userId: filter.participantUserId } } }),
   };
 }
