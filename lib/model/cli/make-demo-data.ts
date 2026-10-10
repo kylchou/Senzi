@@ -31,7 +31,9 @@ const thresholds: Record<string, number> = {
   posthog: 17_000_000,
 };
 
-const questions = COMPANIES.map((c) =>
+// Model refresh questions exist only for companies with a hand-picked threshold. The
+// scraped-data seed (seed-real-markets.ts) makes its own questions for every company.
+const questions = COMPANIES.filter((c) => thresholds[c.id] !== undefined).map((c) =>
   makeQuestion({
     id: `q-${c.id}-${WINDOW_END}`,
     companyId: c.id,

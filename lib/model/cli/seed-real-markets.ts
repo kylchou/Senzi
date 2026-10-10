@@ -1,6 +1,6 @@
-// Replaces the local database's demo data with markets on the six real demo
-// companies (Stripe, Vercel, Supabase, PostHog, Resend, Convex), built from the
-// scraped data in data/model/.
+// Replaces the local database's demo data with markets on the real demo
+// companies in lib/model/catalog.ts (31 of them: the original six plus 25 with
+// the most public data), built from the scraped data in data/model/.
 //
 //   node --env-file=.env --require ./lib/model/cli/server-only-shim.cjs --import tsx lib/model/cli/seed-real-markets.ts --yes
 //
@@ -15,6 +15,8 @@
 //   and settled through the LMSR settlement function.
 // - Simulated traders (labelled "Simulated trader") whose trades go through
 //   the real forecasting engine, so prices, snapshots and fills are genuine.
+//   There are enough of them, trading often enough, for the price lines to
+//   look like a busy market. Each gets a labelled simulation bankroll.
 //   They read the same public data as the model, so the crowd stays near the
 //   model line and follows it, with a lag, when new data moves the model.
 // - A cohort of simulated traders per company verified as users of its product.
@@ -40,7 +42,7 @@ import {
   WatchlistItemType,
 } from "@/generated/prisma/enums";
 import { createMarket } from "@/lib/admin";
-import { grantSignupCredits } from "@/lib/credits";
+import { applyCreditTransaction, grantSignupCredits } from "@/lib/credits";
 import { db } from "@/lib/db";
 import { ManualClock } from "@/lib/forecasting/adapters/simple";
 import { engineFor } from "@/lib/forecasting/server/service";
@@ -75,7 +77,13 @@ const TRAFFIC_MULTIPLE = 0.95;
 const HIRING_DAY = "2026-11-08";
 const HIRING_MULTIPLE = 1.05;
 const FUNDING_BY = "2026-12-31";
-const TRADERS = 120;
+const TRADERS = 250;
+/** Extra credits per simulated trader so a busy market doesn't run them dry. Labelled in the ledger. */
+const SIM_BANKROLL = 4_000;
+/** Simulated trades per open market (min + random extra), per past market, and per short-lived market. */
+const OPEN_TRADES = { min: 45, extra: 35 } as const;
+const PAST_TRADES = { min: 30, extra: 20 } as const;
+const SHORT_TRADES = 12;
 
 /**
  * Starter data for the shared demo VC firm (Demo Ventures): every PostHog question, plus every
@@ -94,13 +102,43 @@ const VERIFIED_DOWNLOAD_QUESTIONS = [
 ] as const;
 
 /** Hand-written descriptions. Everything numeric on the startup page comes from scraped facts. */
-const PROFILES: Record<string, { tagline: string; description: string; website: string; stage: "SERIES_A" | "SERIES_B" | "GROWTH" }> = {
-  stripe: { tagline: "Payments infrastructure for the internet", description: "APIs for payments, billing and financial infrastructure used by online businesses.", website: "https://stripe.com", stage: "GROWTH" },
+type Stage = "SEED" | "SERIES_A" | "SERIES_B" | "SERIES_C" | "GROWTH";
+type Profile = { tagline: string; description: string; website: string; stage: Stage; industry?: string };
+const AI = "AI";
+const DATA = "Data infrastructure";
+// Stages are hand-entered from public funding announcements; industry defaults to Developer tools.
+const PROFILES: Record<string, Profile> = {
+  stripe: { tagline: "Payments infrastructure for the internet", description: "APIs for payments, billing and financial infrastructure used by online businesses.", website: "https://stripe.com", stage: "GROWTH", industry: "Fintech" },
   vercel: { tagline: "Frontend cloud platform", description: "Deployment and hosting platform for web applications; maintains the Next.js framework.", website: "https://vercel.com", stage: "GROWTH" },
   supabase: { tagline: "Open source Postgres development platform", description: "Hosted Postgres with authentication, storage, realtime and edge functions.", website: "https://supabase.com", stage: "GROWTH" },
   posthog: { tagline: "Open source product analytics", description: "Product analytics, session replay, feature flags and experiments for software teams.", website: "https://posthog.com", stage: "GROWTH" },
   resend: { tagline: "Email API for developers", description: "API and SDKs for sending transactional and marketing email.", website: "https://resend.com", stage: "SERIES_A" },
   convex: { tagline: "Reactive backend platform", description: "Backend platform with a reactive database and server functions written in TypeScript.", website: "https://convex.dev", stage: "SERIES_B" },
+  openai: { tagline: "AI research and deployment", description: "Builds the GPT models, ChatGPT and an API used by developers to add AI to their products.", website: "https://openai.com", stage: "GROWTH", industry: AI },
+  anthropic: { tagline: "AI safety and research company", description: "Builds the Claude family of AI models, available through an API and apps.", website: "https://www.anthropic.com", stage: "GROWTH", industry: AI },
+  sentry: { tagline: "Application monitoring for developers", description: "Error tracking, performance monitoring and session replay for software teams.", website: "https://sentry.io", stage: "GROWTH" },
+  clickhouse: { tagline: "Real-time analytics database", description: "Open source column-oriented database and managed cloud for fast analytical queries.", website: "https://clickhouse.com", stage: "GROWTH", industry: DATA },
+  linear: { tagline: "Issue tracking for product teams", description: "Project and issue tracking built for speed, used by software and product teams.", website: "https://linear.app", stage: "SERIES_C" },
+  clerk: { tagline: "Authentication and user management", description: "Drop-in sign-in, user management and organizations for web and mobile apps.", website: "https://clerk.com", stage: "SERIES_C" },
+  pinecone: { tagline: "Vector database for AI applications", description: "Managed vector database for search and retrieval in AI products.", website: "https://www.pinecone.io", stage: "SERIES_B", industry: DATA },
+  temporal: { tagline: "Durable execution platform", description: "Open source workflow engine and cloud service for reliable, long-running application code.", website: "https://temporal.io", stage: "SERIES_C" },
+  planetscale: { tagline: "Managed MySQL and Postgres", description: "Database platform built on Vitess, with branching and non-blocking schema changes.", website: "https://planetscale.com", stage: "SERIES_C", industry: DATA },
+  workos: { tagline: "Enterprise features for apps", description: "APIs for single sign-on, directory sync, audit logs and user management.", website: "https://workos.com", stage: "SERIES_B" },
+  inngest: { tagline: "Durable functions and workflows", description: "Event-driven background jobs and workflows for serverless and server apps.", website: "https://www.inngest.com", stage: "SERIES_A" },
+  e2b: { tagline: "Cloud sandboxes for AI agents", description: "Secure sandboxes where AI agents and apps run generated code.", website: "https://e2b.dev", stage: "SERIES_A", industry: AI },
+  exa: { tagline: "Search engine for AI", description: "Web search API built for AI applications and agents.", website: "https://exa.ai", stage: "SERIES_B", industry: AI },
+  langchain: { tagline: "Framework for building AI agents", description: "Open source frameworks and the LangSmith platform for building and testing LLM applications.", website: "https://www.langchain.com", stage: "SERIES_B", industry: AI },
+  llamaindex: { tagline: "Data framework for LLM apps", description: "Open source framework and cloud tools for connecting company data to AI models.", website: "https://www.llamaindex.ai", stage: "SERIES_A", industry: AI },
+  chroma: { tagline: "Open source AI database", description: "Embedding and vector database for retrieval in AI applications.", website: "https://www.trychroma.com", stage: "SEED", industry: DATA },
+  cohere: { tagline: "Enterprise AI models", description: "Language models for search, retrieval and generation, built for businesses.", website: "https://cohere.com", stage: "GROWTH", industry: AI },
+  huggingface: { tagline: "The AI community platform", description: "Hub for open models and datasets, and the maintainer of the Transformers library.", website: "https://huggingface.co", stage: "GROWTH", industry: AI },
+  elevenlabs: { tagline: "AI voice and audio", description: "Text-to-speech, voice cloning and dubbing models available through apps and an API.", website: "https://elevenlabs.io", stage: "GROWTH", industry: AI },
+  plaid: { tagline: "Connecting apps to bank accounts", description: "APIs that let financial apps link to users' bank accounts and verify data.", website: "https://plaid.com", stage: "GROWTH", industry: "Fintech" },
+  together: { tagline: "Cloud for open source AI", description: "Inference, fine-tuning and GPU clusters for open models.", website: "https://www.together.ai", stage: "SERIES_B", industry: AI },
+  browserbase: { tagline: "Headless browsers for AI agents", description: "Cloud browser infrastructure and the Stagehand framework for web automation.", website: "https://www.browserbase.com", stage: "SERIES_B", industry: AI },
+  openrouter: { tagline: "One API for many AI models", description: "A single API and billing account for models from many providers.", website: "https://openrouter.ai", stage: "SERIES_A", industry: AI },
+  mistral: { tagline: "Open and efficient AI models", description: "European AI lab building open-weight and commercial language models.", website: "https://mistral.ai", stage: "GROWTH", industry: AI },
+  fal: { tagline: "Generative media platform", description: "Fast inference for image, video and audio generation models.", website: "https://fal.ai", stage: "SERIES_C", industry: AI },
 };
 
 const SOURCE_NAMES: Record<string, string> = {
@@ -197,7 +235,19 @@ async function makeUser(tag: string, displayName: string, admin = false): Promis
       accountVerifiedAt: true,
     },
   });
-  if (!admin) await db.$transaction((tx) => grantSignupCredits(tx, user.id));
+  if (!admin) {
+    await db.$transaction(async (tx) => {
+      await grantSignupCredits(tx, user.id);
+      // Enough credits for a busy simulated market; the memo makes it obvious in the ledger.
+      await applyCreditTransaction(tx, {
+        userId: user.id,
+        amount: SIM_BANKROLL,
+        type: "ADMIN_GRANT",
+        idempotencyKey: `sim-bankroll:${user.id}`,
+        memo: "Simulation bankroll for a demo trader",
+      });
+    });
+  }
   return user;
 }
 
@@ -547,7 +597,7 @@ async function main() {
         tagline: profile.tagline,
         description: profile.description,
         websiteUrl: profile.website,
-        industry: "Developer tools",
+        industry: profile.industry ?? "Developer tools",
         stage: profile.stage,
         isPublished: true,
         createdById: admin.id,
@@ -641,7 +691,7 @@ async function main() {
       const from = new Date(opensAt.getTime() + 15 * 60_000);
       const until = new Date(Math.min(NOW.getTime() - 5 * 60_000, made.market.closesAt.getTime() - 3_600_000));
       const span = until.getTime() - from.getTime();
-      const count = span < 30 * 60_000 ? 0 : span < 24 * 3_600_000 ? 4 : 9 + Math.floor(rand() * 6);
+      const count = span < 30 * 60_000 ? 0 : span < 24 * 3_600_000 ? SHORT_TRADES : OPEN_TRADES.min + Math.floor(rand() * OPEN_TRADES.extra);
       // Download and traffic-rank markets: the model refreshes as new data is published (trades never feed it).
       const timeline = refreshModel ? modelTimeline(q, points, made.baseline, opensAt, NOW) : [{ at: opensAt, result: made.baseline }];
       const placed = await simulateTrades(made.market.id, timeline, verifiedOnly ? verifiedPool : pool, from, until, count, rand);
@@ -666,7 +716,7 @@ async function main() {
     const past = await createQuestionMarket(admin, startup.id, pastQ, points, PAST_OPEN_AT);
     if (!past) continue;
     const pastTimeline = modelTimeline(pastQ, points, past.baseline, PAST_OPEN_AT, past.market.closesAt);
-    const placed = await simulateTrades(past.market.id, pastTimeline, pool, new Date(PAST_OPEN_AT.getTime() + 3_600_000), new Date(past.market.closesAt.getTime() - 3_600_000), 8 + Math.floor(rand() * 5), rand);
+    const placed = await simulateTrades(past.market.id, pastTimeline, pool, new Date(PAST_OPEN_AT.getTime() + 3_600_000), new Date(past.market.closesAt.getTime() - 3_600_000), PAST_TRADES.min + Math.floor(rand() * PAST_TRADES.extra), rand);
     await db.market.update({ where: { id: past.market.id }, data: { status: "CLOSED" } });
     const r = await db.resolution.create({
       data: {

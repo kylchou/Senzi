@@ -1,8 +1,8 @@
 {
-  "validatedAt": "2026-10-10T04:14:16.426Z",
+  "validatedAt": "2026-10-10T20:31:40.693Z",
   "status": "valid",
-  "totalPoints": 11071,
-  "latestCompleteDownloadDay": "2026-10-08",
+  "totalPoints": 52405,
+  "latestCompleteDownloadDay": "2026-10-09",
   "companies": [
     {
       "companyId": "supabase",
@@ -171,6 +171,552 @@
             "points": 0,
             "missing": [
               "No verified Form D filer configured for this company"
+            ],
+            "ms": 0
+          }
+        }
+      ]
+    },
+    {
+      "companyId": "openai",
+      "metric": "npm_downloads:openai",
+      "points": 1378,
+      "firstDay": "2023-01-01",
+      "latestDay": "2026-10-09",
+      "fetchedAt": "2026-10-10T20:22:31.201Z",
+      "counterZerosExcludedByModel": [
+        "2023-11-03",
+        "2026-06-25",
+        "2026-07-12",
+        "2026-08-14",
+        "2026-09-03",
+        "2026-09-07",
+        "2026-09-08",
+        "2026-09-15",
+        "2026-10-06",
+        "2026-10-09"
+      ],
+      "sourceIssues": []
+    },
+    {
+      "companyId": "anthropic",
+      "metric": "npm_downloads:@anthropic-ai/sdk",
+      "points": 1378,
+      "firstDay": "2023-01-01",
+      "latestDay": "2026-10-09",
+      "fetchedAt": "2026-10-10T20:22:31.201Z",
+      "counterZerosExcludedByModel": [
+        "2023-11-03",
+        "2026-06-03",
+        "2026-07-12",
+        "2026-08-14",
+        "2026-09-03",
+        "2026-09-07",
+        "2026-09-08",
+        "2026-09-15",
+        "2026-10-06",
+        "2026-10-09"
+      ],
+      "sourceIssues": []
+    },
+    {
+      "companyId": "sentry",
+      "metric": "npm_downloads:@sentry/node",
+      "points": 1378,
+      "firstDay": "2023-01-01",
+      "latestDay": "2026-10-09",
+      "fetchedAt": "2026-10-10T20:22:31.201Z",
+      "counterZerosExcludedByModel": [
+        "2023-11-03",
+        "2026-06-03",
+        "2026-07-12",
+        "2026-08-14",
+        "2026-09-03",
+        "2026-09-07",
+        "2026-09-08",
+        "2026-09-15",
+        "2026-10-06",
+        "2026-10-09"
+      ],
+      "sourceIssues": []
+    },
+    {
+      "companyId": "clickhouse",
+      "metric": "npm_downloads:@clickhouse/client",
+      "points": 1378,
+      "firstDay": "2023-01-01",
+      "latestDay": "2026-10-09",
+      "fetchedAt": "2026-10-10T20:22:31.201Z",
+      "counterZerosExcludedByModel": [
+        "2023-11-03",
+        "2026-06-25",
+        "2026-07-12",
+        "2026-08-14",
+        "2026-09-03",
+        "2026-09-07",
+        "2026-09-08",
+        "2026-09-15",
+        "2026-10-06",
+        "2026-10-09"
+      ],
+      "sourceIssues": []
+    },
+    {
+      "companyId": "linear",
+      "metric": "npm_downloads:@linear/sdk",
+      "points": 1378,
+      "firstDay": "2023-01-01",
+      "latestDay": "2026-10-09",
+      "fetchedAt": "2026-10-10T20:22:31.201Z",
+      "counterZerosExcludedByModel": [
+        "2023-11-03",
+        "2026-06-03",
+        "2026-07-12",
+        "2026-08-14",
+        "2026-09-03",
+        "2026-09-07",
+        "2026-09-08",
+        "2026-09-15",
+        "2026-10-06",
+        "2026-10-09"
+      ],
+      "sourceIssues": []
+    },
+    {
+      "companyId": "clerk",
+      "metric": "npm_downloads:@clerk/nextjs",
+      "points": 1378,
+      "firstDay": "2023-01-01",
+      "latestDay": "2026-10-09",
+      "fetchedAt": "2026-10-10T20:22:31.201Z",
+      "counterZerosExcludedByModel": [
+        "2023-11-03",
+        "2026-06-03",
+        "2026-07-12",
+        "2026-08-14",
+        "2026-09-03",
+        "2026-09-07",
+        "2026-09-08",
+        "2026-09-15",
+        "2026-10-06",
+        "2026-10-09"
+      ],
+      "sourceIssues": []
+    },
+    {
+      "companyId": "pinecone",
+      "metric": "npm_downloads:@pinecone-database/pinecone",
+      "points": 1378,
+      "firstDay": "2023-01-01",
+      "latestDay": "2026-10-09",
+      "fetchedAt": "2026-10-10T20:22:31.201Z",
+      "counterZerosExcludedByModel": [
+        "2023-11-03",
+        "2026-06-03",
+        "2026-07-12",
+        "2026-08-14",
+        "2026-09-03",
+        "2026-09-07",
+        "2026-09-08",
+        "2026-09-15",
+        "2026-10-06",
+        "2026-10-09"
+      ],
+      "sourceIssues": []
+    },
+    {
+      "companyId": "temporal",
+      "metric": "npm_downloads:@temporalio/client",
+      "points": 1378,
+      "firstDay": "2023-01-01",
+      "latestDay": "2026-10-09",
+      "fetchedAt": "2026-10-10T20:22:31.201Z",
+      "counterZerosExcludedByModel": [
+        "2023-11-03",
+        "2026-06-05",
+        "2026-07-12",
+        "2026-08-14",
+        "2026-09-03",
+        "2026-09-07",
+        "2026-09-08",
+        "2026-09-15",
+        "2026-10-06",
+        "2026-10-09"
+      ],
+      "sourceIssues": []
+    },
+    {
+      "companyId": "planetscale",
+      "metric": "npm_downloads:@planetscale/database",
+      "points": 1378,
+      "firstDay": "2023-01-01",
+      "latestDay": "2026-10-09",
+      "fetchedAt": "2026-10-10T20:22:31.201Z",
+      "counterZerosExcludedByModel": [
+        "2023-11-03",
+        "2026-06-03",
+        "2026-07-12",
+        "2026-08-14",
+        "2026-09-03",
+        "2026-09-07",
+        "2026-09-08",
+        "2026-09-15",
+        "2026-10-06",
+        "2026-10-09"
+      ],
+      "sourceIssues": []
+    },
+    {
+      "companyId": "workos",
+      "metric": "npm_downloads:@workos-inc/node",
+      "points": 1378,
+      "firstDay": "2023-01-01",
+      "latestDay": "2026-10-09",
+      "fetchedAt": "2026-10-10T20:22:31.201Z",
+      "counterZerosExcludedByModel": [
+        "2023-11-03",
+        "2026-06-05",
+        "2026-07-12",
+        "2026-08-14",
+        "2026-09-03",
+        "2026-09-07",
+        "2026-09-08",
+        "2026-09-15",
+        "2026-10-06",
+        "2026-10-09"
+      ],
+      "sourceIssues": []
+    },
+    {
+      "companyId": "inngest",
+      "metric": "npm_downloads:inngest",
+      "points": 1378,
+      "firstDay": "2023-01-01",
+      "latestDay": "2026-10-09",
+      "fetchedAt": "2026-10-10T20:22:31.201Z",
+      "counterZerosExcludedByModel": [
+        "2023-11-03",
+        "2026-07-12",
+        "2026-08-14",
+        "2026-09-03",
+        "2026-09-07",
+        "2026-09-08",
+        "2026-09-15",
+        "2026-10-06",
+        "2026-10-09"
+      ],
+      "sourceIssues": []
+    },
+    {
+      "companyId": "e2b",
+      "metric": "npm_downloads:e2b",
+      "points": 1378,
+      "firstDay": "2023-01-01",
+      "latestDay": "2026-10-09",
+      "fetchedAt": "2026-10-10T20:22:31.201Z",
+      "counterZerosExcludedByModel": [
+        "2024-01-28",
+        "2024-01-29",
+        "2024-01-30",
+        "2024-02-01",
+        "2026-07-12",
+        "2026-08-14",
+        "2026-09-03",
+        "2026-09-07",
+        "2026-09-08",
+        "2026-09-15",
+        "2026-10-06",
+        "2026-10-09"
+      ],
+      "sourceIssues": []
+    },
+    {
+      "companyId": "exa",
+      "metric": "npm_downloads:exa-js",
+      "points": 1378,
+      "firstDay": "2023-01-01",
+      "latestDay": "2026-10-09",
+      "fetchedAt": "2026-10-10T20:22:31.201Z",
+      "counterZerosExcludedByModel": [
+        "2026-06-05",
+        "2026-07-12",
+        "2026-08-14",
+        "2026-09-03",
+        "2026-09-07",
+        "2026-09-08",
+        "2026-09-15",
+        "2026-10-06",
+        "2026-10-09"
+      ],
+      "sourceIssues": []
+    },
+    {
+      "companyId": "langchain",
+      "metric": "npm_downloads:langchain",
+      "points": 1378,
+      "firstDay": "2023-01-01",
+      "latestDay": "2026-10-09",
+      "fetchedAt": "2026-10-10T20:22:31.201Z",
+      "counterZerosExcludedByModel": [
+        "2023-11-03",
+        "2026-06-03",
+        "2026-07-12",
+        "2026-08-14",
+        "2026-09-03",
+        "2026-09-07",
+        "2026-09-08",
+        "2026-09-15",
+        "2026-10-06",
+        "2026-10-09"
+      ],
+      "sourceIssues": []
+    },
+    {
+      "companyId": "llamaindex",
+      "metric": "npm_downloads:llamaindex",
+      "points": 1378,
+      "firstDay": "2023-01-01",
+      "latestDay": "2026-10-09",
+      "fetchedAt": "2026-10-10T20:22:31.201Z",
+      "counterZerosExcludedByModel": [
+        "2023-11-03",
+        "2026-06-03",
+        "2026-07-12",
+        "2026-08-14",
+        "2026-09-03",
+        "2026-09-07",
+        "2026-09-08",
+        "2026-09-15",
+        "2026-10-06",
+        "2026-10-09"
+      ],
+      "sourceIssues": []
+    },
+    {
+      "companyId": "chroma",
+      "metric": "npm_downloads:chromadb",
+      "points": 1378,
+      "firstDay": "2023-01-01",
+      "latestDay": "2026-10-09",
+      "fetchedAt": "2026-10-10T20:22:31.201Z",
+      "counterZerosExcludedByModel": [
+        "2023-11-03",
+        "2026-06-04",
+        "2026-07-12",
+        "2026-08-14",
+        "2026-09-03",
+        "2026-09-07",
+        "2026-09-08",
+        "2026-09-15",
+        "2026-10-06",
+        "2026-10-09"
+      ],
+      "sourceIssues": []
+    },
+    {
+      "companyId": "cohere",
+      "metric": "npm_downloads:cohere-ai",
+      "points": 1378,
+      "firstDay": "2023-01-01",
+      "latestDay": "2026-10-09",
+      "fetchedAt": "2026-10-10T20:22:31.201Z",
+      "counterZerosExcludedByModel": [
+        "2023-11-03",
+        "2026-06-25",
+        "2026-07-12",
+        "2026-08-14",
+        "2026-09-03",
+        "2026-09-07",
+        "2026-09-08",
+        "2026-09-15",
+        "2026-10-06",
+        "2026-10-09"
+      ],
+      "sourceIssues": []
+    },
+    {
+      "companyId": "huggingface",
+      "metric": "npm_downloads:@huggingface/transformers",
+      "points": 1378,
+      "firstDay": "2023-01-01",
+      "latestDay": "2026-10-09",
+      "fetchedAt": "2026-10-10T20:22:31.201Z",
+      "counterZerosExcludedByModel": [
+        "2026-06-03",
+        "2026-07-12",
+        "2026-08-14",
+        "2026-09-03",
+        "2026-09-07",
+        "2026-09-08",
+        "2026-09-15",
+        "2026-10-06",
+        "2026-10-09"
+      ],
+      "sourceIssues": []
+    },
+    {
+      "companyId": "elevenlabs",
+      "metric": "npm_downloads:@elevenlabs/elevenlabs-js",
+      "points": 1378,
+      "firstDay": "2023-01-01",
+      "latestDay": "2026-10-09",
+      "fetchedAt": "2026-10-10T20:22:31.201Z",
+      "counterZerosExcludedByModel": [
+        "2025-07-02",
+        "2026-06-03",
+        "2026-07-12",
+        "2026-08-14",
+        "2026-09-03",
+        "2026-09-07",
+        "2026-09-08",
+        "2026-09-15",
+        "2026-10-06",
+        "2026-10-09"
+      ],
+      "sourceIssues": []
+    },
+    {
+      "companyId": "plaid",
+      "metric": "npm_downloads:plaid",
+      "points": 1378,
+      "firstDay": "2023-01-01",
+      "latestDay": "2026-10-09",
+      "fetchedAt": "2026-10-10T20:22:31.201Z",
+      "counterZerosExcludedByModel": [
+        "2023-11-03",
+        "2026-06-05",
+        "2026-07-12",
+        "2026-08-14",
+        "2026-09-03",
+        "2026-09-07",
+        "2026-09-08",
+        "2026-09-15",
+        "2026-10-06",
+        "2026-10-09"
+      ],
+      "sourceIssues": []
+    },
+    {
+      "companyId": "together",
+      "metric": "npm_downloads:together-ai",
+      "points": 1378,
+      "firstDay": "2023-01-01",
+      "latestDay": "2026-10-09",
+      "fetchedAt": "2026-10-10T20:22:31.201Z",
+      "counterZerosExcludedByModel": [
+        "2026-06-03",
+        "2026-06-10",
+        "2026-06-25",
+        "2026-07-12",
+        "2026-08-14",
+        "2026-09-03",
+        "2026-09-07",
+        "2026-09-08",
+        "2026-09-15",
+        "2026-10-06",
+        "2026-10-09"
+      ],
+      "sourceIssues": []
+    },
+    {
+      "companyId": "browserbase",
+      "metric": "npm_downloads:@browserbasehq/sdk",
+      "points": 1378,
+      "firstDay": "2023-01-01",
+      "latestDay": "2026-10-09",
+      "fetchedAt": "2026-10-10T20:22:31.201Z",
+      "counterZerosExcludedByModel": [
+        "2024-04-27",
+        "2026-06-05",
+        "2026-07-12",
+        "2026-08-14",
+        "2026-09-03",
+        "2026-09-07",
+        "2026-09-08",
+        "2026-09-15",
+        "2026-10-06",
+        "2026-10-09"
+      ],
+      "sourceIssues": []
+    },
+    {
+      "companyId": "openrouter",
+      "metric": "npm_downloads:@openrouter/ai-sdk-provider",
+      "points": 1378,
+      "firstDay": "2023-01-01",
+      "latestDay": "2026-10-09",
+      "fetchedAt": "2026-10-10T20:22:31.201Z",
+      "counterZerosExcludedByModel": [
+        "2026-06-05",
+        "2026-07-12",
+        "2026-08-14",
+        "2026-09-03",
+        "2026-09-07",
+        "2026-09-08",
+        "2026-09-15",
+        "2026-10-06",
+        "2026-10-09"
+      ],
+      "sourceIssues": []
+    },
+    {
+      "companyId": "mistral",
+      "metric": "npm_downloads:@mistralai/mistralai",
+      "points": 1378,
+      "firstDay": "2023-01-01",
+      "latestDay": "2026-10-09",
+      "fetchedAt": "2026-10-10T20:22:31.201Z",
+      "counterZerosExcludedByModel": [
+        "2026-06-03",
+        "2026-06-04",
+        "2026-06-25",
+        "2026-07-12",
+        "2026-08-14",
+        "2026-09-03",
+        "2026-09-07",
+        "2026-09-08",
+        "2026-09-15",
+        "2026-10-06",
+        "2026-10-09"
+      ],
+      "sourceIssues": [
+        {
+          "source": "jobs",
+          "details": {
+            "points": 0,
+            "missing": [
+              "No supported public job-board API verified; see the official careers page."
+            ],
+            "ms": 0
+          }
+        }
+      ]
+    },
+    {
+      "companyId": "fal",
+      "metric": "npm_downloads:@fal-ai/client",
+      "points": 1378,
+      "firstDay": "2023-01-01",
+      "latestDay": "2026-10-09",
+      "fetchedAt": "2026-10-10T20:22:31.201Z",
+      "counterZerosExcludedByModel": [
+        "2026-06-05",
+        "2026-07-12",
+        "2026-08-14",
+        "2026-09-03",
+        "2026-09-07",
+        "2026-09-08",
+        "2026-09-15",
+        "2026-10-06",
+        "2026-10-09"
+      ],
+      "sourceIssues": [
+        {
+          "source": "jobs",
+          "details": {
+            "points": 0,
+            "missing": [
+              "No supported public job-board API verified; see the official careers page."
             ],
             "ms": 0
           }

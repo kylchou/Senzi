@@ -1,7 +1,7 @@
 // Collects public data for the demo companies into data/model/points/.
 //
 //   npx tsx scripts/scrapers/run.ts                          all companies, all sources
-//   npx tsx scripts/scrapers/run.ts --company=supabase       one company
+//   npx tsx scripts/scrapers/run.ts --company=supabase       one company (or a comma-separated list)
 //   npx tsx scripts/scrapers/run.ts --only=npm,pypi          some sources
 //
 // Writes data/model/collection-report.json with counts, missing data and errors.
@@ -39,8 +39,8 @@ function arg(name: string): string | undefined {
 async function main() {
   const env = loadEnv();
   const only = arg('only')?.split(',');
-  const companyFilter = arg('company');
-  const companies = COMPANIES.filter((c) => !companyFilter || c.id === companyFilter);
+  const companyFilter = arg('company')?.split(',');
+  const companies = COMPANIES.filter((c) => !companyFilter || companyFilter.includes(c.id));
   const collectors = Object.entries(COLLECTORS).filter(([name]) => !only || only.includes(name));
   const http = new PoliteHttp();
   const ctx: CollectContext = { http, now: new Date(), env };
