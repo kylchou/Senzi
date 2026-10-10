@@ -141,10 +141,18 @@ describe("study lifecycle against the shared schema", () => {
       evidenceSummary: "The company announced a $25M Series B in a press release.",
       evidenceUrls: ["https://example.com/series-b"],
     });
-    expect(await services.studies.syncWithMarkets()).toEqual({ closed: 0, resolved: 1, failed: 0 });
+    expect(await services.studies.syncWithMarkets()).toEqual({ closed: 0, resolved: 1, corrected: 0, failed: 0 });
     const resolved = await services.studies.get(w.ctx.analystA, study.id);
     expect(resolved.study).toMatchObject({ status: "RESOLVED", resolvedOutcome: "YES" });
     expect(resolved.estimate?.resolution?.evidenceUrls).toEqual(["https://example.com/series-b"]);
+
+    // An admin corrects the outcome before settlement completes; the study follows it.
+    await db.resolution.update({ where: { marketId: market.id }, data: { outcome: "NO", correctionCount: { increment: 1 } } });
+    expect(await services.studies.syncWithMarkets()).toMatchObject({ corrected: 1, failed: 0 });
+    expect((await services.studies.get(w.ctx.analystA, study.id)).study.resolvedOutcome).toBe("NO");
+    expect(await db.studyEvent.count({ where: { studyId: study.id, action: "correct_resolution" } })).toBe(1);
+    await db.resolution.update({ where: { marketId: market.id }, data: { outcome: "YES" } });
+    await services.studies.syncWithMarkets();
 
     const report = await services.reports.generate(w.ctx.analystA, study.id);
     expect(report.resolution?.outcome).toBe("YES");
@@ -280,3 +288,44 @@ describe("startup comparison", () => {
   });
 });
 
+
+describe("assistant context against the database", () => {
+  it("uses real snapshot ids and excludes news tied to private markets or unpublished startups", async () => {
+    const w = await world();
+    const study = await openStudy(w, "ORGANIZATION");
+    const marketId = study.marketId!;
+    await placeForecast(w.viewerA, marketId, 100);
+    await recordSnapshot(marketId);
+
+    const otherPrivate = await makeMarket(w.admin, { private: w.orgB.id, startupId: w.startup.id });
+    await db.startupFact.create({
+      data: { startupId: w.startup.id, label: "Series A", value: "$12M", sourceName: "Press release", sourceUrl: "https://example.com/a", asOf: new Date(), verified: true, verifiedAt: new Date() },
+    });
+    const publicNews = await db.newsItem.create({
+      data: { startupId: w.startup.id, title: "Public report", publisher: "Example News", url: "https://example.com/news", publishedAt: new Date() },
+    });
+    await db.newsItem.create({
+      data: { startupId: w.startup.id, marketId: otherPrivate.id, title: "Private-market report", publisher: "Example News", url: "https://example.com/private", publishedAt: new Date() },
+    });
+
+    const pkg = await services.assistantContext.forStudy(w.ctx.analystA, study.id);
+    const ids = pkg.items.map((i) => i.id);
+    expect(ids).toContain(`news:${publicNews.id}`);
+    expect(JSON.stringify(pkg)).not.toContain("Private-market report");
+    expect(ids.some((id) => id.startsWith("fact:"))).toBe(true);
+
+    const snapshotIds = ids.filter((id) => id.startsWith("snapshot:")).map((id) => id.slice("snapshot:".length));
+    expect(snapshotIds.length).toBeGreaterThan(0);
+    expect(await db.marketSnapshot.count({ where: { id: { in: snapshotIds }, marketId } })).toBe(snapshotIds.length);
+
+    await db.startup.update({ where: { id: w.startup.id }, data: { isPublished: false } });
+    const hidden = await services.assistantContext.forStudy(w.ctx.analystA, study.id);
+    expect(hidden.items.some((i) => i.id.startsWith("fact:") || i.id.startsWith("news:"))).toBe(false);
+  });
+
+  it("refuses a restricted study at the standard tier", async () => {
+    const w = await world();
+    const study = await openStudy(w, "RESTRICTED");
+    await expectCode(services.assistantContext.forStudy(w.ctx.analystA, study.id), "FORBIDDEN");
+  });
+});

@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { Suspense } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { io } from "next/cache";
@@ -15,23 +14,51 @@ import { MarketStatusBadge } from "@/components/ui/MarketStatusBadge";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { StartupMark } from "@/components/ui/StartupMark";
 import { shareMovement } from "@/lib/market-view/chart";
-import { formatDate, formatDateTime, formatDeadline, isPastDeadline, requestTime } from "@/lib/market-view/format";
+import {
+  formatDate,
+  formatDateTime,
+  formatDeadline,
+  formatShare,
+  isPastDeadline,
+  requestTime,
+} from "@/lib/market-view/format";
+import { timelineSteps } from "@/lib/market-view/insights";
+import { requestOrigin } from "@/lib/market-view/origin";
 import { getMarket, getMarketHistory } from "@/lib/market-view/queries";
+import { breadcrumbs, JsonLd } from "@/components/ui/JsonLd";
+import { MarketTimeline } from "@/components/ui/MarketTimeline";
+import { MarketTour } from "@/components/ui/MarketTour";
+import { ShareButton } from "@/components/ui/ShareButton";
+import { Morph, PageTransition, StreamIn } from "@/components/ui/Transitions";
 
 export async function generateMetadata({ params }: PageProps<"/markets/[slug]">): Promise<Metadata> {
   const market = await getMarket((await params).slug).catch(() => null);
-  return { title: market?.question ?? "Market" };
+  if (!market) return { title: "Market" };
+  const parts = [
+    `YES allocation ${formatShare(market.allocation.share)}`,
+    market.openingBaseline !== null ? `opening baseline ${formatShare(market.openingBaseline)}` : null,
+    market.resolution ? null : `deadline ${formatDate(market.closesAt)}`,
+  ].filter(Boolean);
+  const description = `${market.startup.name}: ${parts.join(", ")}. Community forecasts with virtual credits.`;
+  return {
+    title: market.question,
+    description,
+    openGraph: { title: market.question, description, type: "article" },
+    twitter: { card: "summary_large_image", title: market.question, description },
+  };
 }
 
 export default function MarketPage({ params }: PageProps<"/markets/[slug]">) {
   return (
-    <main id="main" className="flex-1">
-      <Container className="py-8 sm:py-10">
-        <Suspense fallback={<MarketSkeleton />}>
-          <MarketView params={params} />
-        </Suspense>
-      </Container>
-    </main>
+    <PageTransition>
+      <main id="main" className="flex-1">
+        <Container className="py-8 sm:py-10">
+          <StreamIn fallback={<MarketSkeleton />}>
+            <MarketView params={params} />
+          </StreamIn>
+        </Container>
+      </main>
+    </PageTransition>
   );
 }
 
@@ -45,6 +72,7 @@ async function MarketView({ params }: Pick<PageProps<"/markets/[slug]">, "params
   const now = requestTime();
   const isOpen = market.status === "OPEN" && !isPastDeadline(market.closesAt, new Date(now));
   // Closed markets stop the history line at close or resolution instead of today.
+  const origin = await requestOrigin();
   const chartEnd = isOpen ? now : Math.min(now, Date.parse(market.resolvedAt ?? market.closesAt));
 
   return (
@@ -68,15 +96,20 @@ async function MarketView({ params }: Pick<PageProps<"/markets/[slug]">, "params
           <span className="text-sm text-ink-500">{market.category ?? market.startup.industry}</span>
           <MarketStatusBadge status={market.status} outcome={market.outcome} closesAt={market.closesAt} />
         </div>
-        <h1 className="mt-4 text-3xl font-bold leading-tight text-ink-900 sm:text-4xl">{market.question}</h1>
+        <Morph name={`market-title-${market.id}`}>
+          <h1 className="mt-4 text-3xl font-bold leading-tight text-ink-900 sm:text-4xl">{market.question}</h1>
+        </Morph>
         {market.description && <p className="mt-3 text-ink-700">{market.description}</p>}
-        <p className="mt-4 inline-flex items-center gap-2 text-sm text-ink-600">
-          <CalendarClock className="size-4" aria-hidden />
-          <span>
-            Deadline <time dateTime={market.closesAt}>{formatDateTime(market.closesAt)}</time>
-            {isOpen && <span className="text-ink-500"> ({formatDeadline(market.closesAt, new Date(now))})</span>}
-          </span>
-        </p>
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+          <p className="inline-flex items-center gap-2 text-sm text-ink-600">
+            <CalendarClock className="size-4" aria-hidden />
+            <span>
+              Deadline <time dateTime={market.closesAt}>{formatDateTime(market.closesAt)}</time>
+              {isOpen && <span className="text-ink-500"> ({formatDeadline(market.closesAt, new Date(now))})</span>}
+            </span>
+          </p>
+          <ShareButton title={market.question} path={`/markets/${market.slug}`} />
+        </div>
       </header>
 
       {/* On small screens the forecast panel sits right after the key figures. */}
@@ -90,17 +123,26 @@ async function MarketView({ params }: Pick<PageProps<"/markets/[slug]">, "params
           <p className="mt-3 px-1 text-xs leading-relaxed text-ink-500">
             Forecasts are research signals, not guarantees or investment advice.
           </p>
+          <div className="mt-6">
+            <MarketTimeline steps={timelineSteps(market, now)} />
+          </div>
         </aside>
 
         <div className="min-w-0 space-y-8 lg:col-start-1 lg:row-start-2">
-          <section aria-labelledby="history-heading" className="rounded-[var(--radius-card)] border border-ink-200 bg-white p-5">
+          <section aria-labelledby="history-heading" className="surface-card p-5">
             <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
               <h2 id="history-heading" className="font-display text-lg font-bold text-ink-900">
                 Community allocation over time
               </h2>
               <MarketMovement movement={shareMovement(history, 7, chartEnd)} />
             </div>
-            <ProbabilityChart history={history} openingBaseline={market.openingBaseline} now={chartEnd} />
+            <ProbabilityChart
+              history={history}
+              openingBaseline={market.openingBaseline}
+              now={chartEnd}
+              live={isOpen}
+              events={market.coverage}
+            />
           </section>
 
           <section aria-labelledby="sources-heading">
@@ -110,12 +152,17 @@ async function MarketView({ params }: Pick<PageProps<"/markets/[slug]">, "params
             {market.sources.length === 0 ? (
               <p className="text-sm text-ink-600">No sources listed.</p>
             ) : (
-              <ul className="divide-y divide-ink-100 rounded-[var(--radius-card)] border border-ink-200">
+              <ul className="divide-y divide-ink-100 surface-card">
                 {market.sources.map((source) => (
-                  <li key={source.url} className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 px-5 py-3.5 text-sm">
+                  <li
+                    key={source.url}
+                    className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 px-5 py-3.5 text-sm"
+                  >
                     <ExternalLink href={source.url}>{source.title}</ExternalLink>
                     <span className="text-xs text-ink-500">
-                      {[source.publisher, source.publishedAt && formatDate(source.publishedAt)].filter(Boolean).join(" · ")}
+                      {[source.publisher, source.publishedAt && formatDate(source.publishedAt)]
+                        .filter(Boolean)
+                        .join(" · ")}
                     </span>
                   </li>
                 ))}
@@ -130,7 +177,7 @@ async function MarketView({ params }: Pick<PageProps<"/markets/[slug]">, "params
             <NewsFeed items={market.coverage} showStartup={false} emptyTitle="No linked coverage yet" />
           </section>
 
-          <section aria-labelledby="startup-heading" className="rounded-[var(--radius-card)] bg-ink-50 p-5">
+          <section aria-labelledby="startup-heading" className="surface-card p-5">
             <h2 id="startup-heading" className="font-display text-lg font-bold text-ink-900">
               About {market.startup.name}
             </h2>
@@ -147,6 +194,17 @@ async function MarketView({ params }: Pick<PageProps<"/markets/[slug]">, "params
           </section>
         </div>
       </div>
+      <MarketTour />
+      <JsonLd
+        data={breadcrumbs(
+          [
+            { name: "Markets", path: "/markets" },
+            { name: market.startup.name, path: `/startups/${market.startup.slug}` },
+            { name: market.question, path: `/markets/${market.slug}` },
+          ],
+          origin,
+        )}
+      />
     </>
   );
 }

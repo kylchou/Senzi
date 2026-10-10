@@ -44,6 +44,13 @@ export interface StudyListItem {
   estimate: MarketEstimate | null;
 }
 
+/**
+ * How long after resolution a study keeps checking for outcome corrections.
+ * Outcomes can only change until credits are settled, which normally happens
+ * within minutes; the window leaves room for failed settlements being retried.
+ */
+const CORRECTION_WINDOW_MS = 90 * 24 * 60 * 60 * 1000;
+
 const PENDING_STATUSES: readonly StudyStatus[] = ["SUBMITTED", "APPROVED"];
 
 export function createStudyService(deps: VcDeps) {
@@ -354,18 +361,33 @@ export function createStudyService(deps: VcDeps) {
    * mirrors market resolutions. Safe to run repeatedly. A failure on one study
    * is logged and skipped so the rest (and the alert run after it) still happen.
    */
-  async function syncWithMarkets(): Promise<{ closed: number; resolved: number; failed: number }> {
-    const studies = await repo.listStudies({ statuses: ["OPEN", "CLOSED"], hasMarket: true });
-    const estimates = await estimatesFor(studies);
+  async function syncWithMarkets(): Promise<{ closed: number; resolved: number; corrected: number; failed: number }> {
     const at = now();
+    const [active, recentlyResolved] = await Promise.all([
+      repo.listStudies({ statuses: ["OPEN", "CLOSED"], hasMarket: true }),
+      repo.listStudies({
+        statuses: ["RESOLVED"],
+        hasMarket: true,
+        resolvedSince: new Date(at.getTime() - CORRECTION_WINDOW_MS),
+      }),
+    ]);
+    const studies = [...active, ...recentlyResolved];
+    const estimates = await estimatesFor(studies);
     let closed = 0;
     let resolved = 0;
+    let corrected = 0;
     let failed = 0;
 
     for (const study of studies) {
       const estimate = study.marketId ? estimates.get(study.marketId) : undefined;
       try {
-        if (estimate?.resolution) {
+        if (study.status === "RESOLVED") {
+          // An admin corrected the market's outcome after the study mirrored it.
+          if (estimate?.resolution && estimate.resolution.outcome !== study.resolvedOutcome) {
+            await applyOutcomeCorrection(study, estimate.resolution.outcome);
+            corrected++;
+          }
+        } else if (estimate?.resolution) {
           await applyTransition(study, "resolve", null, estimate.resolution.evidenceSummary, {
             resolvedOutcome: estimate.resolution.outcome,
             resolvedAt: estimate.resolution.resolvedAt,
@@ -386,7 +408,39 @@ export function createStudyService(deps: VcDeps) {
         }
       }
     }
-    return { closed, resolved, failed };
+    return { closed, resolved, corrected, failed };
+  }
+
+  /**
+   * Mirrors a corrected market outcome onto an already-resolved study. Status
+   * stays RESOLVED; the change is recorded as a study event and announced to
+   * the firm. Evidence-only corrections need nothing here: evidence is read
+   * live from the market.
+   */
+  async function applyOutcomeCorrection(study: Study, outcome: NonNullable<Study["resolvedOutcome"]>) {
+    const from = study.resolvedOutcome;
+    const updated = await repo.updateStudy(study.id, study.version, { resolvedOutcome: outcome }, {
+      actorId: null,
+      action: "correct_resolution",
+      fromStatus: "RESOLVED",
+      toStatus: "RESOLVED",
+      reason: `Outcome corrected from ${from ?? "none"} to ${outcome}`,
+    });
+    if (!updated) throw new VcError("CONFLICT", "This study was changed by someone else. Reload and try again.");
+    await alertPublisher.publish([
+      {
+        organizationId: study.organizationId,
+        type: "STUDY_RESOLVED",
+        studyId: study.id,
+        startupId: study.startupId,
+        marketId: study.marketId,
+        title: `Study outcome corrected: ${from ?? "none"} → ${outcome}`,
+        body: study.question,
+        payload: { from, to: outcome },
+        dedupeKey: `resolution-corrected:${study.id}:${updated.version}`,
+      },
+    ]);
+    return updated;
   }
 
   return {

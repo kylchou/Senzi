@@ -6,6 +6,8 @@ import { SignInButton } from "@clerk/nextjs";
 import { AlertCircle, Check, Loader2, Lock } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/components/ui/cn";
+import { toast } from "@/components/ui/Toaster";
+import { refreshMe } from "@/components/ui/me-client";
 import { formatCredits, formatDateTime, formatShare } from "@/lib/market-view/format";
 import {
   errorMessage,
@@ -18,6 +20,18 @@ import {
 } from "@/lib/market-view/forecast-client";
 
 const PRESETS = [10, 25, 50, 100];
+const LAST_AMOUNT_KEY = "senzi-last-credits";
+
+/** Last allocation the user submitted, so the panel opens with it. */
+function lastAmount(): string {
+  if (typeof window === "undefined") return "25";
+  try {
+    const stored = localStorage.getItem(LAST_AMOUNT_KEY);
+    return stored && /^d+$/.test(stored) ? stored : "25";
+  } catch {
+    return "25";
+  }
+}
 
 type Session = { state: "loading" } | { state: "signed-out" } | { state: "ready"; balance: number | null };
 
@@ -40,7 +54,8 @@ export function ForecastPanel({
   const errorId = useId();
   const [session, setSession] = useState<Session>({ state: "loading" });
   const [side, setSide] = useState<ForecastSide>("YES");
-  const [amount, setAmount] = useState("25");
+  const [amount, setAmount] = useState(lastAmount);
+  const [pulse, setPulse] = useState(0);
   const [touched, setTouched] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<ForecastError | null>(null);
@@ -86,6 +101,13 @@ export function ForecastPanel({
       const result = await submitForecast({ marketId, side, credits: Number(amount), idempotencyKey: idempotencyKey.current });
       setReceipt(result);
       if (typeof result.balanceAfter === "number") setSession({ state: "ready", balance: result.balanceAfter });
+      refreshMe();
+      toast(`Forecast recorded: ${formatCredits(result.credits)} credits on ${result.side}`);
+      try {
+        localStorage.setItem(LAST_AMOUNT_KEY, String(result.credits));
+      } catch {
+        // Remembering the amount is optional.
+      }
       router.refresh();
     } catch (err) {
       const failure = err instanceof ForecastError ? err : new ForecastError("UNKNOWN", "");
@@ -111,7 +133,7 @@ export function ForecastPanel({
   return (
     <section
       aria-labelledby="forecast-heading"
-      className="rounded-[var(--radius-card)] border border-ink-200 bg-white p-5 shadow-[var(--shadow-card)]"
+      className="surface-card p-5"
     >
       <div className="flex items-baseline justify-between gap-2">
         <h2 id="forecast-heading" className="font-display text-lg font-bold text-ink-900">
@@ -128,7 +150,7 @@ export function ForecastPanel({
       ) : receipt ? (
         <Receipt receipt={receipt} onReset={reset} />
       ) : session.state === "loading" ? (
-        <div className="mt-6 flex items-center justify-center py-10 text-ink-500" role="status">
+        <div className="mt-4 flex min-h-32 items-center justify-center text-ink-500" role="status">
           <Loader2 className="size-5 animate-spin" aria-hidden />
           <span className="sr-only">Loading</span>
         </div>
@@ -158,7 +180,7 @@ export function ForecastPanel({
                   <label
                     key={option}
                     className={cn(
-                      "relative flex h-14 cursor-pointer items-center justify-center rounded-xl border-2 font-display text-lg font-bold transition-colors has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-red-500",
+                      "relative flex h-14 cursor-pointer select-none items-center justify-center rounded-xl border-2 font-display text-lg font-bold transition-[color,background-color,border-color,transform] duration-150 active:scale-[0.97] has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-red-500",
                       selected && option === "YES" && "border-red-500 bg-red-50 text-ink-900",
                       selected && option === "NO" && "border-ink-900 bg-ink-50 text-ink-900",
                       !selected && "border-ink-200 text-ink-500 hover:border-ink-300 hover:text-ink-900",
@@ -173,7 +195,7 @@ export function ForecastPanel({
                       className="sr-only"
                     />
                     {option}
-                    {selected && <Check className="absolute right-3 top-3 size-4" aria-hidden />}
+                    {selected && <Check className="absolute right-3 top-3 size-4 animate-[pop-in_180ms_var(--ease-out-soft)]" aria-hidden />}
                   </label>
                 );
               })}
@@ -200,23 +222,35 @@ export function ForecastPanel({
                 aria-invalid={touched && validation ? true : undefined}
                 aria-describedby={touched && validation ? errorId : undefined}
                 className={cn(
-                  "h-12 w-full rounded-xl border border-ink-200 bg-white pl-4 pr-20 font-display text-xl font-bold tabular-nums text-ink-900 transition-colors hover:border-ink-300 focus-visible:border-ink-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/30",
+                  "h-12 w-full rounded-xl border border-ink-200 bg-surface pl-4 pr-20 font-display text-xl font-bold tabular-nums text-ink-900 transition-colors hover:border-ink-300 focus-visible:border-ink-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/30",
                   touched && validation && "border-red-600",
                 )}
               />
               <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-sm text-ink-500">credits</span>
+              {pulse > 0 && (
+                <span
+                  key={pulse}
+                  aria-hidden
+                  className="pointer-events-none absolute inset-0 animate-[ring-pulse_500ms_ease-out] rounded-xl"
+                />
+              )}
             </div>
             <div className="mt-2 flex gap-1.5">
               {PRESETS.map((preset) => (
                 <button
                   key={preset}
                   type="button"
-                  onClick={() => changeIntent(() => setAmount(String(preset)))}
+                  onClick={() =>
+                    changeIntent(() => {
+                      setAmount(String(preset));
+                      setPulse((count) => count + 1);
+                    })
+                  }
                   disabled={balance !== null && preset > balance}
                   className={cn(
-                    "h-8 flex-1 rounded-lg border text-xs font-semibold tabular-nums transition-colors disabled:opacity-40",
+                    "h-10 flex-1 rounded-lg border text-xs font-semibold tabular-nums transition-[color,background-color,border-color,transform] duration-150 active:scale-95 disabled:opacity-40 sm:h-8",
                     amount === String(preset)
-                      ? "border-ink-900 bg-ink-900 text-white"
+                      ? "border-ink-900 bg-ink-900 text-surface"
                       : "border-ink-200 text-ink-700 hover:border-ink-300 hover:bg-ink-50",
                   )}
                 >
@@ -264,10 +298,22 @@ function Receipt({ receipt, onReset }: { receipt: ForecastReceiptData; onReset: 
   rows.push(["Recorded", formatDateTime(receipt.createdAt)]);
 
   return (
-    <div className="mt-4" role="status">
+    <div className="mt-4 animate-[rise-in_320ms_var(--ease-out-soft)]" role="status">
       <div className="flex items-center gap-2 text-sm font-semibold text-ink-900">
-        <span className="inline-flex size-6 items-center justify-center rounded-full bg-red-500 text-white">
-          <Check className="size-3.5" aria-hidden />
+        <span className="inline-flex size-6 animate-[pop-in_220ms_var(--ease-out-soft)] items-center justify-center rounded-full bg-red-500 text-white">
+          <svg viewBox="0 0 16 16" className="size-3.5" aria-hidden>
+            <path
+              d="M3.5 8.5l3 3 6-7"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeDasharray="16"
+              strokeDashoffset="16"
+              className="animate-[draw_360ms_ease-out_180ms_forwards]"
+            />
+          </svg>
         </span>
         Forecast recorded
       </div>
