@@ -4,10 +4,12 @@ import {
   availableRanges,
   buildGeometry,
   downsample,
+  MIN_FORECASTERS_FOR_LINE,
   nearestIndex,
   plottable,
   yDomain,
   shareMovement,
+  settledPoints,
   sliceHistory,
   timeTicks,
   type ChartBox,
@@ -75,6 +77,24 @@ describe("buildGeometry", () => {
   it("keeps the baseline on screen", () => {
     const geometry = buildGeometry([point(0, 0.6), point(5, 0.62)], box, t0 + 10 * day, 0.3)!;
     expect(geometry.domain.min).toBeLessThanOrEqual(0.3);
+  });
+});
+
+describe("settledPoints", () => {
+  const withCount = (forecasterCount: number) => ({ forecasterCount });
+  const counts = (n: number) => Array.from({ length: n }, (_, index) => withCount(index + 1));
+
+  it("starts the line once enough forecasters have taken part", () => {
+    expect(settledPoints(counts(MIN_FORECASTERS_FOR_LINE + 2)).map((p) => p.forecasterCount)).toEqual([
+      MIN_FORECASTERS_FOR_LINE,
+      MIN_FORECASTERS_FOR_LINE + 1,
+      MIN_FORECASTERS_FOR_LINE + 2,
+    ]);
+  });
+
+  it("keeps every point on small markets", () => {
+    expect(settledPoints([1, 2, 2].map(withCount))).toHaveLength(3);
+    expect(settledPoints(counts(MIN_FORECASTERS_FOR_LINE))).toHaveLength(MIN_FORECASTERS_FOR_LINE);
   });
 });
 

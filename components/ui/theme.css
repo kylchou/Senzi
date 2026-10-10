@@ -104,9 +104,6 @@
     background: var(--color-page);
     color: var(--color-ink-900);
     font-family: var(--font-sans);
-    transition:
-      background-color 200ms ease,
-      color 200ms ease;
   }
   h1, h2, h3 {
     font-family: var(--font-display);
@@ -142,6 +139,17 @@
   &:active {
     transform: translateY(0) scale(0.995);
   }
+}
+
+/*
+ * Long sections below the fold: the browser skips styling and painting them
+ * until they come near the viewport, so page-wide changes (like the theme
+ * switch) only restyle what is on screen. The last rendered size is kept, so
+ * nothing jumps once a section has been seen.
+ */
+@utility render-when-visible {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 640px;
 }
 
 /* Dot grid decoration (brand surfaces and headers). */
@@ -290,17 +298,12 @@
   }
 }
 
-/* Smooth color change while switching themes (class added for 300ms by theme.ts). */
-.theme-switching,
-.theme-switching *,
-.theme-switching *::before,
-.theme-switching *::after {
-  transition:
-    background-color 220ms ease,
-    border-color 220ms ease,
-    color 220ms ease,
-    fill 220ms ease,
-    stroke 220ms ease !important;
+/* No per-element color transitions during the theme swap (theme.ts). */
+html.theme-swap,
+html.theme-swap *,
+html.theme-swap *::before,
+html.theme-swap *::after {
+  transition: none !important;
 }
 
 @media (prefers-reduced-motion: reduce) {
