@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { Suspense } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { io } from "next/cache";
@@ -13,20 +12,29 @@ import { ExternalLink } from "@/components/ui/ExternalLink";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { StartupMark } from "@/components/ui/StartupMark";
 import { getStartupProfile } from "@/lib/discovery/queries";
+import { breadcrumbs, JsonLd } from "@/components/ui/JsonLd";
 import { formatDate, formatStage } from "@/lib/market-view/format";
+import { groupStartupMarkets } from "@/lib/market-view/insights";
+import { requestOrigin } from "@/lib/market-view/origin";
+import type { MarketSummary } from "@/lib/market-view/types";
+import { PageTransition, StreamIn } from "@/components/ui/Transitions";
 
 export async function generateMetadata({ params }: PageProps<"/startups/[slug]">): Promise<Metadata> {
   const startup = await getStartupProfile((await params).slug).catch(() => null);
-  return { title: startup?.name ?? "Startup" };
+  if (!startup) return { title: "Startup" };
+  const description = `${startup.tagline}. ${startup.industry}, ${formatStage(startup.stage)}. Open markets and sourced coverage on Senzi.`;
+  return { title: startup.name, description, openGraph: { title: startup.name, description } };
 }
 
 export default function StartupPage({ params }: PageProps<"/startups/[slug]">) {
   return (
-    <main id="main" className="flex-1">
-      <Suspense fallback={<ProfileSkeleton />}>
-        <StartupView params={params} />
-      </Suspense>
-    </main>
+    <PageTransition>
+      <main id="main" className="flex-1">
+        <StreamIn fallback={<ProfileSkeleton />}>
+          <StartupView params={params} />
+        </StreamIn>
+      </main>
+    </PageTransition>
   );
 }
 
@@ -36,8 +44,9 @@ async function StartupView({ params }: Pick<PageProps<"/startups/[slug]">, "para
   const startup = await getStartupProfile(slug);
   if (!startup) notFound();
 
-  const open = startup.markets.filter((market) => market.status === "OPEN");
-  const past = startup.markets.filter((market) => market.status !== "OPEN");
+  const { open, awaiting, resolved } = groupStartupMarkets(startup.markets);
+  const origin = await requestOrigin();
+  const profileUrl = new URL(`/startups/${startup.slug}`, origin).toString();
   const details = [
     { label: "Industry", value: startup.industry },
     { label: "Stage", value: formatStage(startup.stage) },
@@ -47,7 +56,7 @@ async function StartupView({ params }: Pick<PageProps<"/startups/[slug]">, "para
 
   return (
     <>
-      <div className="border-b border-ink-200 bg-ink-50">
+      <div className="relative">
         <Container className="py-8 sm:py-10">
           <nav aria-label="Breadcrumb" className="mb-6 flex items-center gap-1 text-sm text-ink-500">
             <Link href="/startups" className="hover:text-ink-900">
@@ -90,8 +99,9 @@ async function StartupView({ params }: Pick<PageProps<"/startups/[slug]">, "para
             <h2 id="open-heading" className="mb-4 font-display text-xl font-bold text-ink-900">
               Open markets
             </h2>
+            {open.length > 0 && <p className="-mt-2 mb-4 text-xs text-ink-500">Closing soonest first</p>}
             {open.length === 0 ? (
-              <EmptyState title="No open markets" />
+              <EmptyState illustration="markets" title="No open markets" />
             ) : (
               <div className="grid gap-4 sm:grid-cols-2">
                 {open.map((market) => (
@@ -101,18 +111,8 @@ async function StartupView({ params }: Pick<PageProps<"/startups/[slug]">, "para
             )}
           </section>
 
-          {past.length > 0 && (
-            <section aria-labelledby="past-heading">
-              <h2 id="past-heading" className="mb-4 font-display text-xl font-bold text-ink-900">
-                Forecast history
-              </h2>
-              <div className="grid gap-4 sm:grid-cols-2">
-                {past.map((market) => (
-                  <MarketCard key={market.id} market={market} />
-                ))}
-              </div>
-            </section>
-          )}
+          <MarketSection id="awaiting" title="Awaiting resolution" markets={awaiting} />
+          <MarketSection id="resolved" title="Recently resolved" markets={resolved} />
         </div>
 
         <div className="space-y-12">
@@ -120,7 +120,7 @@ async function StartupView({ params }: Pick<PageProps<"/startups/[slug]">, "para
             <h2 id="details-heading" className="mb-4 font-display text-xl font-bold text-ink-900">
               Details
             </h2>
-            <dl className="divide-y divide-ink-100 rounded-[var(--radius-card)] border border-ink-200 bg-white">
+            <dl className="divide-y divide-ink-100 surface-card">
               {details.map((detail) => (
                 <div key={detail.label} className="flex justify-between gap-4 px-5 py-3.5 text-sm">
                   <dt className="text-ink-600">{detail.label}</dt>
@@ -136,9 +136,9 @@ async function StartupView({ params }: Pick<PageProps<"/startups/[slug]">, "para
             </h2>
             <p className="mb-4 text-xs text-ink-500">Each item links to its source.</p>
             {startup.facts.length === 0 ? (
-              <EmptyState title="No sourced information yet" />
+              <EmptyState illustration="news" title="No sourced information yet" />
             ) : (
-              <dl className="divide-y divide-ink-100 rounded-[var(--radius-card)] border border-ink-200 bg-white">
+              <dl className="divide-y divide-ink-100 surface-card">
                 {startup.facts.map((fact) => (
                   <div key={`${fact.label}-${fact.sourceUrl}`} className="px-5 py-4">
                     <dt className="flex items-center gap-1.5 text-xs font-medium text-ink-600">
@@ -173,6 +173,27 @@ async function StartupView({ params }: Pick<PageProps<"/startups/[slug]">, "para
           </section>
         </div>
       </Container>
+      <JsonLd
+        data={{
+          "@context": "https://schema.org",
+          "@type": "Organization",
+          name: startup.name,
+          description: startup.description,
+          url: startup.websiteUrl ?? profileUrl,
+          ...(startup.foundedYear ? { foundingDate: String(startup.foundedYear) } : {}),
+          ...(startup.headquarters ? { location: startup.headquarters } : {}),
+          ...(startup.logoUrl ? { logo: startup.logoUrl } : {}),
+        }}
+      />
+      <JsonLd
+        data={breadcrumbs(
+          [
+            { name: "Startups", path: "/startups" },
+            { name: startup.name, path: `/startups/${startup.slug}` },
+          ],
+          origin,
+        )}
+      />
     </>
   );
 }
@@ -180,7 +201,7 @@ async function StartupView({ params }: Pick<PageProps<"/startups/[slug]">, "para
 function ProfileSkeleton() {
   return (
     <div role="status" aria-label="Loading">
-      <div className="border-b border-ink-200 bg-ink-50">
+      <div className="relative">
         <Container className="space-y-4 py-12">
           <Skeleton className="h-4 w-40" />
           <Skeleton className="h-16 w-80" />
@@ -191,5 +212,22 @@ function ProfileSkeleton() {
         <Skeleton className="h-64 rounded-[var(--radius-card)]" />
       </Container>
     </div>
+  );
+}
+
+/** A titled grid of market cards; renders nothing when empty. */
+function MarketSection({ id, title, markets }: { id: string; title: string; markets: MarketSummary[] }) {
+  if (markets.length === 0) return null;
+  return (
+    <section aria-labelledby={`${id}-heading`}>
+      <h2 id={`${id}-heading`} className="mb-4 font-display text-xl font-bold text-ink-900">
+        {title}
+      </h2>
+      <div className="grid gap-4 sm:grid-cols-2">
+        {markets.map((market) => (
+          <MarketCard key={market.id} market={market} />
+        ))}
+      </div>
+    </section>
   );
 }

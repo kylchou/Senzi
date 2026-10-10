@@ -121,6 +121,8 @@ export interface CalibratedProbability {
 }
 
 export interface EstimatePoint {
+  /** Snapshot id, when the point comes from a stored snapshot. */
+  id?: string;
   at: Date;
   yesShare: number | null;
   totalCredits: number;
@@ -374,4 +376,30 @@ export interface StartupComparison {
   generatedAt: Date;
   columns: CompareColumn[];
   limitations: string[];
+}
+
+// ---------------------------------------------------------------------------
+// Startup facts and news (public, published data)
+// ---------------------------------------------------------------------------
+
+export interface StartupFactView {
+  id: string;
+  startupId: string;
+  label: string;
+  value: string;
+  sourceName: string;
+  sourceUrl: string;
+  asOf: Date;
+  verified: boolean;
+}
+
+export interface StartupNewsView {
+  id: string;
+  startupId: string;
+  title: string;
+  summary: string | null;
+  publisher: string;
+  url: string;
+  publishedAt: Date;
+  verification: "UNVERIFIED" | "VERIFIED" | "DISPUTED";
 }

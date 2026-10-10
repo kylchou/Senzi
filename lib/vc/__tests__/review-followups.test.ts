@@ -45,7 +45,7 @@ describe("sync keeps going when one study fails", () => {
     };
     s.setNow(new Date(first.deadline.getTime() + 1000));
 
-    expect(await s.services.studies.syncWithMarkets()).toEqual({ closed: 1, resolved: 0, failed: 1 });
+    expect(await s.services.studies.syncWithMarkets()).toEqual({ closed: 1, resolved: 0, corrected: 0, failed: 1 });
     expect((await s.repo.findStudy(second.id))!.status).toBe("CLOSED");
   });
 });
@@ -106,5 +106,52 @@ describe("unread alert badge", () => {
     expect(await s.services.alerts.unreadCount(users.viewerA)).toBe(0);
     await s.repo.createAlerts([{ organizationId: "org_a", type: "STUDY_STATUS_CHANGED", title: "General", body: "", dedupeKey: "general" }]);
     expect(await s.services.alerts.unreadCount(users.viewerA)).toBe(1);
+  });
+});
+
+describe("resolution corrections", () => {
+  async function resolvedStudy(s: ReturnType<typeof setup>) {
+    const study = await openStudy(s);
+    const resolution = { outcome: "YES" as const, resolvedAt: s.deps.now(), evidenceUrls: ["https://example.com/pr"], evidenceSummary: "Announced" };
+    s.forecasting.estimates.set(study.marketId!, makeEstimate(study.marketId!, { status: "RESOLVED", resolution }));
+    await s.services.studies.syncWithMarkets();
+    return { study: (await s.repo.findStudy(study.id))!, resolution };
+  }
+
+  it("updates the study when an admin corrects the market's outcome, once", async () => {
+    const s = setup();
+    const { study, resolution } = await resolvedStudy(s);
+    expect(study).toMatchObject({ status: "RESOLVED", resolvedOutcome: "YES" });
+
+    s.forecasting.estimates.set(study.marketId!, makeEstimate(study.marketId!, { status: "RESOLVED", resolution: { ...resolution, outcome: "NO" } }));
+    expect(await s.services.studies.syncWithMarkets()).toMatchObject({ corrected: 1, failed: 0 });
+    const after = (await s.repo.findStudy(study.id))!;
+    expect(after).toMatchObject({ status: "RESOLVED", resolvedOutcome: "NO" });
+
+    const event = s.repo.events.find((e) => e.studyId === study.id && e.action === "correct_resolution")!;
+    expect(event).toMatchObject({ actorId: null, fromStatus: "RESOLVED", toStatus: "RESOLVED", reason: "Outcome corrected from YES to NO" });
+    expect(s.repo.alerts.some((a) => a.studyId === study.id && a.title === "Study outcome corrected: YES → NO")).toBe(true);
+
+    // Nothing more to do on the next run.
+    expect(await s.services.studies.syncWithMarkets()).toMatchObject({ corrected: 0 });
+  });
+
+  it("ignores evidence-only corrections", async () => {
+    const s = setup();
+    const { study, resolution } = await resolvedStudy(s);
+    s.forecasting.estimates.set(
+      study.marketId!,
+      makeEstimate(study.marketId!, { status: "RESOLVED", resolution: { ...resolution, evidenceSummary: "Updated evidence" } }),
+    );
+    expect(await s.services.studies.syncWithMarkets()).toMatchObject({ corrected: 0 });
+    expect(s.repo.events.some((e) => e.action === "correct_resolution")).toBe(false);
+  });
+
+  it("stops checking long after resolution", async () => {
+    const s = setup();
+    const { study, resolution } = await resolvedStudy(s);
+    s.setNow(new Date(s.deps.now().getTime() + 91 * 24 * 60 * 60 * 1000));
+    s.forecasting.estimates.set(study.marketId!, makeEstimate(study.marketId!, { status: "RESOLVED", resolution: { ...resolution, outcome: "NO" } }));
+    expect(await s.services.studies.syncWithMarkets()).toMatchObject({ corrected: 0 });
   });
 });
