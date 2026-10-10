@@ -246,7 +246,7 @@ describe("study lifecycle against the shared schema", () => {
       question: "Will this startup ship its product publicly this year?",
       yesCriteria: "The product is generally available to customers before the deadline.",
       noCriteria: "The product is not generally available to customers by the deadline.",
-      modelLink: null,
+      modelLink: { ...LINK, targetDate: isoDay(20) },
       deadline: new Date(Date.now() + 10 * DAY),
       visibility: "ORGANIZATION",
       sources: [{ url: "https://example.com/launch", title: "Launch page" }],

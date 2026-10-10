@@ -55,7 +55,7 @@ describe("private company metrics and model questions",()=>{
     await expect(saveCompanyMetrics(w.ca,w.startup.id,input)).rejects.toMatchObject({code:"VALIDATION_ERROR"});
     await expect(saveCompanyMetrics(w.ca,w.startup.id,{observations:[{...input.observations[0],periodStart:day(1),periodEnd:day(1)}]})).rejects.toMatchObject({code:"VALIDATION_ERROR"});
     // No manual prices: a typed baseline is dropped, and only the model sets it.
-    expect(createStudyInput.parse({...studyInput(w.startup.id),baselineValue:.99})).not.toHaveProperty("baselineValue");
+    expect(createStudyInput.parse({...studyInput(w.startup.id),modelLink:{metricId:"npm_downloads:posthog-js",threshold:100,targetDate:day(28)},baselineValue:.99})).not.toHaveProperty("baselineValue");
     // A firm-only KPI has no independent resolution source, so it can't be a question.
     await expect(getVcServices().studies.create(w.ca,{...studyInput(w.startup.id),modelLink:{metricId:"sponsor_arr",threshold:1,targetDate:day(28)}})).rejects.toMatchObject({code:"VALIDATION_ERROR"});
   });
