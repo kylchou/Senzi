@@ -1,6 +1,6 @@
 # Model: opening baselines
 
-Code: `lib/model/`. Collectors: `scripts/scrapers/`. Model scripts (refresh, backtest, demo data): `lib/model/cli/`. Data: `data/model/`.
+Code: `lib/model/`. Collectors: `scripts/scrapers/`. Model scripts (refresh, backtest, demo data): `lib/model/cli/`. Data: `data/model/`. Current version: 1.3.0, which adds the npm-wide index below.
 
 ## Active demo selection
 
@@ -18,6 +18,21 @@ node node_modules/tsx/dist/cli.mjs lib/model/cli/validate-demo-data.ts --data-di
 ```
 
 Resend's official careers site has no verified supported job-board API. Convex's commit-activity endpoint returned "still computing" in this collection. These values stay missing; both companies have complete primary npm histories. An absent SEC identifier means no verified filer is configured, not proof that no filings exist.
+
+## npm-wide index (v1.3.0)
+
+npm download counts move together when npm changes how it counts or when automated traffic grows across the ecosystem. In Aug–Sep 2026 every large package jumped 25–40% at once. The raw model read that as company growth.
+
+npm questions are now fitted relative to an npm-wide index (`lib/model/npm-index.ts`):
+
+- **Index.** The equal-weighted mean of log 7-day totals for 12 large, unrelated packages (`NPM_INDEX_PACKAGES` in `catalog.ts`: react, lodash, typescript, express, axios, chalk, semver, tslib, debug, commander, uuid, @types/node). Fast-growing app-layer packages such as zod and vite are left out, because they would absorb real category growth. Data: `data/model/npm-index.jsonl`, collected by the npm collector.
+- **Company trend.** The trend is fitted on the company's downloads relative to the index, re-expressed at the latest week's npm level. A jump that hits all of npm cancels out.
+- **Index move.** The index's move from the latest complete week to the question window is a separate term. Its mean is the index's own 16-week trend (carried in full, as tuned), and its spread is the standard deviation of index moves over the same number of weeks in the last two years. Spans touching Dec 20 – Jan 10 are left out of that spread unless the question's span touches them, because npm dips sharply over the holidays.
+- **Outage weeks.** npm outages zero out all packages on the same days. A week with at least 4 counted days is valued relative to npm on those days instead of being dropped, so recent weeks return to the fit.
+- **Fallback.** Without index data covering the fit window, the model fits raw downloads and says so in `notes`. PyPI and non-download questions are unchanged.
+- **Output.** `method.details.npmIndex` holds the index's recent moves, the company's growth relative to npm, the index term's mean and spread, and the recovered weeks. The index appears in `inputsUsed` with `role: 'market_index'`. `npmAdjustedHistory()` returns weekly raw vs npm-adjusted downloads for the dashboard.
+
+**What it does and doesn't fix.** See "npm index" in `docs/model-backtest.md`. In short, the index model is better calibrated and more accurate during the 2026 shift, but slightly worse over the whole test period and on Stripe and Resend. It doesn't remove the jump on the PostHog question opened Oct 3 (threshold 19M, week ending Oct 25): 63% → 90% with the index, 60% → 90% without. That jump comes from the week ending Oct 4 arriving at 18.9M, already at the threshold, and npm has kept growing since the jump, which the backtest says to carry forward. Settings that assume npm stays flat scored worse, including during the shift. Estimating a per-package beta (how strongly each package moves with npm) scored about the same as a fixed beta of 1, and its weekly estimates swing widely, so the model keeps beta at 1.
 
 ## Calling it
 
@@ -50,7 +65,8 @@ engine.recordModelValue(modelServiceAuth, marketId, toEngineBaseline(b)!); // fo
 ## Running it
 
 ```sh
-npx tsx scripts/scrapers/run.ts        # collect data (needs SEC_USER_AGENT in .env for Form D; see .env.example)
+npx tsx scripts/scrapers/run.ts        # collect data, including the npm index basket (needs SEC_USER_AGENT in .env for Form D; see .env.example)
+npx tsx scripts/scrapers/run.ts --company=npm-index --only=npm  # refresh only the npm index basket
 npx tsx lib/model/cli/make-demo-data.ts # demo questions + SIMULATED sponsor metrics
 npx tsx lib/model/cli/refresh.ts       # compute baselines, store snapshots on change, resolve past questions
 npx tsx lib/model/cli/backtest.ts      # regenerate docs/model-backtest.md (about 4 minutes)
@@ -69,9 +85,10 @@ Found while checking the first real baselines on 2026-10-10 UTC. None blocks the
 - **npm jump.** npm's counter reported 0 on 7 days since July (and 2023-11-03), so the weeks ending 2026-07-12, 08-16 and 09-06 through 09-20 are missing. Right after that gap every npm package jumped 25–40% together: Supabase 25.0M→35.0M, Stripe 19.5M→27.5M, PostHog 12.7M→18.9M, Vercel CLI 3.8M→5.2M. Four unrelated companies moving in step points to npm-wide automated traffic or a counting change, not real growth.
 - **PyPI drop.** Both PyPI series fell about 50% in the same week (ending 2026-08-30): Hugging Face 120.9M→57.5M, Databricks 36.7M→21.6M. This also looks like a counting change.
 - **Effect.** The 96–97% calls on Vercel, Stripe and PostHog only hold if the npm jump persists, and they would fail together if it reverses. The past Supabase question (window ending 2026-10-04, baseline 39%) resolved YES at 35.0M because of the same jump. The Databricks baseline (19%) is probably too low: its drop is just under the level-shift cutoff, so it reads as a 3.3%/week decline.
+- **Status (v1.3.0).** npm questions now fit relative to an npm-wide index (see "npm-wide index" above). It confirmed that the npm jump was ecosystem-wide: the index rose 22% by the week ending Sep 27 and has kept rising. Our packages rose more than the index. The index removes npm-wide moves from the company trend and recovers outage weeks, but npm-wide growth is still carried forward, because the backtest favors it. PyPI has no index yet.
 - **To try.**
   1. Lower `levelShiftThreshold` from 0.5 to 0.4. It scored the same on older data (calibration log loss 0.2974 vs 0.2972) and would catch Databricks. It wasn't changed because that would be tuning to the numbers just seen.
-  2. Add a cross-series check: when most series jump or drop together in the same week, flag it as a probable counting change and widen the band.
+  2. ~~Add a cross-series check~~ Done for npm through the index. PyPI would need its own basket.
   3. Decide whether to keep npm download questions at all (see `docs/model-backtest.md` limits).
   4. Check whether npm or PyPI publish a note about these changes.
 
@@ -83,7 +100,7 @@ Found while checking the first real baselines on 2026-10-10 UTC. None blocks the
 
 ### 3. Outage days are dropped, not repaired
 
-Zero-valued days that are implausible for the series are treated as missing, and any week containing one is left out. Recent weeks are the ones most affected (5 of the last 16 weeks are missing for npm series), which lengthens the effective forecast horizon. **To try:** fill single missing days from the neighbouring same weekday, only for a single day in a week, and flag the week as partly estimated.
+Zero-valued days that are implausible for the series are treated as missing. For npm questions with index data, a week with at least 4 counted days is now valued relative to npm on those days (see "npm-wide index"). PyPI weeks and npm weeks without index data are still left out. **To try for those:** fill single missing days from the neighbouring same weekday, and flag the week as partly estimated.
 
 ### 4. No ground truth beyond downloads
 
