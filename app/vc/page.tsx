@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { AlertList } from "@/components/vc/AlertList";
 import { EmptyState } from "@/components/vc/EmptyState";
 import { NoWorkspace } from "@/components/vc/NoWorkspace";
 import { Section } from "@/components/vc/Section";
@@ -6,10 +7,10 @@ import { StatusBadge } from "@/components/vc/StatusBadge";
 import { StudyTable } from "@/components/vc/StudyTable";
 import { ALLOCATION_SHARE_EXPLAINER } from "@/lib/vc/constants";
 import { formatPointChange, formatShare } from "@/lib/vc/estimates";
-import { STATUS_LABELS, formatDate, formatDateTime, formatRelative } from "@/lib/vc/format";
+import { ALERT_TYPE_LABELS, STATUS_LABELS, formatDate, formatDateTime, formatRelative } from "@/lib/vc/format";
 import { getVcServices } from "@/lib/vc/server/container";
 import { requirePageContext } from "@/lib/vc/server/page";
-import type { StudyStatus } from "@/lib/vc/types";
+import { ALERT_TYPES, type StudyStatus } from "@/lib/vc/types";
 
 const COUNT_ORDER: StudyStatus[] = ["OPEN", "SUBMITTED", "APPROVED", "DRAFT", "CLOSED", "RESOLVED"];
 
@@ -41,6 +42,31 @@ export default async function VcDashboardPage() {
           </div>
         ))}
       </dl>
+
+      <Section
+        id="alerts"
+        title="Alerts"
+        description="Unread alerts on studies and startups your firm follows."
+        actions={
+          <Link href="/vc/alerts" className="text-sm underline">
+            All alerts
+          </Link>
+        }
+      >
+        <div className="mb-3 flex flex-wrap gap-1.5 text-xs">
+          {ALERT_TYPES.map((t) => (
+            <Link
+              key={t}
+              href={`/vc/alerts?type=${t}&unread=true`}
+              className="rounded-full px-2.5 py-1 ring-1 ring-inset ring-slate-300 hover:bg-slate-50 dark:ring-slate-700 dark:hover:bg-slate-900"
+            >
+              {ALERT_TYPE_LABELS[t].label}{" "}
+              <span className="font-semibold tabular-nums">{d.alertSummary.unreadByType[t]}</span>
+            </Link>
+          ))}
+        </div>
+        <AlertList compact initialAlerts={d.alertSummary.recent} emptyText="You're all caught up." />
+      </Section>
 
       <Section
         id="active"

@@ -14,7 +14,7 @@ import {
 } from "../estimates";
 import { getStudyPermissions, redactStudy, type StudyView } from "../permissions";
 import type { VcDeps } from "../ports";
-import type { MarketEstimate, StudyStatus, VcContext } from "../types";
+import { ALERT_TYPES, type AlertType, type MarketEstimate, type StudyStatus, type VcAlert, type VcContext } from "../types";
 import type { AlertService } from "./alerts";
 import type { ReportService, SavedReportSummary } from "./reports";
 
@@ -40,6 +40,8 @@ export interface VcDashboard {
   watchlistSummary: { id: string; name: string; itemCount: number }[];
   recentReports: SavedReportSummary[];
   unreadAlerts: number;
+  /** Latest unread alerts the user can see, and unread counts per alert type. */
+  alertSummary: { recent: VcAlert[]; unreadByType: Record<AlertType, number> };
 }
 
 /** Max studies whose history is fetched for movement detection per dashboard load. */
@@ -132,9 +134,10 @@ export function createDashboardService(
       })
       .slice(0, 10);
 
-    const [recentReports, unreadAlerts] = await Promise.all([
+    const [recentReports, unreadAlerts, unreadList] = await Promise.all([
       services.reports.list(ctx, { limit: 5 }),
       services.alerts.unreadCount(ctx),
+      services.alerts.list(ctx, { unreadOnly: true, limit: 100 }),
     ]);
 
     return {
@@ -148,6 +151,12 @@ export function createDashboardService(
       watchlistSummary: watchlists.map((w) => ({ id: w.id, name: w.name, itemCount: w.items.length })),
       recentReports,
       unreadAlerts,
+      alertSummary: {
+        recent: unreadList.slice(0, 5),
+        unreadByType: Object.fromEntries(
+          ALERT_TYPES.map((t) => [t, unreadList.filter((a) => a.type === t).length]),
+        ) as Record<AlertType, number>,
+      },
     };
   }
 

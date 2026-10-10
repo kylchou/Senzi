@@ -8,6 +8,7 @@ import {
   type StudyView,
 } from "../permissions";
 import type { NewAlert, StudyPatch, VcDeps } from "../ports";
+import { createAlertPublisher } from "./alert-publisher";
 import {
   PUBLISHED_STATUSES,
   type EstimatePoint,
@@ -47,6 +48,7 @@ const PENDING_STATUSES: readonly StudyStatus[] = ["SUBMITTED", "APPROVED"];
 
 export function createStudyService(deps: VcDeps) {
   const { repo, platform, forecasting, now } = deps;
+  const alertPublisher = createAlertPublisher(deps);
 
   /** Loads a study and enforces view access; hides existence from unauthorized callers. */
   async function loadVisible(ctx: VcContext, studyId: string) {
@@ -253,7 +255,7 @@ export function createStudyService(deps: VcDeps) {
       reason,
     });
     if (!updated) throw new VcError("CONFLICT", "This study was changed by someone else. Reload and try again.");
-    await repo.createAlerts([statusAlert(updated, rule.to, updated.version)]);
+    await alertPublisher.publish([statusAlert(updated, rule.to, updated.version)]);
     return updated;
   }
 

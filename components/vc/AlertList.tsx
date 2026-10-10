@@ -3,19 +3,24 @@
 import Link from "next/link";
 import { useState } from "react";
 import { VcApiError, vcFetch } from "@/lib/vc/client";
-import { formatRelative } from "@/lib/vc/format";
-import type { AlertType, VcAlert } from "@/lib/vc/types";
+import { ALERT_TYPE_LABELS, formatRelative } from "@/lib/vc/format";
+import type { VcAlert } from "@/lib/vc/types";
 import { EmptyState } from "./EmptyState";
 import { buttonSecondary, errorClass } from "./styles";
 
-const TYPE_LABELS: Record<AlertType, { label: string; icon: string }> = {
-  FORECAST_MOVEMENT: { label: "Forecast movement", icon: "↕" },
-  DEADLINE_APPROACHING: { label: "Deadline", icon: "⏱" },
-  STUDY_RESOLVED: { label: "Resolved", icon: "✓" },
-  STUDY_STATUS_CHANGED: { label: "Status change", icon: "●" },
-};
-
-export function AlertList({ initialAlerts }: { initialAlerts: VcAlert[] }) {
+/**
+ * Alert feed with mark-read. `compact` (dashboard) drops the header controls
+ * and uses a shorter empty state.
+ */
+export function AlertList({
+  initialAlerts,
+  compact = false,
+  emptyText,
+}: {
+  initialAlerts: VcAlert[];
+  compact?: boolean;
+  emptyText?: string;
+}) {
   const [alerts, setAlerts] = useState(initialAlerts);
   const [error, setError] = useState<string | null>(null);
   const unread = alerts.filter((a) => !a.readAt);
@@ -33,21 +38,25 @@ export function AlertList({ initialAlerts }: { initialAlerts: VcAlert[] }) {
   }
 
   if (alerts.length === 0) {
+    if (compact) return <p className="text-sm text-slate-500 dark:text-slate-400">{emptyText ?? "No unread alerts."}</p>;
     return (
       <EmptyState title="No alerts" action={{ href: "/vc/watchlists", label: "Manage watchlists" }}>
-        Alerts appear for significant forecast movements, upcoming deadlines and resolutions on studies and startups you follow.
+        {emptyText ??
+          "Alerts appear for significant forecast movements, upcoming deadlines and resolutions on studies and startups you follow."}
       </EmptyState>
     );
   }
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-slate-600 dark:text-slate-300">{unread.length} unread</p>
-        <button type="button" className={buttonSecondary} disabled={unread.length === 0} onClick={() => markRead(unread.map((a) => a.id))}>
-          Mark all read
-        </button>
-      </div>
+      {!compact && (
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-slate-600 dark:text-slate-300">{unread.length} unread</p>
+          <button type="button" className={buttonSecondary} disabled={unread.length === 0} onClick={() => markRead(unread.map((a) => a.id))}>
+            Mark all read
+          </button>
+        </div>
+      )}
       {error && (
         <p role="alert" className={errorClass}>
           {error}
@@ -55,7 +64,7 @@ export function AlertList({ initialAlerts }: { initialAlerts: VcAlert[] }) {
       )}
       <ul className="divide-y divide-slate-100 rounded-lg border border-slate-200 bg-white dark:divide-slate-800 dark:border-slate-800 dark:bg-slate-950">
         {alerts.map((a) => {
-          const t = TYPE_LABELS[a.type];
+          const t = ALERT_TYPE_LABELS[a.type];
           return (
             <li key={a.id} className={`flex gap-3 p-3 ${a.readAt ? "" : "bg-sky-50/60 dark:bg-sky-950/30"}`}>
               <span aria-hidden className="mt-0.5 w-5 text-center text-slate-500">

@@ -95,12 +95,37 @@ Every response uses the shared envelope from `lib/api-response.ts` (`{ "data": �
 | `POST /api/vc/watchlists/:id/items` | `{ type: "STARTUP", startupId }` or `{ type: "STUDY", studyId }` | idempotent |
 | `DELETE /api/vc/watchlists/:id/items/:itemId` | | |
 | `GET /api/vc/alerts` | `?unreadOnly=true&type=&limit=` | |
-| `PATCH /api/vc/alerts` | `{ alertIds }` | marks the alerts read for the current user |
+| `PATCH /api/vc/alerts` | `{ alertIds }` | marks the alerts read for the current user, and clears the matching inbox notifications |
+| `GET /api/vc/compare` | `?startupIds=a,b[,c,d]` | side-by-side comparison of 2–4 published startups |
 | `GET/POST /api/vc/reports` | `{ studyId, title? }` | saves a snapshot |
 | `GET /api/vc/reports/:id` | `?format=` | |
 | `GET /api/vc/startups` | `?q=` | startup lookup for forms |
 | `POST /api/vc/active-org` | `{ organizationId }` | sets the `vc_org` cookie |
 | `GET /api/vc/cron` | `Authorization: Bearer $CRON_SECRET` | syncs statuses with markets and generates alerts; idempotent |
+
+## Alerts
+
+All alerts go through one publisher (`services/alert-publisher.ts`). It writes the firm's alert feed, which is deduped per firm, and then copies each new alert into the personal inbox (the shared `Notification` table) of every member allowed to see it.
+
+- **Who gets inbox copies:** the rules are in `alert-delivery.ts`. Alerts about restricted studies only reach people who can view them. Status changes only reach the study's author and the firm's owners and admins.
+- **If delivery fails:** inbox delivery is best-effort, so a failure never blocks or undoes the alert itself.
+- **Read state:** marking an alert read in VC also clears its inbox copy.
+- **Where they show up:** the dashboard has an alerts panel with unread counts by type, and `/vc/alerts` filters by type and unread.
+- **Not yet built:** configurable rules and triage (assign, acknowledge, resolve) need schema additions. See [`REQUESTS.md`](./REQUESTS.md).
+
+## Startup comparison
+
+`/vc/compare?ids=a,b` puts 2–4 published startups side by side:
+
+- open questions, questions awaiting resolution, and resolved ones
+- a track record: YES rate with a 95% interval, and Brier scores for the opening baseline and the final allocation share, scored with the forecasting engine's own `brierScore` / `wilsonInterval`
+- public indicators
+
+Each column only includes public markets, published PUBLIC studies, and studies the caller's firm can see. Indicators come from the model through `server/indicators-adapter.ts`, which uses scraped public data only, never sponsor-provided figures. Until `lib/model` can be bundled by Next.js (see [`REQUESTS.md`](./REQUESTS.md)), the app uses `server/indicators-pending.ts` instead, and the page shows indicators as temporarily unavailable.
+
+## AI research assistant
+
+This is designed but not built yet. See [`AI_RESEARCH_ASSISTANT.md`](./AI_RESEARCH_ASSISTANT.md).
 
 ## Environment variables
 

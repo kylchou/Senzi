@@ -8,6 +8,7 @@ import { forbidden } from "../errors";
 import { formatPointChange, formatShare, shareChangeOverWindow } from "../estimates";
 import { getStudyPermissions, organizationCanFollowStudy } from "../permissions";
 import type { NewAlert, VcDeps } from "../ports";
+import { createAlertPublisher } from "./alert-publisher";
 import type { AlertType, EstimatePoint, MarketEstimate, Study, VcAlert, VcContext } from "../types";
 
 const dayKey = (d: Date) => d.toISOString().slice(0, 10);
@@ -87,6 +88,7 @@ export function alertsForSubject(
 
 export function createAlertService(deps: VcDeps) {
   const { repo, platform, forecasting, now } = deps;
+  const alertPublisher = createAlertPublisher(deps);
 
   /**
    * Generates alerts for every organization's followed studies and startups.
@@ -186,8 +188,8 @@ export function createAlertService(deps: VcDeps) {
       }
     }
 
-    const created = pending.length ? await repo.createAlerts(pending) : 0;
-    return { created };
+    const created = await alertPublisher.publish(pending);
+    return { created: created.length };
   }
 
   /** Drops alerts about studies the current user can no longer see (e.g. restricted studies). */
@@ -223,7 +225,12 @@ export function createAlertService(deps: VcDeps) {
   async function markRead(ctx: VcContext, alertIds: string[]): Promise<void> {
     if (!ctx.activeOrg) throw forbidden("Select a VC organization first");
     // Scoped to the active org in the repository, so foreign IDs are ignored.
-    await repo.markAlertsRead(ctx.activeOrg.organizationId, ctx.user.id, alertIds, now());
+    const at = now();
+    await repo.markAlertsRead(ctx.activeOrg.organizationId, ctx.user.id, alertIds, at);
+    // Keep the personal inbox in step; best-effort, the feed's read state is authoritative.
+    await platform.markAlertNotificationsRead(ctx.user.id, alertIds, at).catch((err) => {
+      console.error("[vc] could not clear inbox notifications", err);
+    });
   }
 
   return { evaluate, list, unreadCount, markRead };
