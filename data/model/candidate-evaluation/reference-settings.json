@@ -1,0 +1,28 @@
+﻿{
+    "tunedOnCalibration":  {
+                               "trend":  {
+                                             "sigmaScale":  1,
+                                             "driftPerWeek":  0.03,
+                                             "levelAnchor":  "last",
+                                             "trendDamping":  0.75,
+                                             "tailShrink":  0.05,
+                                             "logLoss":  0.29723266494767236
+                                         },
+                               "original":  {
+                                                "sigmaScale":  1.5,
+                                                "driftPerWeek":  0.05,
+                                                "levelAnchor":  "line",
+                                                "trendDamping":  1,
+                                                "tailShrink":  0,
+                                                "logLoss":  0.3248568055914149
+                                            },
+                               "persistence":  {
+                                                   "sigmaScale":  1.25,
+                                                   "driftPerWeek":  0.075,
+                                                   "levelAnchor":  "lastRaw",
+                                                   "trendDamping":  0,
+                                                   "tailShrink":  0,
+                                                   "logLoss":  0.38044310097226325
+                                               }
+                           }
+}

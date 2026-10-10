@@ -8,7 +8,7 @@
 
 import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import type { BaselineResult, DataPoint, ThresholdQuestion } from './types.js';
+import type { BaselineResult, DataPoint, ThresholdQuestion } from './types';
 
 export interface ModelStore {
   readPoints(companyId?: string): DataPoint[];

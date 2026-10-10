@@ -6,11 +6,11 @@
 // (scraped data always wins where both exist). Anything else a sponsor supplies
 // is display-only and cannot change the number.
 
-import { fromDayNumber, toDayNumber } from './dates.js';
-import { forecastSigma, forecastTotals, forecastWeekly, probabilityAtLeast } from './forecast.js';
-import { hashString, seedFrom } from './math.js';
-import { defaultParams, MODEL_NAME, MODEL_VERSION, type ModelParams } from './params.js';
-import { buildDailySeries, weeklySeries, windowTotal } from './series.js';
+import { fromDayNumber, toDayNumber } from './dates';
+import { forecastSigma, forecastTotals, forecastWeekly, probabilityAtLeast } from './forecast';
+import { hashString, seedFrom } from './math';
+import { defaultParams, MODEL_NAME, MODEL_VERSION, type ModelParams } from './params';
+import { buildDailySeries, weeklySeries, windowTotal } from './series';
 import type {
   BaselineResult,
   DataPoint,
@@ -19,7 +19,7 @@ import type {
   ModelConfidence,
   SourceRef,
   ThresholdQuestion,
-} from './types.js';
+} from './types';
 
 export const METHOD_DESCRIPTION =
   'Fits a straight-line trend to log(1 + weekly total) over the most recent weeks (Theil–Sen, robust to spikes), ' +

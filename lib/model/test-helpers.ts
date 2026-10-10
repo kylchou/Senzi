@@ -1,9 +1,9 @@
 // Synthetic data for model tests. Not used outside tests.
 
-import { addDays } from './dates.js';
-import { seededRandom } from './math.js';
-import { makeQuestion } from './questions.js';
-import type { DataPoint, ThresholdQuestion } from './types.js';
+import { addDays } from './dates';
+import { seededRandom } from './math';
+import { makeQuestion } from './questions';
+import type { DataPoint, ThresholdQuestion } from './types';
 
 export interface SyntheticSeries {
   companyId?: string;

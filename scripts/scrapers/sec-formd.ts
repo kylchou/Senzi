@@ -30,7 +30,7 @@ export const collectFormD: Collector = async (company, ctx) => {
   const points: DataPoint[] = [];
   const missing: string[] = [];
   if (!company.secCik) {
-    return { source: 'sec_edgar', companyId: company.id, points, missing: ['No Form D filer found on EDGAR for this company'] };
+    return { source: 'sec_edgar', companyId: company.id, points, missing: ['No verified Form D filer configured for this company'] };
   }
   if (!ctx.env.secUserAgent) {
     throw new MissingEnvError('SEC_USER_AGENT', 'SEC EDGAR requires a User-Agent with a contact email.');

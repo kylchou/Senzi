@@ -2,11 +2,11 @@
 // source, as-of date and change vs four weeks earlier. Works with or without
 // a market.
 
-import { getCompany, metricsFor } from './catalog.js';
-import { addDays, toDayNumber } from './dates.js';
-import { buildDailySeries, windowTotal } from './series.js';
-import { COMPARE_DAYS, SPONSOR_METRIC_LABELS, sponsorLabel, type SponsorMetricKind } from './sponsor.js';
-import type { DataPoint, Provenance, SourceId } from './types.js';
+import { getCompany, metricsFor } from './catalog';
+import { addDays, toDayNumber } from './dates';
+import { buildDailySeries, windowTotal } from './series';
+import { COMPARE_DAYS, SPONSOR_METRIC_LABELS, sponsorLabel, type SponsorMetricKind } from './sponsor';
+import type { DataPoint, Provenance, SourceId } from './types';
 
 export interface Indicator {
   metricId: string;
