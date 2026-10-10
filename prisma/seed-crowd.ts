@@ -147,3 +147,90 @@ export function beliefFor(random: () => number, lean: number, verified: boolean,
   const informed = outcome === null ? lean : lean + 0.25 * (outcome - lean);
   return clamp(informed + 0.08 * normal(random), 0.03, 0.97);
 }
+
+// ---------------------------------------------------------------------------
+// Market discussion (demo comments)
+//
+// Comments are opinions about the forecast and questions about the rules.
+// None states a fact about a company or claims first-hand experience, since
+// some seeded companies are real.
+
+export interface SeedComment {
+  handle: string;
+  body: string;
+  at: number;
+  replies: { handle: string; body: string; at: number }[];
+}
+
+const OPENERS_YES = [
+  "Leaning YES here. The deadline leaves a reasonable amount of room.",
+  "I think the crowd is underpricing this one. Took a small YES position.",
+  "YES for me, but sized small. Happy to be talked out of it.",
+  "The criteria look achievable within the window. Going YES.",
+  "Moved from NO to YES after rereading how this resolves.",
+];
+const OPENERS_NO = [
+  "Leaning NO. Timelines like this usually slip.",
+  "The bar in the criteria is higher than the question makes it sound. NO for now.",
+  "NO from me. I'd want to see more public signals before betting on it.",
+  "Feels a few points too high at the moment, so I'm on NO.",
+  "Taking NO. Deadlines this tight rarely hold.",
+];
+const OPENERS_NEUTRAL = [
+  "Has anyone checked whether a partial announcement would count under these criteria?",
+  "Holding off until there is more news. Curious what others are watching for.",
+  "The opening baseline seems about right to me. Not sure the crowd has a real edge yet.",
+  "Worth reading the NO criteria closely before forecasting. They are stricter than they look.",
+  "What source would settle this fastest if it happens?",
+  "Interesting to compare this with the model line in Replay.",
+];
+const OPENERS_VERIFIED = [
+  "As a product user I'm watching their changelog for anything related to this.",
+  "Verified user here. Nothing I've seen in the product changes my view either way yet.",
+  "Using the product doesn't tell me much about this question, but I'm leaning slightly YES.",
+];
+const REPLIES = [
+  "Fair point, though the criteria are strict about what counts.",
+  "Agreed. I'm on the same side.",
+  "I read it the other way, but it's close.",
+  "The sources section on this page lists what will be checked.",
+  "Good question. I'd assume only a public, dated announcement counts.",
+  "Same here. Waiting for the next update before adding more.",
+  "Could go either way. The deadline is doing a lot of work in this question.",
+];
+
+/** A handful of comments with occasional replies for one public market. */
+export function discussionFor(
+  random: () => number,
+  users: CrowdUser[],
+  verified: Set<string>,
+  lean: number,
+  from: number,
+  to: number,
+): SeedComment[] {
+  const pick = <T,>(list: readonly T[]) => list[Math.floor(random() * list.length)]!;
+  const people = users.filter(() => random() < 0.02);
+  const count = Math.min(people.length, 4 + Math.floor(random() * 6));
+  const span = Math.max(1, to - from);
+  const comments: SeedComment[] = [];
+  for (let index = 0; index < count; index++) {
+    const author = people[index]!;
+    const isVerified = verified.has(author.handle);
+    const roll = random();
+    const body = isVerified && random() < 0.6
+      ? pick(OPENERS_VERIFIED)
+      : roll < 0.3
+        ? pick(OPENERS_NEUTRAL)
+        : random() < lean
+          ? pick(OPENERS_YES)
+          : pick(OPENERS_NO);
+    const at = from + random() * span;
+    const replies: SeedComment["replies"] = [];
+    const replyCount = random() < 0.4 ? 1 + Math.floor(random() * 2) : 0;
+    for (let r = 0; r < replyCount; r++) {
+      replies.push({ handle: pick(users).handle, body: pick(REPLIES), at: at + random() * Math.max(1, to - at) * 0.3 });
+    }
+    comments.push({ handle: author.handle, body, at, replies: replies.sort((a, b) => a.at - b.at) });
+  }
+  return comments;
+}
