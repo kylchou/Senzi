@@ -40,6 +40,12 @@ export function buildSnapshot(params: {
   };
 }
 
+/** Next snapshot number for a market. Uses the highest existing number, since other code (e.g. market opening) also writes snapshots. */
+export async function nextSnapshotSequence(repo: { listSnapshots(marketId: string): Promise<MarketSnapshot[]> }, marketId: string): Promise<number> {
+  const snaps = await repo.listSnapshots(marketId);
+  return snaps.reduce((m, s) => Math.max(m, s.sequence), 0) + 1;
+}
+
 export interface HistoryQuery {
   from?: Date;
   to?: Date;

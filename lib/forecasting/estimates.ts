@@ -68,13 +68,17 @@ export function labelFor(
   calibrated: boolean,
   evidence?: CalibrationEvidence,
 ): string {
-  const who = line === 'general' ? 'all forecasters' : 'verified users';
+  const who = line === 'general' ? 'all users' : 'verified users';
+  if (kind === 'market_price') {
+    // Team labels (2026-10-10). "calibrated" only with supporting evidence.
+    const label = `Market probability (${who})`;
+    return calibrated && evidence ? `${label} · calibrated on ${evidence.resolvedMarkets} resolved markets` : label;
+  }
   if (calibrated && evidence) {
     return `Community probability, ${who} (calibrated on ${evidence.resolvedMarkets} resolved markets)`;
   }
-  // Deliberately avoids the word "probability" for uncalibrated numbers.
+  // A credit allocation share is a separate statistic, never called a probability.
   if (kind === 'allocation_share') return `YES allocation share, ${who}`;
-  if (kind === 'market_price') return `Market estimate, ${who}`;
   return `Community estimate, ${who}`;
 }
 
@@ -162,7 +166,7 @@ export function toEstimateView(
 }
 
 export function toBaselineView(baseline: Baseline | null, which: 'opening' | 'model'): BaselineView {
-  const label = which === 'opening' ? 'Model opening baseline' : 'Model prediction (latest)';
+  const label = which === 'opening' ? 'Model baseline (at open)' : 'Model baseline';
   if (!baseline) {
     return {
       value: null,

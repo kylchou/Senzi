@@ -88,6 +88,7 @@ export interface CommunityEstimateRule {
     baseline: number | null,
     prior: readonly EstimateEntry[],
     next: Omit<EstimateEntry, 'fill'>,
+    market?: Market,
   ): Record<string, number>;
 }
 
