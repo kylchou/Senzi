@@ -12,12 +12,20 @@ export interface PlottedPoint {
   point: HistoryPoint & { share: number };
 }
 
+/** Vertical range the chart zooms to, with evenly spaced gridline values. */
+export interface ChartDomain {
+  min: number;
+  max: number;
+  ticks: number[];
+}
+
 export interface ChartGeometry {
   /** YES allocation share points, used for hover. */
   points: PlottedPoint[];
   path: string;
-  /** Step path for the calibrated probability, or null when none is recorded. */
+  /** Line for the calibrated probability, or null when none is recorded. */
   calibratedPath: string | null;
+  domain: ChartDomain;
   start: number;
   end: number;
   xFor: (time: number) => number;
@@ -38,16 +46,56 @@ export function downsample<T>(items: T[], max: number): T[] {
   return Array.from({ length: max }, (_, index) => items[Math.round(index * stride)]);
 }
 
-function stepPath(coords: { x: number; y: number }[], endX: number): string {
+/**
+ * Straight segments from point to point, like a stock chart, then flat from
+ * the latest value to now (nothing has traded since).
+ */
+function linePath(coords: { x: number; y: number }[], endX: number): string {
   let path = `M${coords[0].x.toFixed(1)},${coords[0].y.toFixed(1)}`;
   for (let index = 1; index < coords.length; index++) {
-    path += `H${coords[index].x.toFixed(1)}V${coords[index].y.toFixed(1)}`;
+    path += `L${coords[index].x.toFixed(1)},${coords[index].y.toFixed(1)}`;
   }
   return path + `H${endX.toFixed(1)}`;
 }
 
-/** Step paths so each line holds its value until the next snapshot. */
-export function buildGeometry(history: HistoryPoint[], box: ChartBox, now: number = Date.now()): ChartGeometry | null {
+const TICK_STEPS = [0.01, 0.02, 0.05, 0.1, 0.2, 0.25];
+const round = (value: number) => Math.round(value * 10_000) / 10_000;
+
+/**
+ * Zooms the axis to where the values actually are, so moves are visible
+ * (a fixed 0 to 100% axis makes a 5-point swing look flat). Keeps at least a
+ * 10-point window, snaps to round gridlines, and stays within 0 to 100%.
+ */
+export function yDomain(values: number[]): ChartDomain {
+  if (values.length === 0) return { min: 0, max: 1, ticks: [0, 0.25, 0.5, 0.75, 1] };
+  let low = Math.min(...values);
+  let high = Math.max(...values);
+  const pad = Math.max((high - low) * 0.15, 0.02);
+  low -= pad;
+  high += pad;
+  if (high - low < 0.1) {
+    const middle = (low + high) / 2;
+    low = middle - 0.05;
+    high = middle + 0.05;
+  }
+  for (const step of TICK_STEPS) {
+    const min = Math.max(0, Math.floor(round(low / step)) * step);
+    const max = Math.min(1, Math.ceil(round(high / step)) * step);
+    if (round((max - min) / step) <= 5) {
+      const ticks = Array.from({ length: Math.round((max - min) / step) + 1 }, (_, index) => round(min + index * step));
+      return { min: round(min), max: round(max), ticks };
+    }
+  }
+  return { min: 0, max: 1, ticks: [0, 0.25, 0.5, 0.75, 1] };
+}
+
+/** Line paths and a y-axis zoomed to the data (and the baseline, when given). */
+export function buildGeometry(
+  history: HistoryPoint[],
+  box: ChartBox,
+  now: number = Date.now(),
+  baseline: number | null = null,
+): ChartGeometry | null {
   const data = downsample(plottable(history), 400);
   if (data.length === 0) return null;
   const calibrated = downsample(
@@ -62,31 +110,37 @@ export function buildGeometry(history: HistoryPoint[], box: ChartBox, now: numbe
   const innerW = box.width - box.padding.left - box.padding.right;
   const innerH = box.height - box.padding.top - box.padding.bottom;
 
+  const domain = yDomain([
+    ...data.map((point) => point.share),
+    ...calibrated.map((point) => point.calibrated),
+    ...(baseline !== null ? [baseline] : []),
+  ]);
   const xFor = (time: number) => box.padding.left + ((time - start) / (end - start)) * innerW;
-  const yFor = (share: number) => box.padding.top + (1 - share) * innerH;
+  const yFor = (share: number) => box.padding.top + (1 - (share - domain.min) / (domain.max - domain.min)) * innerH;
 
   const points = data.map((point) => ({ x: xFor(Date.parse(point.at)), y: yFor(point.share), point }));
   const calibratedPath = calibrated.length
-    ? stepPath(
+    ? linePath(
         calibrated.map((point) => ({ x: xFor(Date.parse(point.at)), y: yFor(point.calibrated) })),
         xFor(end),
       )
     : null;
 
-  return { points, path: stepPath(points, xFor(end)), calibratedPath, start, end, xFor, yFor };
+  return { points, path: linePath(points, xFor(end)), calibratedPath, domain, start, end, xFor, yFor };
 }
 
-/** Index of the plotted point at or before x (step semantics). */
+/** Index of the plotted point closest to x, for hovering along the line. */
 export function nearestIndex(points: PlottedPoint[], x: number): number {
   let low = 0;
   let high = points.length - 1;
   if (x <= points[0].x) return 0;
-  while (low < high) {
-    const mid = Math.ceil((low + high) / 2);
+  if (x >= points[high].x) return high;
+  while (high - low > 1) {
+    const mid = Math.floor((low + high) / 2);
     if (points[mid].x <= x) low = mid;
-    else high = mid - 1;
+    else high = mid;
   }
-  return low;
+  return x - points[low].x <= points[high].x - x ? low : high;
 }
 
 /** Up to `count` evenly spaced time ticks between start and end. */
@@ -122,9 +176,10 @@ export function shareMovement(
 }
 
 export const CHART_RANGES = [
-  { key: "7d", label: "7D", days: 7 },
-  { key: "30d", label: "30D", days: 30 },
-  { key: "all", label: "All", days: null },
+  { key: "1d", label: "1D", days: 1, since: "past day" },
+  { key: "7d", label: "7D", days: 7, since: "past week" },
+  { key: "30d", label: "30D", days: 30, since: "past month" },
+  { key: "all", label: "All", days: null, since: "since open" },
 ] as const;
 export type ChartRangeKey = (typeof CHART_RANGES)[number]["key"];
 
