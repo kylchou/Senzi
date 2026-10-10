@@ -20,7 +20,7 @@
 // databases). Run Ky's `npm run db:seed` to get his demo data back.
 
 import type { Prisma } from "@/generated/prisma/client";
-import { ResolutionOutcome, SnapshotTrigger } from "@/generated/prisma/enums";
+import { AccountType, ResolutionOutcome, SnapshotTrigger } from "@/generated/prisma/enums";
 import { createMarket } from "@/lib/admin";
 import { grantSignupCredits } from "@/lib/credits";
 import { db } from "@/lib/db";
@@ -116,8 +116,25 @@ async function resetDatabase() {
 
 async function makeUser(tag: string, displayName: string, admin = false): Promise<SessionUser> {
   const user = await db.user.create({
-    data: { authId: `${PENDING_AUTH_PREFIX}${tag}`, email: `${tag}@simulated.senzi.invalid`, displayName, platformRole: admin ? "ADMIN" : "USER" },
-    select: { id: true, authId: true, email: true, username: true, displayName: true, avatarUrl: true, platformRole: true },
+    data: {
+      authId: `${PENDING_AUTH_PREFIX}${tag}`,
+      email: `${tag}@simulated.senzi.invalid`,
+      displayName,
+      platformRole: admin ? "ADMIN" : "USER",
+      // Simulated traders are verified TRADER accounts; VC accounts can't trade.
+      ...(admin ? {} : { accountType: AccountType.TRADER, accountVerifiedAt: new Date() }),
+    },
+    select: {
+      id: true,
+      authId: true,
+      email: true,
+      username: true,
+      displayName: true,
+      avatarUrl: true,
+      platformRole: true,
+      accountType: true,
+      accountVerifiedAt: true,
+    },
   });
   if (!admin) await db.$transaction((tx) => grantSignupCredits(tx, user.id));
   return user;
