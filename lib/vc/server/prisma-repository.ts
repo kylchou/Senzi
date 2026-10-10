@@ -65,6 +65,7 @@ function toModelEstimate(row: EstimateRow): StudyModelEstimate {
     question: null,
     yesCriteria: null,
     noCriteria: null,
+    resolutionSource: null,
     asOf: row.calculatedAt,
     observations: row.observations as unknown as FirmObservation[],
     calculatedById: row.calculatedById,
@@ -317,6 +318,22 @@ export function createPrismaVcRepository(prisma: PrismaClient): VcRepository {
         calculatedById: e.calculatedById,
       };
       await prisma.studyModelEstimate.upsert({ where: { studyId: e.studyId }, create: { studyId: e.studyId, ...data }, update: data });
+    },
+
+    async listFirmFigures(organizationId, startupId) {
+      const rows = await prisma.modelDataPoint.findMany({
+        where: { organizationId, startupId, provenance: "SPONSOR_PROVIDED" },
+        orderBy: [{ periodEnd: "asc" }, { availableAt: "asc" }],
+      });
+      return rows.map((r) => ({
+        metricId: r.metricId,
+        value: r.value,
+        periodStart: r.periodStart.toISOString().slice(0, 10),
+        periodEnd: r.periodEnd.toISOString().slice(0, 10),
+        note: r.note ?? "",
+        availableAt: r.availableAt.toISOString(),
+        simulated: r.simulated,
+      }));
     },
 
     async createReport(data) {

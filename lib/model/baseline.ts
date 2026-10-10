@@ -90,10 +90,19 @@ export function computeBaseline(
       p.metricId === question.metricId &&
       p.companyId === question.companyId &&
       Date.parse(p.availableAt) <= asOf.getTime() &&
+      Date.parse(`${p.periodEnd}T23:59:59.999Z`) <= asOf.getTime() &&
+      toDayNumber(p.periodEnd) < targetEnd &&
+      Number.isFinite(p.value) && p.value >= 0 &&
+      (targetEnd - toDayNumber(p.periodEnd)) % 7 === 0 &&
       toDayNumber(p.periodEnd) - toDayNumber(p.periodStart) === 6,
   );
 
-  const weekly = weeklySeries(series, question.windowEnd, params.fitWeeks);
+  // Sponsor totals may extend the history beyond the scraped dates. Expand
+  // only the date bounds, never fabricate daily scraped observations.
+  const starts = [...(series.firstDay === null ? [] : [series.firstDay]), ...sponsor.map(p => toDayNumber(p.periodStart))];
+  const ends = [...(series.lastDay === null ? [] : [series.lastDay]), ...sponsor.map(p => toDayNumber(p.periodEnd))];
+  const bounds = { ...series, firstDay: starts.length ? Math.min(...starts) : null, lastDay: ends.length ? Math.max(...ends) : null };
+  const weekly = weeklySeries(bounds, question.windowEnd, params.fitWeeks);
   const sponsorByWeek = new Map<string, DataPoint>();
   for (const p of sponsor) {
     const scraped = weekly.weeks.find((w) => w.windowEnd === p.periodEnd);
@@ -126,9 +135,9 @@ export function computeBaseline(
     notes,
     missing,
   };
-  const dataThrough = series.lastDay === null ? null : fromDayNumber(series.lastDay);
+  const dataThrough = bounds.lastDay === null ? null : fromDayNumber(bounds.lastDay);
 
-  if (series.lastDay === null) {
+  if (bounds.lastDay === null) {
     missing.push(`No ${question.metricId} data available as of ${base.asOf}.`);
     return { ...base, status: 'insufficient_data', probability: null, low: null, high: null, confidence: null, method: emptyMethod(inputsHash, params), inputsUsed: [] };
   }
@@ -140,12 +149,12 @@ export function computeBaseline(
     simulated: false,
     role: 'trend',
     points: series.points,
-    periodStart: fromDayNumber(series.firstDay!),
-    periodEnd: dataThrough,
+    periodStart: series.firstDay === null ? null : fromDayNumber(series.firstDay),
+    periodEnd: series.lastDay === null ? null : fromDayNumber(series.lastDay),
   };
 
   // Target window already fully reported: the answer is known.
-  if (series.lastDay >= targetEnd) {
+  if (series.lastDay !== null && series.lastDay >= targetEnd) {
     const total = windowTotal(series, targetEnd);
     if (total !== null) {
       const p = total >= question.threshold ? 1 : 0;
@@ -156,7 +165,7 @@ export function computeBaseline(
       return { ...base, status: 'observed', probability: p, low: p, high: p, confidence: 'high', method, inputsUsed: [trendInput] };
     }
     notes.push('The question window has ended but some of its days are missing; forecasting from earlier weeks.');
-  } else if (series.lastDay > targetEnd - 7) {
+  } else if (series.lastDay !== null && series.lastDay > targetEnd - 7) {
     notes.push('Part of the question window is already reported; the model uses whole weeks before it.');
   }
 
@@ -164,7 +173,7 @@ export function computeBaseline(
   const fc = forecastWeekly(weekly, params, seed, sponsorTotals);
   if (fc.missingWeeks.length) missing.push(`Incomplete weeks left out of the fit: ${fc.missingWeeks.join(', ')}.`);
 
-  const inputsUsed: InputUsed[] = [trendInput];
+  const inputsUsed: InputUsed[] = series.points ? [trendInput] : [];
   if (sponsorByWeek.size) {
     const ends = [...sponsorByWeek.keys()].sort();
     inputsUsed.push({

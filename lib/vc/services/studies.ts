@@ -1,3 +1,4 @@
+import { MAX_SOURCES } from "../constants";
 import { VcError, forbidden, notFound } from "../errors";
 import { TRANSITIONS, checkDeadline, getTransitionIssues, timestampPatchFor, type StudyAction } from "../lifecycle";
 import {
@@ -187,6 +188,16 @@ export function createStudyService(deps: VcDeps) {
     };
   }
 
+  /** A linked question resolves from a public source; make sure the study names it first. */
+  function withResolutionSource<T extends { url: string; title: string; publisher: string | null; publishedAt: Date | null }>(
+    sources: T[],
+    estimate: ModelEstimate,
+  ): (T | { url: string; title: string; publisher: string | null; publishedAt: Date | null })[] {
+    const source = estimate.status === "NOT_MEASURABLE" ? null : estimate.resolutionSource;
+    if (!source || sources.some((s) => s.url === source.url)) return sources;
+    return [{ url: source.url, title: source.title, publisher: "Public data source", publishedAt: null }, ...sources].slice(0, MAX_SOURCES);
+  }
+
   const linkOf = (input: { metricId: string; threshold: number; targetDate: string }): MetricLink => ({
     metricId: input.metricId,
     threshold: input.threshold,
@@ -206,11 +217,10 @@ export function createStudyService(deps: VcDeps) {
     const deadlineIssue = checkDeadline(input.deadline, now());
     if (deadlineIssue) throw new VcError("VALIDATION_ERROR", deadlineIssue, [{ path: "deadline", message: deadlineIssue }]);
 
-    const observations: FirmObservation[] = input.modelLink?.observations ?? [];
-    const estimate = await openingLine.estimateFor(
+    const { estimate, figures } = await openingLine.estimateFor(
+      ctx.activeOrg.organizationId,
       startup,
       input.modelLink ? linkOf(input.modelLink) : null,
-      observations,
       input.deadline,
     );
 
@@ -222,14 +232,17 @@ export function createStudyService(deps: VcDeps) {
       context: input.context ?? null,
       deadline: input.deadline,
       visibility: input.visibility,
-      sources: (input.sources ?? []).map((s) => ({
-        url: s.url,
-        title: s.title,
-        publisher: s.publisher ?? null,
-        publishedAt: s.publishedAt ?? null,
-      })),
+      sources: withResolutionSource(
+        (input.sources ?? []).map((s) => ({
+          url: s.url,
+          title: s.title,
+          publisher: s.publisher ?? null,
+          publishedAt: s.publishedAt ?? null,
+        })),
+        estimate,
+      ),
     });
-    await openingLine.save(study, estimate, observations, ctx.user.id);
+    await openingLine.save(study, estimate, figures, ctx.user.id);
     return redactStudy(ctx, study, getStudyPermissions(ctx, study));
   }
 
@@ -254,12 +267,11 @@ export function createStudyService(deps: VcDeps) {
     // Re-price whenever anything the estimate depends on changes. Undefined modelLink keeps the stored link.
     const stored = await repo.findModelEstimate(study.id);
     const link = modelLink === undefined ? (stored?.link ?? null) : modelLink && linkOf(modelLink);
-    const observations = modelLink === undefined ? (stored?.observations ?? []) : (modelLink?.observations ?? []);
     const repriced =
       modelLink !== undefined || !stored || startupId !== study.startupId || (!!fields.deadline && !!link);
-    const estimate = repriced
-      ? await openingLine.estimateFor(startup, link, observations, fields.deadline ?? study.deadline)
-      : stored!;
+    const { estimate, figures } = repriced
+      ? await openingLine.estimateFor(study.organizationId, startup, link, fields.deadline ?? study.deadline)
+      : { estimate: stored!, figures: stored!.observations };
     if (repriced) {
       Object.assign(
         patch,
@@ -275,18 +287,16 @@ export function createStudyService(deps: VcDeps) {
       patch.yesCriteria = study.yesCriteria;
       patch.noCriteria = study.noCriteria;
     }
-    if (sources) {
-      patch.sources = sources.map((s) => ({
-        url: s.url,
-        title: s.title,
-        publisher: s.publisher ?? null,
-        publishedAt: s.publishedAt ?? null,
-      }));
+    if (sources || repriced) {
+      const next = sources
+        ? sources.map((s) => ({ url: s.url, title: s.title, publisher: s.publisher ?? null, publishedAt: s.publishedAt ?? null }))
+        : study.sources.map(({ url, title, publisher, publishedAt }) => ({ url, title, publisher, publishedAt }));
+      patch.sources = withResolutionSource(next, estimate);
     }
 
     const updated = await repo.updateStudy(studyId, expectedVersion, patch);
     if (!updated) throw new VcError("CONFLICT", "This study was changed by someone else. Reload and try again.");
-    if (repriced) await openingLine.save(updated, estimate, observations, ctx.user.id);
+    if (repriced) await openingLine.save(updated, estimate, figures, ctx.user.id);
     return redactStudy(ctx, updated, getStudyPermissions(ctx, updated));
   }
 
@@ -367,13 +377,8 @@ export function createStudyService(deps: VcDeps) {
       // The model sets the opening price, from data current at the moment forecasting opens.
       const stored = await repo.findModelEstimate(study.id);
       const startup = await startupOrThrow(study.startupId);
-      const estimate = await openingLine.estimateFor(
-        startup,
-        stored?.link ?? null,
-        stored?.observations ?? [],
-        study.deadline,
-      );
-      await openingLine.save(study, estimate, stored?.observations ?? [], ctx.user.id);
+      const { estimate, figures } = await openingLine.estimateFor(study.organizationId, startup, stored?.link ?? null, study.deadline);
+      await openingLine.save(study, estimate, figures, ctx.user.id);
       if (estimate.status !== "OK" || estimate.probability == null || !estimate.methodology) {
         const why = estimate.notes.at(-1) ?? "";
         throw new VcError(
@@ -414,7 +419,7 @@ export function createStudyService(deps: VcDeps) {
     const foundEmails = new Set(byEmail.map((u) => u.email?.toLowerCase()));
     const unknownEmails = input.emails.filter((e) => !foundEmails.has(e));
     if (unknownEmails.length > 0) {
-      throw new VcError("VALIDATION_ERROR", "Some emails do not belong to VentureCast users", { unknownEmails });
+      throw new VcError("VALIDATION_ERROR", "Some emails do not belong to Senzi users", { unknownEmails });
     }
     const byId = input.userIds.length > 0 ? await platform.getUsers(input.userIds) : [];
     if (byId.length !== new Set(input.userIds).size) {

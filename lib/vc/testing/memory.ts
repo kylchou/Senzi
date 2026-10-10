@@ -29,6 +29,7 @@ import type {
   Study,
   StudyEvent,
   StudyModelEstimate,
+  FirmObservation,
   StudyNote,
   UserSummary,
   VcAlert,
@@ -40,6 +41,8 @@ let seq = 0;
 const nextId = (prefix: string) => `${prefix}_${++seq}`;
 
 export function createMemoryRepository(now: () => Date = () => new Date()): VcRepository & {
+  /** Figures firms entered on company pages, keyed `${organizationId}:${startupId}`. */
+  firmFigures: Map<string, FirmObservation[]>;
   studies: Map<string, Study>;
   events: StudyEvent[];
   alerts: (Omit<VcAlert, "readAt">)[];
@@ -53,9 +56,11 @@ export function createMemoryRepository(now: () => Date = () => new Date()): VcRe
   const receipts = new Map<string, Date>(); // `${alertId}:${userId}`
   const reports = new Map<string, SavedReport>();
   const modelEstimates = new Map<string, StudyModelEstimate>();
+  const firmFigures = new Map<string, FirmObservation[]>();
   const clone = <T>(v: T): T => structuredClone(v);
 
   return {
+    firmFigures,
     studies,
     events,
     alerts,
@@ -254,6 +259,9 @@ export function createMemoryRepository(now: () => Date = () => new Date()): VcRe
     async saveModelEstimate(estimate) {
       modelEstimates.set(estimate.studyId, clone(estimate));
     },
+    async listFirmFigures(organizationId, startupId) {
+      return clone(firmFigures.get(`${organizationId}:${startupId}`) ?? []);
+    },
 
     async createReport(data) {
       const r: SavedReport = { ...data, id: nextId("rpt"), createdAt: now() };
@@ -401,13 +409,15 @@ export function createFakeIndicators(bySlug: Map<string, CompareIndicators> = ne
 }
 
 /**
- * A predictable stand-in for the baseline model. Every startup has one public
- * metric ("downloads:<slug>", weekly) and the firm-only "sponsor_arr".
- * Estimates are OK unless the startup slug or metric is listed in
- * `insufficient`; the probability can be set per metric.
+ * A predictable stand-in for the baseline model. Every startup has one
+ * resolvable metric, "downloads:<slug>" (weekly). Startups in `noPublicData`
+ * have no public history, so they need at least three firm figures.
+ * Estimates are OK unless the slug or metric is in `insufficient`; the
+ * probability can be set per metric.
  */
 export function createFakeModel(): ModelGateway & {
   insufficient: Set<string>;
+  noPublicData: Set<string>;
   probabilities: Map<string, number>;
   /** Bump to make the next estimate's inputs (and hash) differ. */
   dataVersion: { value: number };
@@ -415,15 +425,16 @@ export function createFakeModel(): ModelGateway & {
   calls: number;
 } {
   const insufficient = new Set<string>();
+  const noPublicData = new Set<string>();
   const probabilities = new Map<string, number>();
   const dataVersion = { value: 1 };
   const published: { marketId: string; probability: number; inputsHash: string }[] = [];
   const metricsFor = (startup: { slug: string }) => [
-    { id: `downloads:${startup.slug}`, label: "weekly downloads", unit: "downloads", kind: "weekly_total" as const, hasPublicData: true },
-    { id: "sponsor_arr", label: "ARR", unit: "USD/year", kind: "snapshot" as const, hasPublicData: false },
+    { id: `downloads:${startup.slug}`, label: "weekly downloads", unit: "downloads", kind: "weekly_total" as const, hasPublicData: !noPublicData.has(startup.slug) },
   ];
   const fake = {
     insufficient,
+    noPublicData,
     probabilities,
     dataVersion,
     published,
@@ -441,8 +452,9 @@ export function createFakeModel(): ModelGateway & {
           kind: metric.kind,
           threshold: link.threshold,
           targetDate: link.targetDate,
-          resolutionUrl: metric.hasPublicData ? "https://example.com/downloads" : null,
+          resolutionUrl: "https://example.com/downloads",
         }),
+        resolutionSource: { url: "https://example.com/downloads", title: `Resolution: ${metric.label}` },
       };
       const inputsUsed = [
         ...(metric.hasPublicData ? [{ metricId: metric.id, provenance: "scraped", value: 100, periodStart: "2026-09-01", periodEnd: "2026-09-07" }] : []),
@@ -516,6 +528,10 @@ export function createTestDeps(now: Date = new Date("2026-10-01T12:00:00Z")) {
 export function makeEstimate(marketId: string, overrides: Partial<MarketEstimate> = {}): MarketEstimate {
   return {
     marketId,
+    modelValue: 0.3,
+    generalPrice: 0.6,
+    specializedPrice: null,
+    specializedCount: 0,
     status: "OPEN",
     openingBaseline: { value: 0.3, methodology: "Base rate" },
     allocation: { yesCredits: 600, noCredits: 400, totalCredits: 1000, yesShare: 0.6 },

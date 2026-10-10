@@ -2,6 +2,7 @@ import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { CreditTransactionType } from "@/generated/prisma/enums";
 import {
   InsufficientCreditsError,
+  findLedgerMismatches,
   recordCreditTransaction,
   verifyLedgerIntegrity,
 } from "@/lib/credits";
@@ -21,6 +22,19 @@ const debit = (userId: string, amount: number, key: string) =>
   });
 
 describe("credit ledger", () => {
+  it("finds balances that drifted from the ledger", async () => {
+    const good = await makeUser();
+    const bad = await makeUser();
+    await debit(good.id, 100, "debit-good");
+    expect(await findLedgerMismatches()).toEqual([]);
+
+    // Simulate a bug that changed the cached balance without a ledger row.
+    await db.user.update({ where: { id: bad.id }, data: { creditBalance: { increment: 5 } } });
+    expect(await findLedgerMismatches()).toEqual([
+      expect.objectContaining({ userId: bad.id, cachedBalance: SIGNUP_GRANT_CREDITS + 5, ledgerSum: SIGNUP_GRANT_CREDITS }),
+    ]);
+  });
+
   it("starts users with the signup grant", async () => {
     const user = await makeUser();
     const report = await verifyLedgerIntegrity(user.id);

@@ -1,17 +1,24 @@
-import { afterAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MarketVisibility, OrgRole, SnapshotTrigger } from "@/generated/prisma/enums";
 import { resolveMarket } from "@/lib/admin";
 import { db } from "@/lib/db";
+import { FileModelStore } from "@/lib/model";
 import { canViewMarket } from "@/lib/permissions";
 import type { SessionUser } from "@/lib/types";
 import { VcError } from "@/lib/vc/errors";
+import { saveCompanyMetrics } from "@/lib/vc/server/company-model";
 import { getVcDeps } from "@/lib/vc/server/container";
 import { createIndicatorGateway } from "@/lib/vc/server/indicators-adapter";
 import { createVcServices } from "@/lib/vc/services";
 import type { StudyVisibility, VcContext } from "@/lib/vc/types";
 import { makeAdmin, makeMarket, makeOrg, makeStartup, makeUser, placeForecast, resetDatabase } from "../helpers";
 
-beforeEach(resetDatabase);
+beforeEach(async () => {
+  await resetDatabase();
+  // Price from the firm's figures only, so results don't depend on the model's data files or today's date.
+  vi.spyOn(FileModelStore.prototype, "readPoints").mockReturnValue([]);
+});
+afterEach(() => vi.restoreAllMocks());
 afterAll(() => db.$disconnect());
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -47,7 +54,8 @@ async function world() {
     [viewerA, OrgRole.VIEWER],
   ]);
   const orgB = await makeOrg([[ownerB, OrgRole.OWNER]]);
-  const startup = await makeStartup();
+  // A company the model tracks, so its npm downloads can be a question.
+  const startup = await db.startup.update({ where: { id: (await makeStartup()).id }, data: { slug: "posthog", name: "PostHog" } });
   return {
     admin, ownerA, analystA, viewerA, ownerB, expert, orgA, orgB, startup,
     ctx: {
@@ -65,30 +73,32 @@ type World = Awaited<ReturnType<typeof world>>;
 
 const isoDay = (offsetDays: number) => new Date(Date.now() + offsetDays * DAY).toISOString().slice(0, 10);
 
-/** The firm's own ARR history: three dated figures over two months, enough for the model to price. */
-function arrLink(observations = 3) {
-  return {
-    metricId: "sponsor_arr",
-    threshold: 3_000_000,
-    targetDate: isoDay(60),
-    observations: [
-      { metricId: "sponsor_arr", value: 2_000_000, periodStart: isoDay(-70), periodEnd: isoDay(-70), note: "" },
-      { metricId: "sponsor_arr", value: 2_300_000, periodStart: isoDay(-40), periodEnd: isoDay(-40), note: "" },
-      { metricId: "sponsor_arr", value: 2_600_000, periodStart: isoDay(-10), periodEnd: isoDay(-10), note: "" },
-      { metricId: "sponsor_arr", value: 2_700_000, periodStart: isoDay(-3), periodEnd: isoDay(-3), note: "" },
-    ].slice(0, observations),
-  };
+/** PostHog's weekly npm downloads, with the 7-day window ending eight weeks out. */
+const LINK = { metricId: "npm_downloads:posthog-js", threshold: 1_100, targetDate: isoDay(56) };
+
+/** `count` complete weeks of the firm's own download totals, aligned to the target window. */
+function firmWeeks(count: number, offset = 0) {
+  return Array.from({ length: count }, (_, i) => {
+    const end = 56 - 7 * (9 + offset + i); // -7, -14, … days: completed weeks that line up with the target
+    return { metricId: LINK.metricId, value: 1_000 - (offset + i) * 15, periodStart: isoDay(end - 6), periodEnd: isoDay(end), simulated: true };
+  });
+}
+
+/** The firm enters its figures on the company page. */
+async function enterFigures(w: World, observations: ReturnType<typeof firmWeeks>) {
+  await saveCompanyMetrics(w.ctx.analystA, w.startup.id, { observations });
 }
 
 /** Creates a study as the analyst and drives it through review to OPEN. */
 async function openStudy(w: World, visibility: StudyVisibility) {
+  await enterFigures(w, firmWeeks(10));
   const draft = await services.studies.create(w.ctx.analystA, {
     startupId: w.startup.id,
     question: "Will this startup announce a Series B by the deadline?",
     yesCriteria: "A Series B of at least $20M is announced publicly before the deadline.",
     noCriteria: "No qualifying Series B is announced publicly before the deadline.",
     context: null,
-    modelLink: arrLink(),
+    modelLink: LINK,
     deadline: new Date(Date.now() + 30 * DAY),
     visibility,
     sources: [{ url: "https://example.com/series-a", title: "Series A announcement" }],
@@ -139,10 +149,12 @@ describe("study lifecycle against the shared schema", () => {
     });
     expect(study.baselineValue).toBeGreaterThan(0);
     expect(study.baselineMethodology).toMatch(/^Model direct-metric/);
-    // The firm's ARR figures never reach the shared market tables.
+    // The firm's own figures never reach the shared market tables.
     const snapshot = await db.modelBaselineSnapshot.findFirstOrThrow({ where: { marketId: market.id } });
-    expect(JSON.stringify(snapshot.inputsUsed)).not.toContain("2000000");
-    expect(market.sources.map((s) => s.url)).toEqual(["https://example.com/series-a"]);
+    expect(snapshot.inputsUsed).not.toEqual([]);
+    expect((snapshot.inputsUsed as { value?: number }[]).every((p) => p.value === undefined)).toBe(true);
+    expect(market.sources.map((s) => s.url)).toEqual(expect.arrayContaining(["https://example.com/series-a"]));
+    expect(market.sources.some((s) => s.url.includes("api.npmjs.org/downloads/range/"))).toBe(true);
     expect(await canViewMarket(w.viewerA.id, market.id)).toBe(true);
     expect(await canViewMarket(w.ownerB.id, market.id)).toBe(false);
     expect(await canViewMarket(null, market.id)).toBe(false);
@@ -157,7 +169,9 @@ describe("study lifecycle against the shared schema", () => {
       forecastCount: 1,
       calibratedProbability: null,
     });
-    expect(detail.history.at(-1)?.yesShare).toBe(1);
+    // Legacy allocation snapshots must not be relabeled as LMSR prices.
+    expect(detail.history.at(-1)?.yesShare).toBeNull();
+    expect(detail.estimate?.generalPrice).toBeNull();
 
     await resolveMarket(w.admin, market.id, {
       outcome: "YES",
@@ -179,7 +193,7 @@ describe("study lifecycle against the shared schema", () => {
 
     const report = await services.reports.generate(w.ctx.analystA, study.id);
     expect(report.resolution?.outcome).toBe("YES");
-    expect(report.communityEstimate?.yesAllocationShare).toBe(1);
+    expect(report.communityEstimate?.yesAllocationShare).toBeNull();
   });
 
   it("opens restricted markets visible only to firm admins, the author, and participants", async () => {
@@ -235,6 +249,7 @@ describe("study lifecycle against the shared schema", () => {
       modelLink: null,
       deadline: new Date(Date.now() + 10 * DAY),
       visibility: "ORGANIZATION",
+      sources: [{ url: "https://example.com/launch", title: "Launch page" }],
     });
     await services.studies.update(w.ctx.analystA, draft.id, { context: "First edit", expectedVersion: 1 });
     await expectCode(services.studies.update(w.ctx.analystA, draft.id, { context: "Stale", expectedVersion: 1 }), "CONFLICT");
@@ -249,16 +264,16 @@ describe("model-set opening line", () => {
     const w = await world();
     const draft = await services.studies.create(w.ctx.analystA, {
       startupId: w.startup.id,
-      question: "Will this startup's ARR reach $3M by the target date?",
-      yesCriteria: "ARR of at least $3M is publicly confirmed before the target date.",
-      noCriteria: "ARR stays below $3M or isn't confirmed before the target date.",
-      modelLink: arrLink(2),
+      question: "Will PostHog's npm downloads pass 1,100 in a week?",
+      yesCriteria: "YES if the public npm downloads API reports at least 1,100 for the week.",
+      noCriteria: "NO if the public npm downloads API reports fewer than 1,100 for the week.",
+      modelLink: LINK,
       deadline: new Date(Date.now() + 30 * DAY),
       visibility: "ORGANIZATION",
     });
     expect(draft.baselineValue).toBeNull();
     const stored = await db.studyModelEstimate.findUniqueOrThrow({ where: { studyId: draft.id } });
-    expect(stored).toMatchObject({ status: "INSUFFICIENT_DATA", metricId: "sponsor_arr" });
+    expect(stored).toMatchObject({ status: "INSUFFICIENT_DATA", metricId: LINK.metricId });
 
     await services.studies.transition(w.ctx.analystA, draft.id, { action: "submit", expectedVersion: 1 });
     await services.studies.transition(w.ctx.admin, draft.id, { action: "approve", expectedVersion: 2 });
@@ -275,9 +290,8 @@ describe("model-set opening line", () => {
     await services.openingLine.refreshOpenMarkets();
     expect(await db.modelBaselineSnapshot.count({ where: { marketId: study.marketId! } })).toBe(1);
 
-    // The firm adds a newer figure. Before the first forecast, the model still sets the opening price too.
-    const stored = (await deps.repo.findModelEstimate(study.id))!;
-    await deps.repo.saveModelEstimate({ ...stored, observations: arrLink(4).observations });
+    // The firm adds older weeks on its company page. Before the first forecast, the model still sets the opening price too.
+    await enterFigures(w, firmWeeks(4, 10));
     const result = await services.openingLine.refreshOpenMarkets();
     expect(result.published).toBeGreaterThanOrEqual(1);
 

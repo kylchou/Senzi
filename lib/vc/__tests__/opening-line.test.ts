@@ -32,11 +32,18 @@ function fakeAi(reply: string | Error): AssistantModel & { calls: number } {
   return ai;
 }
 
-const ARR_HISTORY = [
-  { metricId: "sponsor_arr", value: 1_000_000, periodStart: "2026-07-01", periodEnd: "2026-07-01", note: "" },
-  { metricId: "sponsor_arr", value: 1_200_000, periodStart: "2026-08-01", periodEnd: "2026-08-01", note: "" },
-  { metricId: "sponsor_arr", value: 1_400_000, periodStart: "2026-09-01", periodEnd: "2026-09-01", note: "Board deck" },
+/** Weekly download totals the firm entered on Acme's company page (Acme has no public history in these tests). */
+const FIRM_WEEKS = [
+  { metricId: "downloads:acme", value: 41_000, periodStart: "2026-09-02", periodEnd: "2026-09-08", note: "", availableAt: "2026-09-09T10:00:00.000Z" },
+  { metricId: "downloads:acme", value: 44_000, periodStart: "2026-09-09", periodEnd: "2026-09-15", note: "", availableAt: "2026-09-16T10:00:00.000Z" },
+  { metricId: "downloads:acme", value: 47_000, periodStart: "2026-09-16", periodEnd: "2026-09-22", note: "Board deck", availableAt: "2026-09-23T10:00:00.000Z" },
 ];
+
+/** Acme loses its public data; only org_a's own figures can feed the model. */
+function firmOnly(s: ReturnType<typeof setup>, figures = FIRM_WEEKS) {
+  s.model.noPublicData.add("acme");
+  s.repo.firmFigures.set("org_a:startup_1", figures);
+}
 
 describe("opening line on save", () => {
   it("prices a linked question with the model and words it exactly as priced", async () => {
@@ -61,16 +68,19 @@ describe("opening line on save", () => {
     expect(detail.openingLine?.notes[0]).toMatch(/Not enough data/);
   });
 
-  it("rejects links the model can't price as asked", async () => {
+  it("rejects links the model can't price as asked, including firm-only KPIs with no public resolution source", async () => {
     const s = setup();
     const create = (link: ReturnType<typeof modelLinkFor>) => s.services.studies.create(users.analystA, validStudyInput({ modelLink: link }));
-    await expectCode(create(modelLinkFor("startup_1", { metricId: "downloads:globex" })), "VALIDATION_ERROR", /no metric/);
+    await expectCode(create(modelLinkFor("startup_1", { metricId: "downloads:globex" })), "VALIDATION_ERROR", /No metric/);
+    await expectCode(create(modelLinkFor("startup_1", { metricId: "sponsor_arr" })), "VALIDATION_ERROR", /public resolution source/);
     await expectCode(create(modelLinkFor("startup_1", { targetDate: "2026-11-01" })), "VALIDATION_ERROR", /after the forecasting deadline/);
-    await expectCode(
-      create(modelLinkFor("startup_1", { observations: [{ ...ARR_HISTORY[0]! }] })),
-      "VALIDATION_ERROR",
-      /linked metric/,
-    );
+  });
+
+  it("names the public resolution source on a linked study", async () => {
+    const s = setup();
+    const study = await s.services.studies.create(users.analystA, validStudyInput());
+    expect(study.sources[0]).toMatchObject({ url: "https://example.com/downloads", title: "Resolution: weekly downloads" });
+    expect(study.sources).toHaveLength(2);
   });
 
   it("keeps a linked question's wording on edit, and frees it when the link is removed", async () => {
@@ -149,31 +159,38 @@ describe("opening forecasting", () => {
     expect(input.question).toBe(study.question);
   });
 
+  it("prices from the firm's company-page figures when there's no public history, and only that firm's", async () => {
+    const s = setup();
+    s.model.noPublicData.add("acme");
+    s.repo.firmFigures.set("org_b:startup_1", FIRM_WEEKS); // another firm's figures never count
+    const without = await s.services.studies.create(users.analystA, validStudyInput());
+    expect(without.baselineValue).toBeNull();
+    expect((await s.repo.findModelEstimate(without.id))!.status).toBe("INSUFFICIENT_DATA");
+
+    s.repo.firmFigures.set("org_a:startup_1", FIRM_WEEKS);
+    const withFigures = await s.services.studies.create(users.analystA, validStudyInput());
+    expect(withFigures.baselineValue).toBe(0.4);
+    expect((await s.repo.findModelEstimate(withFigures.id))!.observations).toHaveLength(3);
+  });
+
   it("never sends the firm's own figures to the shared market tables", async () => {
     const s = setup();
-    const study = await s.services.studies.create(
-      users.analystA,
-      validStudyInput({ modelLink: { metricId: "sponsor_arr", threshold: 2_000_000, targetDate: "2027-01-15", observations: ARR_HISTORY } }),
-    );
+    firmOnly(s);
+    const study = await s.services.studies.create(users.analystA, validStudyInput());
     expect(study.baselineValue).toBe(0.4);
     const version = await approve(s, study.id);
     await s.services.studies.transition(users.admin, study.id, { action: "open", expectedVersion: version });
 
     const used = s.platform.state.createdMarkets[0]!.input.model.inputsUsed;
-    expect(used).toHaveLength(3);
+    expect(used).toHaveLength(3); // the fake has no public rows here: all three are the firm's
     expect(used.every((p) => !("value" in p))).toBe(true);
     expect(JSON.stringify(used)).not.toContain("Board deck");
   });
 
   it("shows the firm's figures only to the firm", async () => {
     const s = setup();
-    const study = await s.services.studies.create(
-      users.analystA,
-      validStudyInput({
-        visibility: "PUBLIC",
-        modelLink: { metricId: "sponsor_arr", threshold: 2_000_000, targetDate: "2027-01-15", observations: ARR_HISTORY },
-      }),
-    );
+    firmOnly(s);
+    const study = await s.services.studies.create(users.analystA, validStudyInput({ visibility: "PUBLIC" }));
     const version = await approve(s, study.id);
     await s.services.studies.transition(users.admin, study.id, { action: "open", expectedVersion: version });
 
@@ -205,6 +222,22 @@ describe("model line refresh", () => {
     expect(await s.services.openingLine.refreshOpenMarkets()).toEqual({ checked: 1, published: 0 });
     expect((await s.repo.findModelEstimate(study.id))!.probability).toBe(0.48);
   });
+
+  it("picks up figures the firm adds on its company page after opening", async () => {
+    const s = setup();
+    firmOnly(s);
+    const study = await s.services.studies.create(users.analystA, validStudyInput());
+    const version = await approve(s, study.id);
+    await s.services.studies.transition(users.admin, study.id, { action: "open", expectedVersion: version });
+    expect(await s.services.openingLine.refreshOpenMarkets()).toEqual({ checked: 1, published: 0 });
+
+    s.repo.firmFigures.set("org_a:startup_1", [
+      ...FIRM_WEEKS,
+      { metricId: "downloads:acme", value: 50_000, periodStart: "2026-09-23", periodEnd: "2026-09-29", note: "", availableAt: "2026-09-30T10:00:00.000Z" },
+    ]);
+    expect(await s.services.openingLine.refreshOpenMarkets()).toEqual({ checked: 1, published: 1 });
+    expect((await s.repo.findModelEstimate(study.id))!.observations).toHaveLength(4);
+  });
 });
 
 describe("draft preview", () => {
@@ -213,7 +246,6 @@ describe("draft preview", () => {
       startupId: "startup_1",
       question: "Will Acme's downloads pass 50k a week by mid January?",
       deadline: new Date(NOW.getTime() + 60 * DAY),
-      observations: [],
       ...extra,
     });
 
@@ -224,7 +256,8 @@ describe("draft preview", () => {
     expect(result.suggestion).toEqual({ link: { metricId: "downloads:acme", threshold: 50_000, targetDate: "2027-01-15" }, reason: "Weekly downloads measure this." });
     expect(result.estimate).toMatchObject({ status: "OK", probability: 0.4 });
     expect(result.estimate).not.toHaveProperty("inputsUsed");
-    expect(result.metrics.map((m) => m.id)).toEqual(["downloads:acme", "sponsor_arr"]);
+    expect(result.metrics.map((m) => m.id)).toEqual(["downloads:acme"]);
+    expect(result).toMatchObject({ firmFigureCount: 0, companyPath: "/vc/companies/acme" });
   });
 
   it("says not enough data when no metric measures the question", async () => {
@@ -251,7 +284,6 @@ describe("draft preview", () => {
         startupId: "startup_1",
         question: "Will Acme grow?",
         deadline: new Date(NOW.getTime() + 60 * DAY),
-        observations: [],
       }),
       "FORBIDDEN",
     );

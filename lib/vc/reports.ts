@@ -68,7 +68,7 @@ export function buildStudyReport(input: ReportInputs): StudyReport {
     communityEstimate: estimate
       ? {
           label: `${ALLOCATION_SHARE_LABEL} (not a calibrated probability)`,
-          yesAllocationShare: estimate.allocation.yesShare,
+          yesAllocationShare: (estimate.generalPrice ?? null),
           yesCredits: estimate.allocation.yesCredits,
           noCredits: estimate.allocation.noCredits,
           totalCredits: estimate.allocation.totalCredits,
@@ -214,6 +214,8 @@ export function csvCell(value: unknown): string {
 }
 
 export function reportToCsv(r: StudyReport): string {
+  // Saved v1 documents can predate LMSR. Preserve their original meaning.
+  const priceField = r.communityEstimate?.label.includes("LMSR") ? "general_lmsr_price" : "community_yes_allocation_share";
   const rows: unknown[][] = [
     ["field", "value"],
     ["question", r.study.question],
@@ -222,7 +224,7 @@ export function reportToCsv(r: StudyReport): string {
     ["deadline", r.study.deadline],
     ["opening_baseline", r.baseline.value],
     ["baseline_methodology", r.baseline.methodology],
-    ["community_yes_allocation_share", r.communityEstimate?.yesAllocationShare ?? ""],
+    [priceField, r.communityEstimate?.yesAllocationShare ?? ""],
     ["calibrated_probability", r.calibratedProbability?.value ?? "not available"],
     ["participants", r.participation?.participantCount ?? 0],
     ["forecasts", r.participation?.forecastCount ?? 0],
@@ -231,7 +233,7 @@ export function reportToCsv(r: StudyReport): string {
     ["generated_at", r.generatedAt],
     ["disclaimer", r.disclaimer],
     [],
-    ["timestamp", "community_yes_allocation_share"],
+    ["timestamp", priceField],
     ...r.trend.points.map((p) => [p.at, p.yesShare ?? ""]),
   ];
   return rows.map((row) => row.map(csvCell).join(",")).join("\n") + "\n";

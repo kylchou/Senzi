@@ -29,6 +29,6 @@ export const getVcContext = cache(async (requestedOrgId?: string | null): Promis
 
 export async function requireVcContext(requestedOrgId?: string | null): Promise<VcContext> {
   const ctx = await getVcContext(requestedOrgId);
-  if (!ctx) throw new VcError("UNAUTHENTICATED", "Sign in to access VentureCast Intelligence");
+  if (!ctx) throw new VcError("UNAUTHENTICATED", "Sign in to access Senzi Intelligence");
   return ctx;
 }

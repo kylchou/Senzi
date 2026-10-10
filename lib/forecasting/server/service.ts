@@ -10,7 +10,7 @@ import { db, type TxClient } from "@/lib/db";
 import { createForecastingEngine, type ForecastingEngine } from "../engine";
 import { ForecastingError, type ForecastingErrorCode } from "../errors";
 import { createLmsrRule, createLmsrSettlement } from "../lmsr-pricing";
-import type { TraderDirectory } from "../ports";
+import type { Clock, TraderDirectory } from "../ports";
 import { systemClock, uuidIds } from "../adapters/simple";
 import { PrismaForecastRepository, PrismaLockManager } from "./prisma-repository";
 
@@ -29,12 +29,12 @@ export const MARKET_MAKER_ACCOUNT_ID: string | undefined = undefined;
 
 export const MARKET_MAKER_SERVICE = "forecasting-settlement";
 
-export function engineFor(tx: TxClient): ForecastingEngine {
+export function engineFor(tx: TxClient, clock: Clock = systemClock): ForecastingEngine {
   return createForecastingEngine({
     repo: new PrismaForecastRepository(tx),
     ledger: createCreditLedger(tx),
     locks: new PrismaLockManager(tx),
-    clock: systemClock,
+    clock,
     ids: uuidIds,
     traders: noVerifiedUsers,
     settlementAuthorizer: { isAuthorizedResolutionCaller: (a) => a.kind === "service" && a.serviceId === MARKET_MAKER_SERVICE },

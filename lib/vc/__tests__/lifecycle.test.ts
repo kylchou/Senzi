@@ -74,9 +74,14 @@ describe("study lifecycle", () => {
   });
 
   it("lets a study without an opening line be submitted and approved (the model checks at open)", () => {
-    const noLine = { ...base, baselineValue: null, baselineMethodology: null };
+    const source = { id: "src", url: "https://example.com/source", title: "Source", publisher: null, publishedAt: null };
+    const noLine = { ...base, baselineValue: null, baselineMethodology: null, sources: [source] };
     expect(getTransitionIssues("submit", noLine, NOW)).toEqual([]);
     expect(getTransitionIssues("approve", noLine, NOW)).toEqual([]);
+  });
+
+  it("requires a named resolution source to submit", () => {
+    expect(getTransitionIssues("submit", { ...base, sources: [] }, NOW).join(" ")).toMatch(/resolution source/);
   });
 
   it("blocks restricted studies without participants", () => {

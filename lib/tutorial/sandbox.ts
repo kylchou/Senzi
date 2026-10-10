@@ -1,157 +1,101 @@
 /**
- * Data and math for the "How it works" practice walkthrough on the homepage.
- *
- * Everything here is fictional and runs only in the browser: no API calls,
- * no real credits, no real forecasts.
+ * Fictional data and math for the tutorial, practice mode, and homepage demo.
+ * Runs only in the browser: no API calls, no real credits, no real forecasts.
+ * Prices use the same LMSR rule as real markets (lib/forecasting/lmsr.ts).
  */
-
-export const PRACTICE_BALANCE = 500;
-
-export const TUTORIAL_STARTUP = {
-  name: "Fernhill Robotics",
-  tagline: "Warehouse robots that fit in a shipping container",
-  industry: "Robotics",
-  stage: "Seed",
-  headquarters: "Denver, CO",
-  about:
-    "Fernhill builds compact picking robots that small warehouses can rent by the month. It raised a $3M seed round last year and says it's talking to Series A investors.",
-} as const;
-
-export const TUTORIAL_MARKET = {
-  question: "Will Fernhill Robotics announce a Series A of at least $10M by March 31, 2027?",
-  yesCriteria:
-    "YES if Fernhill or its lead investor publicly announces a priced Series A of $10M or more on or before March 31, 2027.",
-  noCriteria: "NO if no qualifying round is announced by that date.",
-  sources: ["Fernhill press releases", "Lead investor announcements", "SEC Form D filings"],
-  openingBaseline: 0.35,
-  baselineMethodology: "Share of seed-stage robotics companies that raised a $10M+ Series A within 18 months.",
-  yesCredits: 420,
-  noCredits: 580,
-  forecasters: 37,
-  deadline: "Mar 31, 2027",
-} as const;
-
-export const TUTORIAL_RESOLUTION = {
-  outcome: "YES" as const,
-  evidence: "Fernhill announced a $12M Series A led by a logistics-focused fund on February 18, 2027.",
-  evidenceSource: "Fernhill press release (fictional)",
-};
+import { openingState, quoteTrade, replay, yesPrice, type LmsrState } from "@/lib/forecasting/lmsr";
 
 export type Side = "YES" | "NO";
 
-/** YES credits as a share of all credits. Not a probability. */
-export function allocationShare(yesCredits: number, noCredits: number): number | null {
-  const total = yesCredits + noCredits;
-  return total > 0 ? yesCredits / total : null;
+export const PRACTICE_BALANCE = 500;
+
+export const EXAMPLE_STARTUP = {
+  name: "ExampleAI",
+  tagline: "An AI note-taker for small teams",
+  industry: "Software",
+  stage: "Seed",
+  about: "ExampleAI is a made-up company for this tutorial. It launched a public beta in June and says signups are growing every week.",
+} as const;
+
+export const EXAMPLE_MARKET = {
+  question: "Will ExampleAI reach 10,000 monthly active users by December 31?",
+  yesCriteria: "YES if ExampleAI publicly reports at least 10,000 monthly active users for any month ending on or before December 31.",
+  noCriteria: "NO if no such report is published by December 31.",
+  sources: ["ExampleAI blog", "ExampleAI investor updates"],
+  deadline: "Dec 31",
+  /** Model baseline the market opened at. */
+  openingBaseline: 0.3,
+  baselineMethodology: "Growth needed versus similar seed-stage tools' first six months.",
+  /** Liquidity: lower than real markets so a practice trade visibly moves the price. */
+  b: 400,
+  forecasters: 23,
+} as const;
+
+/** Earlier (fictional) trades that moved the market to where the tutorial starts. */
+export const EXAMPLE_HISTORY: { label: string; side: Side; credits: number; note?: string }[] = [
+  { label: "Jul", side: "YES", credits: 60 },
+  { label: "Aug", side: "YES", credits: 90, note: "Beta signups announced" },
+  { label: "Sep", side: "NO", credits: 50 },
+  { label: "Oct", side: "YES", credits: 80 },
+  { label: "Nov", side: "NO", credits: 40, note: "Growth slowed" },
+];
+
+export const EXAMPLE_RESOLUTION = {
+  outcome: "YES" as const,
+  evidence: "ExampleAI's December update reported 11,400 monthly active users for November.",
+  source: "ExampleAI investor update (fictional)",
+};
+
+/** Market state after the fictional history, before the visitor trades. */
+export function startingState(): LmsrState {
+  return replay(EXAMPLE_MARKET.openingBaseline, EXAMPLE_MARKET.b, EXAMPLE_HISTORY);
 }
 
-/** Whole practice credits between 1 and the balance; returns an error message or null. */
+/** Price after each historical trade, for the chart. */
+export function historyPoints(): { label: string; price: number; note?: string }[] {
+  let s = openingState(EXAMPLE_MARKET.openingBaseline, EXAMPLE_MARKET.b);
+  const points: { label: string; price: number; note?: string }[] = [{ label: "Open", price: yesPrice(s) }];
+  for (const t of EXAMPLE_HISTORY) {
+    s = quoteTrade(s, t.side, t.credits).stateAfter;
+    points.push({ label: t.label, price: yesPrice(s), note: t.note });
+  }
+  return points;
+}
+
+export interface PracticeTrade {
+  side: Side;
+  credits: number;
+  shares: number;
+  priceBefore: number;
+  priceAfter: number;
+}
+
+/** Applies the visitor's practice trades in order. */
+export function applyPracticeTrades(trades: PracticeTrade[]): LmsrState {
+  return replay(EXAMPLE_MARKET.openingBaseline, EXAMPLE_MARKET.b, [...EXAMPLE_HISTORY, ...trades]);
+}
+
+/** What spending `credits` on `side` would buy right now. Winning shares pay 1 credit each. */
+export function practiceQuote(state: LmsrState, side: Side, credits: number) {
+  const q = quoteTrade(state, side, credits);
+  return { ...q, payoutIfRight: Math.floor(q.shares), profitIfRight: Math.floor(q.shares) - credits };
+}
+
+/** Whole practice credits from 1 to the balance; returns an error message or null. */
 export function validatePracticeCredits(raw: string, balance: number): string | null {
-  const trimmed = raw.trim();
-  if (trimmed === "") return "Enter how many practice credits to use.";
-  if (!/^\d+$/.test(trimmed)) return "Use a whole number of credits.";
-  const value = Number(trimmed);
-  if (value < 1) return "Use at least 1 credit.";
-  if (value > balance) return `You only have ${balance} practice credits.`;
+  const value = raw.trim();
+  if (value === "") return "Enter how many practice credits to use.";
+  if (!/^\d+$/.test(value)) return "Use a whole number of credits.";
+  if (Number(value) < 1) return "Use at least 1 credit.";
+  if (Number(value) > balance) return `You only have ${balance} practice credits.`;
   return null;
 }
 
-export interface ForecastPreview {
-  /** YES allocation share after this forecast. */
-  newShare: number;
-  /** Credits returned if this side wins: the stake plus a share of the other side's pool. */
-  payoutIfRight: number;
-  profitIfRight: number;
+/** Practice balance after trades and, once resolved, the payout on winning shares. */
+export function practiceBalance(trades: PracticeTrade[], resolved: boolean): number {
+  const spent = trades.reduce((sum, t) => sum + t.credits, 0);
+  const won = resolved
+    ? trades.filter((t) => t.side === EXAMPLE_RESOLUTION.outcome).reduce((sum, t) => sum + Math.floor(t.shares), 0)
+    : 0;
+  return PRACTICE_BALANCE - spent + won;
 }
-
-/**
- * Pari-mutuel preview: if your side wins you get your stake back plus a share
- * of the losing side's credits proportional to your stake, rounded down.
- * Later forecasts change the pools, so this is an estimate at entry.
- */
-export function previewForecast(input: { side: Side; credits: number; yesCredits: number; noCredits: number }): ForecastPreview {
-  const yes = input.yesCredits + (input.side === "YES" ? input.credits : 0);
-  const no = input.noCredits + (input.side === "NO" ? input.credits : 0);
-  const sameSide = input.side === "YES" ? yes : no;
-  const otherSide = input.side === "YES" ? no : yes;
-  const winnings = sameSide > 0 ? Math.floor((input.credits / sameSide) * otherSide) : 0;
-  return {
-    newShare: yes / (yes + no),
-    payoutIfRight: input.credits + winnings,
-    profitIfRight: winnings,
-  };
-}
-
-export interface TutorialStep {
-  id: string;
-  /** Which part of the practice market is highlighted. */
-  target: "startup" | "question" | "numbers" | "side" | "confidence" | "credits" | "submit" | "resolution" | null;
-  title: string;
-  body: string;
-  /** Short pointer shown next to the highlighted element. */
-  hint?: string;
-}
-
-export const TUTORIAL_STEPS: TutorialStep[] = [
-  {
-    id: "startup",
-    target: "startup",
-    title: "Meet the startup",
-    body: "Every market is about a real, specific startup. Here we'll use a made-up one. Tap the startup card to read about it.",
-    hint: "Tap to open",
-  },
-  {
-    id: "question",
-    target: "question",
-    title: "Read the question",
-    body: "Markets ask a YES or NO question with a deadline. Before forecasting, check exactly what counts. Open “How it resolves”.",
-    hint: "Open the rules",
-  },
-  {
-    id: "numbers",
-    target: "numbers",
-    title: "Read the numbers",
-    body: "Senzi shows different numbers that are easy to mix up. Which one shows how the community's credits are split right now?",
-  },
-  {
-    id: "side",
-    target: "side",
-    title: "Pick a side",
-    body: "Do you think Fernhill will raise its Series A in time? Choose YES or NO. There's no wrong answer in practice mode.",
-    hint: "Choose one",
-  },
-  {
-    id: "confidence",
-    target: "confidence",
-    title: "Say how sure you are",
-    body: "Optionally, tell us how likely you think YES is. It doesn't change your payout, but it's how Senzi measures how well calibrated you are over time. Move the slider.",
-    hint: "Drag me",
-  },
-  {
-    id: "credits",
-    target: "credits",
-    title: "Allocate practice credits",
-    body: "Choose how many credits to put behind your answer. The preview shows what you'd get back if you're right. These are practice credits, not your real balance.",
-    hint: "Pick an amount",
-  },
-  {
-    id: "submit",
-    target: "submit",
-    title: "Place your practice forecast",
-    body: "Submit it and watch the community allocation move. In the real app, this is when your credits are set aside.",
-    hint: "Submit",
-  },
-  {
-    id: "resolution",
-    target: "resolution",
-    title: "See how it resolves",
-    body: "After the deadline, an admin proposes the outcome with evidence and a second admin approves it. Then credits are paid out. Fast-forward to see it.",
-    hint: "Fast-forward",
-  },
-  {
-    id: "done",
-    target: null,
-    title: "That's Senzi",
-    body: "You read a question, picked a side, allocated credits, and saw a market resolve. Real markets work the same way, with real virtual credits.",
-  },
-];

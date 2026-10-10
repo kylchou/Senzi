@@ -6,6 +6,8 @@
  * See docs/API.md for the HTTP contracts that use these shapes.
  */
 export {
+  AccountType,
+  VerificationStatus,
   CreditTransactionType,
   EstimateKind,
   ForecastSide,
@@ -27,6 +29,7 @@ export {
 } from "@/generated/prisma/enums";
 
 import type {
+  AccountType,
   CreditTransactionType,
   MarketStatus,
   MarketVisibility,
@@ -148,6 +151,10 @@ export interface SessionUser {
   displayName: string;
   avatarUrl: string | null;
   platformRole: PlatformRole;
+  /** Null until chosen (see /onboarding). */
+  accountType: AccountType | null;
+  /** Null until verified (lib/verification.ts). */
+  accountVerifiedAt: Date | null;
 }
 
 /** Safe to show anyone. Never includes email or credit balance. */
