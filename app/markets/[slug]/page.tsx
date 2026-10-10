@@ -118,7 +118,7 @@ async function MarketView({ params }: Pick<PageProps<"/markets/[slug]">, "params
           <MarketBrief market={market} />
         </div>
 
-        <aside className="lg:sticky lg:top-24 lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:self-start">
+        <aside className="lg:sticky lg:top-6 lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:self-start">
           <ForecastPanel marketId={market.id} isOpen={isOpen} />
           <p className="mt-3 px-1 text-xs leading-relaxed text-ink-500">
             Forecasts are research signals, not guarantees or investment advice.
