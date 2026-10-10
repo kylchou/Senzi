@@ -3,19 +3,38 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Suspense, useState } from "react";
-import { Menu, Search, X } from "lucide-react";
+import { Suspense, useEffect, useState } from "react";
+import { useAuth } from "@clerk/nextjs";
+import { Building2, Compass, House, LayoutDashboard, Menu, Pencil, Search, X, type LucideIcon } from "lucide-react";
 import { AuthControls } from "@/components/ui/AuthControls";
 import { Container } from "@/components/ui/Container";
 import { cn } from "@/components/ui/cn";
 
-const links = [
-  { href: "/markets", label: "Markets" },
-  { href: "/startups", label: "Startups" },
+interface NavItem {
+  label: string;
+  href: string;
+  icon: LucideIcon;
+  /** Homepage section this item scrolls to; highlighted while it's in view. */
+  section?: string;
+  /** Other pages that count as this item being active. */
+  paths?: string[];
+  signedInOnly?: boolean;
+}
+
+/** Section ids on the homepage, top to bottom. */
+const HOME_SECTIONS = ["top", "explore", "how-it-works", "startups"];
+
+const items: NavItem[] = [
+  { label: "Home", href: "/#top", icon: House, section: "top" },
+  { label: "Explore", href: "/#explore", icon: Compass, section: "explore", paths: ["/markets"] },
+  // "#tutorial" also starts the walkthrough (see HowItWorksTutorial).
+  { label: "How it works", href: "/#tutorial", icon: Pencil, section: "how-it-works" },
+  { label: "Startups", href: "/#startups", icon: Building2, section: "startups", paths: ["/startups"] },
+  { label: "Dashboard", href: "/vc", icon: LayoutDashboard, paths: ["/vc"], signedInOnly: true },
 ];
 
-function isActive(pathname: string | null, href: string) {
-  return pathname !== null && (pathname === href || pathname.startsWith(`${href}/`));
+function onPath(pathname: string | null, paths: string[] = []) {
+  return pathname !== null && paths.some((p) => pathname === p || pathname.startsWith(`${p}/`));
 }
 
 /**
@@ -34,10 +53,38 @@ function RoutedNavbar() {
   return <NavbarView pathname={usePathname()} />;
 }
 
+/** Which homepage section is in view, for highlighting the matching nav item. */
+function useActiveSection(enabled: boolean) {
+  const [active, setActive] = useState<string | null>(null);
+  useEffect(() => {
+    if (!enabled) return;
+    const sections = HOME_SECTIONS.map((id) => document.getElementById(id)).filter((el): el is HTMLElement => el !== null);
+    const visible = new Map<string, number>();
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) visible.set(entry.target.id, entry.isIntersecting ? entry.intersectionRatio : 0);
+        // The topmost section that is meaningfully on screen wins.
+        const current = HOME_SECTIONS.find((id) => (visible.get(id) ?? 0) > 0.15) ?? null;
+        setActive(current);
+      },
+      { rootMargin: "-64px 0px -40% 0px", threshold: [0, 0.15, 0.4] },
+    );
+    sections.forEach((s) => observer.observe(s));
+    return () => observer.disconnect();
+  }, [enabled]);
+  return enabled ? active : null;
+}
+
 function NavbarView({ pathname }: { pathname: string | null }) {
+  const { isSignedIn } = useAuth();
   // Menu belongs to the path it was opened on, so navigating closes it.
   const [openOn, setOpenOn] = useState<string | null>(null);
   const open = pathname !== null && openOn === pathname;
+  const onHome = pathname === "/";
+  const activeSection = useActiveSection(onHome);
+
+  const visibleItems = items.filter((item) => !item.signedInOnly || isSignedIn);
+  const isActive = (item: NavItem) => (onHome ? item.section === activeSection : onPath(pathname, item.paths));
 
   return (
     <header className="sticky top-0 z-40 border-b border-white/5 bg-ink-900 text-white">
@@ -47,33 +94,43 @@ function NavbarView({ pathname }: { pathname: string | null }) {
       >
         Skip to content
       </a>
-      <Container className="flex h-16 items-center gap-8">
-        <Link href="/" aria-label="Senzi home" className="shrink-0">
+      <Container className="flex h-16 items-center gap-6">
+        <Link href="/#top" aria-label="Senzi home" className="shrink-0">
           <Image src="/senzi-logo.png" alt="Senzi" width={77} height={22} priority />
         </Link>
 
         <nav aria-label="Main" className="hidden items-center gap-1 md:flex">
-          {links.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              aria-current={isActive(pathname, link.href) ? "page" : undefined}
-              className={cn(
-                "relative rounded-full px-3 py-1.5 text-sm font-medium text-ink-300 transition-colors hover:text-white",
-                isActive(pathname, link.href) &&
-                  "text-white after:absolute after:inset-x-3 after:-bottom-[15px] after:h-0.5 after:bg-red-500",
-              )}
-            >
-              {link.label}
-            </Link>
-          ))}
+          {visibleItems.map((item) => {
+            const active = isActive(item);
+            return (
+              <Link
+                key={item.label}
+                href={item.href}
+                aria-current={active ? (onHome && item.section ? "location" : "page") : undefined}
+                className={cn(
+                  "group relative inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium text-ink-300 transition-colors duration-200 hover:bg-white/5 hover:text-white",
+                  active && "bg-white/10 text-white",
+                )}
+              >
+                <item.icon
+                  className={cn("size-4 transition-colors", active ? "text-red-500" : "text-ink-400 group-hover:text-white")}
+                  aria-hidden
+                />
+                {item.label}
+              </Link>
+            );
+          })}
         </nav>
 
         <div className="ml-auto hidden items-center gap-2 md:flex">
           <Link
             href="/search"
             aria-label="Search"
-            className="rounded-full p-2 text-ink-300 transition-colors hover:bg-white/10 hover:text-white"
+            aria-current={pathname === "/search" ? "page" : undefined}
+            className={cn(
+              "rounded-full p-2 text-ink-300 transition-colors hover:bg-white/10 hover:text-white",
+              pathname === "/search" && "bg-white/10 text-white",
+            )}
           >
             <Search className="size-5" aria-hidden />
           </Link>
@@ -95,19 +152,24 @@ function NavbarView({ pathname }: { pathname: string | null }) {
       {open && (
         <nav id="mobile-nav" aria-label="Mobile" className="border-t border-white/10 md:hidden">
           <Container className="flex flex-col gap-1 py-3">
-            {[...links, { href: "/search", label: "Search" }].map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                aria-current={isActive(pathname, link.href) ? "page" : undefined}
-                className={cn(
-                  "rounded-lg px-3 py-2.5 text-sm font-medium text-ink-300 hover:bg-white/5 hover:text-white",
-                  isActive(pathname, link.href) && "bg-white/5 text-white",
-                )}
-              >
-                {link.label}
-              </Link>
-            ))}
+            {[...visibleItems, { label: "Search", href: "/search", icon: Search, paths: ["/search"] } as NavItem].map((item) => {
+              const active = isActive(item);
+              return (
+                <Link
+                  key={item.label}
+                  href={item.href}
+                  onClick={() => setOpenOn(null)}
+                  aria-current={active ? "page" : undefined}
+                  className={cn(
+                    "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-ink-300 hover:bg-white/5 hover:text-white",
+                    active && "bg-white/5 text-white",
+                  )}
+                >
+                  <item.icon className={cn("size-4", active ? "text-red-500" : "text-ink-400")} aria-hidden />
+                  {item.label}
+                </Link>
+              );
+            })}
             <AuthControls variant="accent" className="mt-2 w-full" />
           </Container>
         </nav>
