@@ -12,6 +12,7 @@ import { formatDate } from "@/lib/vc/format";
 import type { StudyView } from "@/lib/vc/permissions";
 import type { MarketEstimate } from "@/lib/vc/types";
 import { StatusBadge, VisibilityBadge } from "./StatusBadge";
+import { StudyPreviewTrigger } from "./StudyPreview";
 
 export interface StudyRow {
   study: StudyView;
@@ -34,8 +35,8 @@ function Th({ children, tip, label, align = "right" }: { children: string; tip?:
 }
 
 /**
- * Compact study list. Each row opens the study, which shows all three lines,
- * the gaps between them, 7-day changes and the evidence behind the model.
+ * Compact study list. Clicking a row opens a preview (three lines, headline
+ * numbers, model sources) with a button to the full report.
  */
 export function StudyTable({ rows }: { rows: StudyRow[] }) {
   return (
@@ -60,13 +61,8 @@ export function StudyTable({ rows }: { rows: StudyRow[] }) {
               className="relative border-b border-slate-100 align-top transition-colors last:border-0 hover:bg-slate-50 dark:border-slate-900 dark:hover:bg-slate-900/60"
             >
               <td className="px-4 py-2 sm:px-2">
-                {/* The link's overlay covers the whole row, so clicking anywhere opens the study. */}
-                <Link
-                  href={`/vc/studies/${study.id}`}
-                  className="font-medium text-slate-900 before:absolute before:inset-0 hover:underline dark:text-slate-100"
-                >
-                  {study.question}
-                </Link>
+                {/* The trigger's overlay covers the whole row, so clicking anywhere opens the preview. */}
+                <StudyPreviewTrigger studyId={study.id} question={study.question} />
                 <div className="relative mt-0.5 flex flex-wrap items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
                   {startupName &&
                     (startupSlug ? (

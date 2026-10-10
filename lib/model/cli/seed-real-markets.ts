@@ -438,6 +438,10 @@ async function main() {
           sourceType: r.source === "sec_edgar" ? "REGULATORY_FILING" : "DATA_PROVIDER",
           license: "LINK_ONLY",
           asOf: new Date(`${r.asOf}T00:00:00Z`),
+          // Everything we scrape comes straight from a public source, so it is marked verified.
+          verified: true,
+          verifiedById: admin.id,
+          verifiedAt: NOW,
         },
       });
     }
@@ -473,7 +477,7 @@ async function main() {
     }
     const rank = latestOf(metricIds.trancoRank);
     if (rank) {
-      planned.push({ q: trafficQuestion(company.id, niceRound(rank.value * TRAFFIC_MULTIPLE), TRAFFIC_WINDOW_END, OPEN_AT.toISOString()), opensAt: OPEN_AT, refreshModel: false });
+      planned.push({ q: trafficQuestion(company.id, niceRound(rank.value * TRAFFIC_MULTIPLE), TRAFFIC_WINDOW_END, OPEN_AT.toISOString()), opensAt: OPEN_AT, refreshModel: true });
     }
     const jobs = latestOf(metricIds.openJobs);
     if (jobs) {
@@ -494,7 +498,7 @@ async function main() {
       const count = span < 30 * 60_000 ? 0 : span < 24 * 3_600_000 ? 4 : 9 + Math.floor(rand() * 6);
       const placed = count ? await simulateTrades(made.market.id, made.baseline.probability!, verifiedOnly ? invited : traders, from, until, count, rand) : 0;
 
-      // Download markets: the model refreshes on newer data (trades never feed it).
+      // Download and traffic-rank markets: the model refreshes on newer data (trades never feed it).
       if (refreshModel) {
         const latest = baselineFor(q, points, NOW);
         if (latest.status === "ok" && latest.probability !== null && latest.method.details.inputsHash !== made.baseline.method.details.inputsHash) {

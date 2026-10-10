@@ -3,7 +3,7 @@ import { z } from "zod";
 import { db } from "@/lib/db";
 import { COMPANIES, FileModelStore, getCompanyIndicators, getIndicatorHistory, crossCheckSponsor, metricsFor, sponsorPoint, type Indicator } from "@/lib/model";
 import { SPONSOR_METRIC_LABELS, type SponsorMetricKind } from "@/lib/model/sponsor";
-import type { DataPoint, InputUsed, SourceRef } from "@/lib/model/types";
+import type { DataPoint, InputUsed, MethodInfo, SourceRef } from "@/lib/model/types";
 import { intakeMetrics, intakeObservationSchema } from "@/lib/model/intake";
 import { canProposeInActiveOrg } from "../permissions";
 import { forbidden, notFound, VcError } from "../errors";
@@ -50,6 +50,36 @@ export interface ModelInputRow extends InputUsed {
   sourceRef: SourceRef | null;
 }
 
+export interface ModelCalculation {
+  /** What the question counts, and the line it has to clear. */
+  metricLabel: string | null;
+  unit: string | null;
+  /** False for ranks, where YES means at or below the threshold. */
+  higherIsBetter: boolean;
+  threshold: number | null;
+  windowEnd: string | null;
+  lastWeek: { windowEnd: string; total: number } | null;
+  weeksUsed: number;
+  weeklyGrowth: number | null;
+  horizonWeeks: number | null;
+  forecastMedian: number | null;
+  forecastRange80: [number, number] | null;
+  /** Probability before the pull toward 50%; null when it matches the final value. */
+  rawProbability: number | null;
+  /** True when the forecast was adjusted for npm-wide download shifts. */
+  npmAdjusted: boolean;
+  /** Raw method internals, for the "Technical details" dropdown. */
+  technical: ModelTechnical;
+}
+
+export interface ModelTechnical {
+  methodName: string | null;
+  methodVersion: string | null;
+  bootstrapReplicates: number | null;
+  /** Fingerprint of the exact inputs, so a result can be reproduced and audited. */
+  inputsHash: string | null;
+}
+
 export interface StudyModelEvidence {
   /** The latest model snapshot for the market; null before the model has run. */
   model: {
@@ -63,6 +93,8 @@ export interface StudyModelEvidence {
     inputs: ModelInputRow[];
     notes: string[];
     missing: string[];
+    /** The numbers behind the result, in plain terms. Null fields mean the method didn't produce that number. */
+    calc: ModelCalculation;
   } | null;
   /** Scraped public signals for the company. Context unless listed in model.inputs. */
   scraped: Indicator[];
@@ -83,6 +115,7 @@ export async function studyModelEvidence(ctx: VcContext, startupId: string, mark
     company && orgId ? sponsorPoints(startupId, orgId, company.id, asOf) : Promise.resolve([]),
     marketId ? db.modelBaselineSnapshot.findFirst({ where: { marketId }, orderBy: { createdAt: "desc" } }) : Promise.resolve(null),
   ]);
+  const spec = marketId ? await db.modelQuestionSpec.findUnique({ where: { marketId } }) : null;
   const indicators = company ? getCompanyIndicators(company.id, scrapedPoints(company.id), sponsor, asOf) : [];
   const labels = new Map<string, string>([
     ...(company ? metricsFor(company).map(m => [m.id, m.label] as const) : []),
@@ -95,6 +128,31 @@ export async function studyModelEvidence(ctx: VcContext, startupId: string, mark
     sourceRef: sources.find(s => s.source === i.source) ?? null,
   }));
   const method = snapshot ? `${snapshot.modelName}@${snapshot.modelVersion}` : "";
+  const methodInfo = snapshot?.method as unknown as MethodInfo | null;
+  const details = methodInfo?.details;
+  const metric = spec && company ? metricsFor(company).find(m => m.id === spec.metricId) : undefined;
+  const raw = details?.rawProbability ?? null;
+  const calc: ModelCalculation = {
+    metricLabel: metric?.label ?? (spec ? labels.get(spec.metricId) ?? spec.metricId : null),
+    unit: metric?.unit ?? null,
+    higherIsBetter: metric?.higherIsBetter ?? true,
+    threshold: spec?.threshold ?? null,
+    windowEnd: spec ? spec.windowEnd.toISOString().slice(0, 10) : null,
+    lastWeek: details?.lastObservedWeek ?? null,
+    weeksUsed: details?.weeksUsed ?? 0,
+    weeklyGrowth: details?.weeklyGrowth ?? null,
+    horizonWeeks: details?.horizonWeeks ?? null,
+    forecastMedian: details?.forecastMedian ?? null,
+    forecastRange80: details?.forecastRange80 ?? null,
+    rawProbability: raw != null && snapshot?.probability != null && Math.abs(raw - snapshot.probability) >= 0.005 ? raw : null,
+    npmAdjusted: !!details?.npmIndex,
+    technical: {
+      methodName: methodInfo?.name ?? null,
+      methodVersion: methodInfo?.version ?? null,
+      bootstrapReplicates: details?.bootstrapReplicates ?? null,
+      inputsHash: details?.inputsHash ?? snapshot?.inputsHash ?? null,
+    },
+  };
   return {
     model: snapshot && {
       probability: snapshot.probability,
@@ -107,6 +165,7 @@ export async function studyModelEvidence(ctx: VcContext, startupId: string, mark
       inputs,
       notes: snapshot.notes,
       missing: snapshot.missing,
+      calc,
     },
     scraped: indicators.filter(i => i.provenance === "scraped"),
     sponsor: indicators.filter(i => i.provenance === "sponsor_provided" && i.value !== null),

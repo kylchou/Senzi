@@ -14,7 +14,7 @@ import { buttonDanger, buttonPrimary, errorClass, inputClass, labelClass } from 
 
 function Share({ value }: { value: number | null | undefined }) {
   return (
-    <span className="tabular-nums" title="General LMSR price (not a calibrated probability)">
+    <span className="tabular-nums" title="Crowd price (not a calibrated probability)">
       {formatShare(value, 1)} YES alloc.
     </span>
   );

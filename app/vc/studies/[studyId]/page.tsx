@@ -1,9 +1,8 @@
 import Link from "next/link";
 import { EstimateSummary } from "@/components/vc/EstimateSummary";
-import { FactList } from "@/components/vc/EvidenceList";
 import { FollowButton } from "@/components/vc/FollowButton";
 import { MarketGaps } from "@/components/vc/MarketGaps";
-import { ModelEvidencePanel } from "@/components/vc/ModelEvidencePanel";
+import { CompanySignalsPanel, ModelCalculationPanel } from "@/components/vc/ModelEvidencePanel";
 import { NotesPanel } from "@/components/vc/NotesPanel";
 import { ParticipantsEditor } from "@/components/vc/ParticipantsEditor";
 import { Section } from "@/components/vc/Section";
@@ -148,7 +147,7 @@ export default async function StudyPage({ params }: { params: Promise<{ studyId:
         </Section>
       )}
 
-      <Section id="estimates" title="Estimates" description="Three different measurements, shown separately. None is investment advice.">
+      <Section id="estimates" title="Estimates" description="Summary of public user, verified user, and model prediction markets.">
         <EstimateSummary baseline={baseline} estimate={estimate} freshness={freshness} />
         {uncertainty.length > 0 && (
           <ul className="mt-3 list-disc space-y-0.5 pl-5 text-xs text-slate-600 dark:text-slate-300">
@@ -162,7 +161,7 @@ export default async function StudyPage({ params }: { params: Promise<{ studyId:
       <Section
         id="trend"
         title="Model, crowd and verified-user prices"
-        description="Three lines from one market. The gaps between them are the signal."
+        description="Prediction lines from three different sources"
       >
         <ThreeLineChart marketId={study.marketId ?? study.id} points={history} baseline={baseline.value} />
         <div className="mt-5 border-t border-slate-100 pt-4 dark:border-slate-800">
@@ -172,10 +171,18 @@ export default async function StudyPage({ params }: { params: Promise<{ studyId:
 
       <Section
         id="model-evidence"
-        title="Evidence behind the model"
-        description="What the model is built from, with sources and fetch times. Scraped and sponsor-provided data are labelled separately."
+        title="How the model got this number"
+        description="The model's calculation and the exact data it used. Independent of trades."
       >
-        <ModelEvidencePanel evidence={modelEvidence} news={evidence.news} />
+        <ModelCalculationPanel evidence={modelEvidence} />
+      </Section>
+
+      <Section
+        id="company-signals"
+        title="Other Company Signals"
+        description="Context only. None of these signals inform this question's model."
+      >
+        <CompanySignalsPanel evidence={modelEvidence} news={evidence.news} />
       </Section>
 
       <div className="grid gap-6 lg:grid-cols-2">
@@ -221,16 +228,6 @@ export default async function StudyPage({ params }: { params: Promise<{ studyId:
           )}
         </Section>
       </div>
-
-      {evidence.facts.length > 0 && (
-        <Section
-          id="facts"
-          title="Company facts"
-          description={`Public facts about ${startup?.name ?? "this startup"}. Verification status is shown on each item; none of it is an estimate or a forecast.`}
-        >
-          <FactList facts={evidence.facts} />
-        </Section>
-      )}
 
       {full && participants && (
         <Section
