@@ -18,8 +18,12 @@ export function MarketCard({ market }: { market: MarketSummary }) {
         <div className="flex min-w-0 items-center gap-2.5">
           <StartupMark name={market.startup.name} logoUrl={market.startup.logoUrl} size="sm" />
           <div className="min-w-0 text-sm leading-tight">
-            <p className="truncate font-semibold text-ink-900">{market.startup.name}</p>
-            <p className="truncate text-xs text-ink-500">{market.startup.industry}</p>
+            <p translate="no" className="truncate font-semibold text-ink-900">
+              {market.startup.name}
+            </p>
+            <p data-focus-hide="" className="truncate text-xs text-ink-500">
+              {market.startup.industry}
+            </p>
           </div>
         </div>
         <MarketStatusBadge status={market.status} outcome={market.outcome} closesAt={market.closesAt} />
@@ -41,7 +45,9 @@ export function MarketCard({ market }: { market: MarketSummary }) {
             </p>
             <p className="text-xs text-ink-500">YES allocation</p>
           </div>
-          <CardSparkline slug={market.slug} />
+          <span data-focus-hide="">
+            <CardSparkline slug={market.slug} />
+          </span>
           {openingBaseline !== null && (
             <div className="text-right">
               <p className="text-sm font-semibold tabular-nums text-ink-700">{formatShare(openingBaseline)}</p>
@@ -58,7 +64,7 @@ export function MarketCard({ market }: { market: MarketSummary }) {
           </span>
           <span className="inline-flex items-center gap-1.5 tabular-nums">
             <Users className="size-3.5" aria-hidden />
-            {allocation.forecastCount} {allocation.forecastCount === 1 ? "forecast" : "forecasts"}
+            {`${allocation.forecastCount} ${allocation.forecastCount === 1 ? "forecast" : "forecasts"}`}
           </span>
         </div>
       </div>

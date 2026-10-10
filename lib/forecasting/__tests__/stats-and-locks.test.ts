@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { InProcessLockManager } from '../index.js';
-import { brierScore, calibrationBins, expectedCalibrationError, wilsonInterval } from '../stats.js';
+import { InProcessLockManager } from '../index';
+import { brierScore, calibrationBins, expectedCalibrationError, wilsonInterval } from '../stats';
 
 describe('stats', () => {
   it('computes Wilson intervals', () => {

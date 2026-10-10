@@ -28,7 +28,10 @@ import { getMarket, getMarketHistory } from "@/lib/market-view/queries";
 import { breadcrumbs, JsonLd } from "@/components/ui/JsonLd";
 import { MarketTimeline } from "@/components/ui/MarketTimeline";
 import { MarketTour } from "@/components/ui/MarketTour";
+import { ReplayLauncher } from "@/components/ui/replay/ReplayLauncher";
 import { ShareButton } from "@/components/ui/ShareButton";
+import { ReadAloud } from "@/components/ui/a11y/ReadAloud";
+import { Secondary } from "@/components/ui/a11y/Secondary";
 import { Morph, PageTransition, StreamIn } from "@/components/ui/Transitions";
 
 export async function generateMetadata({ params }: PageProps<"/markets/[slug]">): Promise<Metadata> {
@@ -91,15 +94,19 @@ async function MarketView({ params }: Pick<PageProps<"/markets/[slug]">, "params
         <div className="flex flex-wrap items-center gap-3">
           <Link href={`/startups/${market.startup.slug}`} className="flex items-center gap-2.5 hover:opacity-80">
             <StartupMark name={market.startup.name} logoUrl={market.startup.logoUrl} size="sm" />
-            <span className="text-sm font-semibold text-ink-900">{market.startup.name}</span>
+            <span translate="no" className="text-sm font-semibold text-ink-900">
+              {market.startup.name}
+            </span>
           </Link>
           <span className="text-sm text-ink-500">{market.category ?? market.startup.industry}</span>
           <MarketStatusBadge status={market.status} outcome={market.outcome} closesAt={market.closesAt} />
         </div>
-        <Morph name={`market-title-${market.id}`}>
-          <h1 className="mt-4 text-3xl font-bold leading-tight text-ink-900 sm:text-4xl">{market.question}</h1>
-        </Morph>
-        {market.description && <p className="mt-3 text-ink-700">{market.description}</p>}
+        <div id="market-intro">
+          <Morph name={`market-title-${market.id}`}>
+            <h1 className="mt-4 text-3xl font-bold leading-tight text-ink-900 sm:text-4xl">{market.question}</h1>
+          </Morph>
+          {market.description && <p className="mt-3 text-ink-700">{market.description}</p>}
+        </div>
         <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
           <p className="inline-flex items-center gap-2 text-sm text-ink-600">
             <CalendarClock className="size-4" aria-hidden />
@@ -108,7 +115,10 @@ async function MarketView({ params }: Pick<PageProps<"/markets/[slug]">, "params
               {isOpen && <span className="text-ink-500"> ({formatDeadline(market.closesAt, new Date(now))})</span>}
             </span>
           </p>
-          <ShareButton title={market.question} path={`/markets/${market.slug}`} />
+          <div className="flex items-center gap-1">
+            <ReadAloud targetId={["market-intro", "criteria-yes", "criteria-no"]} label="the question and rules" />
+            <ShareButton title={market.question} path={`/markets/${market.slug}`} />
+          </div>
         </div>
       </header>
 
@@ -118,14 +128,14 @@ async function MarketView({ params }: Pick<PageProps<"/markets/[slug]">, "params
           <MarketBrief market={market} />
         </div>
 
-        <aside className="lg:sticky lg:top-24 lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:self-start">
+        <aside className="lg:sticky lg:top-6 lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:self-start">
           <ForecastPanel marketId={market.id} isOpen={isOpen} />
           <p className="mt-3 px-1 text-xs leading-relaxed text-ink-500">
             Forecasts are research signals, not guarantees or investment advice.
           </p>
-          <div className="mt-6">
+          <Secondary label="timeline" className="mt-6">
             <MarketTimeline steps={timelineSteps(market, now)} />
-          </div>
+          </Secondary>
         </aside>
 
         <div className="min-w-0 space-y-8 lg:col-start-1 lg:row-start-2">
@@ -134,7 +144,10 @@ async function MarketView({ params }: Pick<PageProps<"/markets/[slug]">, "params
               <h2 id="history-heading" className="font-display text-lg font-bold text-ink-900">
                 Community allocation over time
               </h2>
-              <MarketMovement movement={shareMovement(history, 7, chartEnd)} />
+              <div className="flex items-center gap-2">
+                <MarketMovement movement={shareMovement(history, 7, chartEnd)} />
+                <ReplayLauncher slug={market.slug} startupName={market.startup.name} question={market.question} />
+              </div>
             </div>
             <ProbabilityChart
               history={history}
@@ -145,6 +158,7 @@ async function MarketView({ params }: Pick<PageProps<"/markets/[slug]">, "params
             />
           </section>
 
+          <Secondary label="sources, coverage, and startup details" bodyClassName="space-y-8">
           <section aria-labelledby="sources-heading">
             <h2 id="sources-heading" className="mb-3 font-display text-lg font-bold text-ink-900">
               Sources
@@ -192,6 +206,7 @@ async function MarketView({ params }: Pick<PageProps<"/markets/[slug]">, "params
               {market.startup.websiteUrl && <ExternalLink href={market.startup.websiteUrl}>Website</ExternalLink>}
             </div>
           </section>
+          </Secondary>
         </div>
       </div>
       <MarketTour />

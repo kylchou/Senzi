@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { selectHistory, snapshotAt, snapshotsToCsv } from '../history.js';
-import type { MarketSnapshot } from '../index.js';
-import { expectCode, setup, T0 } from './helpers.js';
+import { selectHistory, snapshotAt, snapshotsToCsv } from '../history';
+import type { MarketSnapshot } from '../index';
+import { expectCode, setup, T0 } from './helpers';
 
 function snap(sequence: number, minutes: number, general: number | null = null): MarketSnapshot {
   return {

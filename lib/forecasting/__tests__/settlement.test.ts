@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { InMemoryCreditLedger, type SettlementModel } from '../index.js';
-import { asUser, DAY, expectCode, modelService, resolver, setup, T0 } from './helpers.js';
+import { InMemoryCreditLedger, type SettlementModel } from '../index';
+import { asUser, DAY, expectCode, modelService, resolver, setup, T0 } from './helpers';
 
 async function marketWithForecasts(t: ReturnType<typeof setup>) {
   const m = await t.createMarket();

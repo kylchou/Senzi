@@ -3,6 +3,9 @@
 import { useEffect, useRef, useState } from "react";
 import { plottable } from "@/lib/market-view/chart";
 import type { HistoryPoint } from "@/lib/market-view/types";
+import { usePrefs } from "./a11y/preferences";
+import { lineStyle, SeriesMarker, showsMarkers } from "./chart-style";
+import { cn } from "./cn";
 
 const cache = new Map<string, Promise<HistoryPoint[]>>();
 
@@ -37,6 +40,10 @@ export function sparklinePoints(history: HistoryPoint[], width: number, height: 
 export function CardSparkline({ slug }: { slug: string }) {
   const ref = useRef<HTMLSpanElement>(null);
   const [points, setPoints] = useState<string | null>(null);
+  const mode = usePrefs().chart;
+  const patterned = showsMarkers(mode);
+  const style = lineStyle("allocation", mode);
+  const end = points?.split(" ").at(-1)?.split(",").map(Number);
 
   useEffect(() => {
     const card = ref.current?.closest("article");
@@ -58,18 +65,33 @@ export function CardSparkline({ slug }: { slug: string }) {
     <span ref={ref} aria-hidden className="pointer-events-none block h-[22px] w-16 opacity-0 transition-opacity duration-300 group-hover:opacity-100">
       {points && (
         <svg viewBox="0 0 64 22" className="h-full w-full overflow-visible">
-          <polyline
-            points={points}
-            fill="none"
-            className="animate-[draw_600ms_var(--ease-out-soft)_forwards] stroke-red-500"
-            strokeWidth="1.5"
-            strokeLinejoin="round"
-            strokeLinecap="round"
-            pathLength={1}
-            strokeDasharray={1}
-            strokeDashoffset={1}
-            vectorEffect="non-scaling-stroke"
-          />
+          {patterned ? (
+            <>
+              <polyline
+                points={points}
+                fill="none"
+                className={style.stroke}
+                strokeWidth={Math.min(style.width, 2.5)}
+                strokeLinejoin="round"
+                strokeLinecap="round"
+                vectorEffect="non-scaling-stroke"
+              />
+              {end && <SeriesMarker shape={style.marker} x={end[0]} y={end[1]} size={3} className={style.fill} />}
+            </>
+          ) : (
+            <polyline
+              points={points}
+              fill="none"
+              className={cn("animate-[draw_600ms_var(--ease-out-soft)_forwards]", style.stroke)}
+              strokeWidth="1.5"
+              strokeLinejoin="round"
+              strokeLinecap="round"
+              pathLength={1}
+              strokeDasharray={1}
+              strokeDashoffset={1}
+              vectorEffect="non-scaling-stroke"
+            />
+          )}
         </svg>
       )}
     </span>

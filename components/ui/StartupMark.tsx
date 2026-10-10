@@ -50,6 +50,7 @@ export function StartupMark({
   return (
     <span
       aria-hidden
+      translate="no"
       className={cn(
         dims,
         "inline-flex shrink-0 items-center justify-center font-display font-bold tracking-tight",

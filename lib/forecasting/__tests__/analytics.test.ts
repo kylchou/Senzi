@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { resolver, setup, T0 } from './helpers.js';
+import { resolver, setup, T0 } from './helpers';
 
 type T = ReturnType<typeof setup>;
 
@@ -192,7 +192,7 @@ describe('calibration', () => {
     await t.forecast('u0', open.id, 'YES');
     const e = await t.engine.getMarketEstimates(open.id);
     expect(e.general.isCalibratedProbability).toBe(true);
-    expect(e.general.label).toBe('Community probability, all forecasters (calibrated on 40 resolved markets)');
+    expect(e.general.label).toBe('Community probability, all users (calibrated on 40 resolved markets)');
     // No verified forecasts anywhere, so the specialized line stays unlabeled.
     expect(e.specialized.isCalibratedProbability).toBe(false);
   });
