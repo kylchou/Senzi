@@ -237,6 +237,13 @@ export function createStudyService(deps: VcDeps) {
     const patch: StudyPatch = { ...timestampPatchFor(rule.to, at), ...extra, status: rule.to };
     if (action === "reject") patch.rejectionReason = reason;
     if (action === "cancel") patch.cancellationReason = reason;
+    // Stop forecasting before the study is marked closed. If the study update
+    // below then loses a race, the market is already closed and the next sync
+    // reconciles the study; the other order could leave a closed study with a
+    // market still taking forecasts. Idempotent, and a no-op without a market.
+    if (action === "close") {
+      await platform.closeMarketForStudy({ studyId: study.id, closedById: actorId, reason });
+    }
 
     const updated = await repo.updateStudy(study.id, study.version, patch, {
       actorId,
@@ -342,14 +349,16 @@ export function createStudyService(deps: VcDeps) {
 
   /**
    * System sync with market state: closes studies past their deadline and
-   * mirrors market resolutions. Safe to run repeatedly.
+   * mirrors market resolutions. Safe to run repeatedly. A failure on one study
+   * is logged and skipped so the rest (and the alert run after it) still happen.
    */
-  async function syncWithMarkets(): Promise<{ closed: number; resolved: number }> {
+  async function syncWithMarkets(): Promise<{ closed: number; resolved: number; failed: number }> {
     const studies = await repo.listStudies({ statuses: ["OPEN", "CLOSED"], hasMarket: true });
     const estimates = await estimatesFor(studies);
     const at = now();
     let closed = 0;
     let resolved = 0;
+    let failed = 0;
 
     for (const study of studies) {
       const estimate = study.marketId ? estimates.get(study.marketId) : undefined;
@@ -368,11 +377,14 @@ export function createStudyService(deps: VcDeps) {
           closed++;
         }
       } catch (err) {
-        // A concurrent update already moved the study on; the next run will reconcile.
-        if (!(err instanceof VcError && err.code === "CONFLICT")) throw err;
+        // CONFLICT means a concurrent update already moved the study on; the next run reconciles it.
+        if (!(err instanceof VcError && err.code === "CONFLICT")) {
+          failed++;
+          console.error(`[vc] sync failed for study ${study.id}`, err);
+        }
       }
     }
-    return { closed, resolved };
+    return { closed, resolved, failed };
   }
 
   return {

@@ -7,10 +7,19 @@ import { Section } from "@/components/vc/Section";
 import { StatusBadge, VisibilityBadge } from "@/components/vc/StatusBadge";
 import { TransitionControls } from "@/components/vc/TransitionControls";
 import { TrendChart } from "@/components/vc/TrendChart";
-import { describeFreshness, describeUncertainty, resolveBaseline } from "@/lib/vc/estimates";
+import { describeFreshness, describeUncertainty, downsample, resolveBaseline } from "@/lib/vc/estimates";
 import { STATUS_LABELS, VISIBILITY_LABELS, formatDate, formatDateTime } from "@/lib/vc/format";
 import { getVcDeps, getVcServices } from "@/lib/vc/server/container";
 import { orNotFound, requirePageContext } from "@/lib/vc/server/page";
+import type { StudyVisibility } from "@/lib/vc/types";
+
+/** What the invite list means for each visibility; mirrors getStudyPermissions and visibleMarketsWhere. */
+const PARTICIPANT_SCOPE: Record<StudyVisibility, string> = {
+  RESTRICTED: "Only these people, plus firm owners/admins and the author, can view and forecast.",
+  ORGANIZATION:
+    "Everyone in your firm already has access, and people outside it don't. Invitations only change access on restricted studies.",
+  PUBLIC: "Anyone can view and forecast once the study opens. Invitations only change access on restricted studies.",
+};
 
 export default async function StudyPage({ params }: { params: Promise<{ studyId: string }> }) {
   const { studyId } = await params;
@@ -27,9 +36,7 @@ export default async function StudyPage({ params }: { params: Promise<{ studyId:
 
   const [notes, watchlists] = await Promise.all([
     permissions.canViewPrivate ? services.studies.listNotes(ctx, studyId) : Promise.resolve([]),
-    ctx.activeOrg && ctx.activeOrg.role !== "VIEWER"
-      ? services.watchlists.list(ctx).then((ws) => ws.map((w) => ({ id: w.watchlist.id, name: w.watchlist.name })))
-      : Promise.resolve(null),
+    services.watchlists.listForPicker(ctx),
   ]);
   const authorIds = [...new Set([...notes.map((n) => n.authorId), ...events.map((e) => e.actorId).filter(Boolean)])];
   const authors = Object.fromEntries(
@@ -109,7 +116,7 @@ export default async function StudyPage({ params }: { params: Promise<{ studyId:
       </Section>
 
       <Section id="trend" title="Historical trend">
-        <TrendChart points={history} baseline={baseline.value} />
+        <TrendChart points={downsample(history)} baseline={baseline.value} />
       </Section>
 
       <div className="grid gap-6 lg:grid-cols-2">
@@ -160,7 +167,7 @@ export default async function StudyPage({ params }: { params: Promise<{ studyId:
         <Section
           id="participants"
           title="Invited participants"
-          description={study.visibility === "RESTRICTED" ? "Only these users (plus firm admins and the author) can view and forecast." : "Invited participants can view this study even outside your firm."}
+          description={PARTICIPANT_SCOPE[study.visibility]}
         >
           <ParticipantsEditor studyId={study.id} participants={participants} canManage={permissions.canManageParticipants} />
         </Section>

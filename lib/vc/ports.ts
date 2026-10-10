@@ -47,11 +47,17 @@ export interface PlatformGateway {
   getMemberships(userId: string): Promise<OrgMembership[]>;
   getUsers(ids: string[]): Promise<UserSummary[]>;
   findUsersByEmail(emails: string[]): Promise<UserSummary[]>;
+  /** Published startups only; unpublished ones are treated as nonexistent. */
   getStartups(ids: string[]): Promise<StartupSummary[]>;
   searchStartups(query: string, limit: number): Promise<StartupSummary[]>;
-  /** Public markets only — never markets linked to private studies. */
+  /**
+   * Public markets that were not opened from a study. Study markets are shown
+   * through their study, which carries the right permissions and context.
+   */
   listPublicMarketsForStartups(startupIds: string[]): Promise<MarketSummary[]>;
   createMarketForStudy(input: CreateMarketForStudyInput): Promise<{ marketId: string }>;
+  /** Stops forecasting on the study's market. Idempotent; a no-op if the study has no market. */
+  closeMarketForStudy(input: { studyId: string; closedById: string | null; reason: string | null }): Promise<void>;
 }
 
 // ---------------------------------------------------------------------------
@@ -181,6 +187,8 @@ export interface VcRepository {
     userId: string,
     options: { unreadOnly?: boolean; type?: AlertType; limit: number },
   ): Promise<VcAlert[]>;
+  /** Unread alert counts grouped by study (studyId null for alerts not tied to a study). */
+  countUnreadAlertsByStudy(organizationId: string, userId: string): Promise<{ studyId: string | null; count: number }[]>;
   markAlertsRead(organizationId: string, userId: string, alertIds: string[], at: Date): Promise<void>;
 
   createReport(data: Omit<SavedReport, "id" | "createdAt">): Promise<SavedReport>;

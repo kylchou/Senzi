@@ -122,8 +122,8 @@ export function TrendChart({ points, baseline }: { points: TrendPoint[]; baselin
               </tr>
             </thead>
             <tbody>
-              {data.map((d) => (
-                <tr key={d.t} className="border-t border-slate-100 dark:border-slate-800">
+              {data.map((d, i) => (
+                <tr key={i} className="border-t border-slate-100 dark:border-slate-800">
                   <td className="px-2 py-1">{formatDateTime(new Date(d.t))}</td>
                   <td className="px-2 py-1 text-right tabular-nums text-slate-900 dark:text-slate-100">
                     {d.v == null ? "—" : `${(d.v * 100).toFixed(1)}%`}
