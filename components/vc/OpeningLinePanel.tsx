@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { VcApiError, fieldErrors, vcFetch } from "@/lib/vc/client";
+import { ProvenanceBadge } from "./ProvenanceBadge";
 import type { OpeningLinePreview } from "@/lib/vc/services/opening-line";
 import type { MetricLink, OpeningLineMetric } from "@/lib/vc/types";
 import { buttonPrimary, buttonSecondary, errorClass, hintClass, inputClass, labelClass } from "./styles";
@@ -228,6 +229,10 @@ export function OpeningLinePanel({ startupId, question, deadline, value, savedMe
 
           {draft && metric && (
             <p className={hintClass}>
+              <span className="mr-1.5 inline-flex gap-1 align-middle">
+                {metric.hasPublicData && <ProvenanceBadge provenance="scraped" />}
+                {preview.firmFigureCount > 0 && <ProvenanceBadge provenance="sponsor_provided" />}
+              </span>
               {preview.firmFigureCount > 0
                 ? `Includes ${preview.firmFigureCount} of your firm's own figures for this metric. `
                 : metric.hasPublicData

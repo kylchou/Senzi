@@ -25,6 +25,51 @@ function Source({ href, children }: { href: string; children: React.ReactNode })
   );
 }
 
+/** Public facts about a startup, each labelled verified or unverified. */
+export function FactList({ facts }: { facts: StartupFactView[] }) {
+  if (facts.length === 0) return <p className="text-sm text-slate-500">None recorded.</p>;
+  return (
+    <ul className="space-y-2.5 text-sm">
+      {facts.map((f) => (
+        <li key={f.id}>
+          <div className="flex items-start justify-between gap-2">
+            <span>
+              <span className="font-medium">{f.label}:</span> {f.value}
+            </span>
+            <Badge tone={f.verified ? "verified" : "unverified"}>{f.verified ? "Verified fact" : "Unverified fact"}</Badge>
+          </div>
+          <span className="block text-xs text-slate-500">
+            <Source href={f.sourceUrl}>{f.sourceName}</Source> · as of {formatDate(f.asOf)}
+          </span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/** News articles about a startup, each labelled verified, unverified or disputed. */
+export function NewsList({ news, emptyText = "None recorded." }: { news: StartupNewsView[]; emptyText?: string }) {
+  if (news.length === 0) return <p className="text-sm text-slate-500">{emptyText}</p>;
+  return (
+    <ul className="space-y-2.5 text-sm">
+      {news.map((n) => (
+        <li key={n.id}>
+          <div className="flex items-start justify-between gap-2">
+            <Source href={n.url}>
+              <span className="font-medium">{n.title}</span>
+            </Source>
+            <Badge tone={NEWS_LABEL[n.verification].tone}>{NEWS_LABEL[n.verification].text}</Badge>
+          </div>
+          {n.summary && <p className="mt-0.5 text-slate-600 dark:text-slate-300">{n.summary}</p>}
+          <span className="block text-xs text-slate-500">
+            {n.publisher} · {formatDate(n.publishedAt)}
+          </span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 /**
  * Public facts and news about a study's startup, each labelled as verified,
  * unverified or disputed so it's never mistaken for an estimate or a forecast.
@@ -37,48 +82,11 @@ export function EvidenceList({ facts, news }: { facts: StartupFactView[]; news: 
     <div className="grid gap-5 md:grid-cols-2">
       <div>
         <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Facts</h3>
-        {facts.length === 0 ? (
-          <p className="text-sm text-slate-500">None recorded.</p>
-        ) : (
-          <ul className="space-y-2.5 text-sm">
-            {facts.map((f) => (
-              <li key={f.id}>
-                <div className="flex items-start justify-between gap-2">
-                  <span>
-                    <span className="font-medium">{f.label}:</span> {f.value}
-                  </span>
-                  <Badge tone={f.verified ? "verified" : "unverified"}>{f.verified ? "Verified fact" : "Unverified fact"}</Badge>
-                </div>
-                <span className="block text-xs text-slate-500">
-                  <Source href={f.sourceUrl}>{f.sourceName}</Source> · as of {formatDate(f.asOf)}
-                </span>
-              </li>
-            ))}
-          </ul>
-        )}
+        <FactList facts={facts} />
       </div>
       <div>
         <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">News</h3>
-        {news.length === 0 ? (
-          <p className="text-sm text-slate-500">None recorded.</p>
-        ) : (
-          <ul className="space-y-2.5 text-sm">
-            {news.map((n) => (
-              <li key={n.id}>
-                <div className="flex items-start justify-between gap-2">
-                  <Source href={n.url}>
-                    <span className="font-medium">{n.title}</span>
-                  </Source>
-                  <Badge tone={NEWS_LABEL[n.verification].tone}>{NEWS_LABEL[n.verification].text}</Badge>
-                </div>
-                {n.summary && <p className="mt-0.5 text-slate-600 dark:text-slate-300">{n.summary}</p>}
-                <span className="block text-xs text-slate-500">
-                  {n.publisher} · {formatDate(n.publishedAt)}
-                </span>
-              </li>
-            ))}
-          </ul>
-        )}
+        <NewsList news={news} />
       </div>
     </div>
   );

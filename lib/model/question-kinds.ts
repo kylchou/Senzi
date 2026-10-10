@@ -279,8 +279,24 @@ export function baselineFor(q: MarketQuestion, points: readonly DataPoint[], asO
       const tq: ThresholdQuestion = { ...makeQuestion({ id: q.id, companyId: q.companyId, metricId: getCompany(q.companyId).questionMetricId, threshold: 1, windowEnd: q.windowEnd, opensAt: q.opensAt }), metricId: q.metricId, threshold: 7 * q.threshold + 1, text: q.text, resolutionSource: { source: "tranco", url: q.resolutionUrl, description: "Tranco daily rank" } };
       const b = computeBaseline(tq, points, asOf);
       if (b.probability === null || b.low === null || b.high === null) return b;
+      // The fit ran on 7-day rank totals for the complementary event, so convert
+      // its details back to this question: average rank, and P(YES) not P(NO).
+      // Otherwise anything that shows them reads a sum of ranks as a rank.
+      const d = b.method.details;
+      const avg = (total: number | null) => (total === null ? null : total / 7);
+      const range = d.forecastRange80;
       return {
         ...b,
+        method: {
+          ...b.method,
+          details: {
+            ...d,
+            forecastMedian: avg(d.forecastMedian),
+            forecastRange80: range ? [range[0] / 7, range[1] / 7] : null,
+            lastObservedWeek: d.lastObservedWeek ? { ...d.lastObservedWeek, total: d.lastObservedWeek.total / 7 } : null,
+            rawProbability: d.rawProbability === null ? null : 1 - d.rawProbability,
+          },
+        },
         probability: 1 - b.probability,
         low: 1 - b.high,
         high: 1 - b.low,
