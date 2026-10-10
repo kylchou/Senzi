@@ -40,7 +40,7 @@ Oct 10, 2026. Built from the route list in `app/`. The "Built" status means a pa
 | --- | --- | --- | --- |
 | **Portfolio** (balance, active and resolved forecasts, results) | `/portfolio` | Felix | **To build.** API exists at `/api/portfolio` |
 | **Forecast receipt** after a trade | component `ForecastReceipt.tsx` | Felix | **To build.** API returns receipts |
-| **Leaderboard** | `/leaderboard` | Felix | **To build.** API exists at `/api/leaderboard` |
+| **Leaderboard** | none | Felix | **Removed from the site.** The engine and `/api/leaderboard` remain for later use. |
 | **Profile** (stats, achievements, accuracy) | `/profile` | Felix | **To build** |
 | **My markets** (markets the trader is verified for and can trade) | `/markets` filter or `/portfolio` tab | Sahil, Felix | **To build** |
 | **Verification / unlock markets**: a "Unlock new markets" box listing startups the trader can verify for; a pop-up per startup with a one-time code, a screenshot upload, a signed non-insider statement, and pending/approved status | e.g. `/verify`, plus a modal | Unassigned (verification service) | **To build.** Approval is mocked with an admin button for the demo |

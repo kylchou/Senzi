@@ -38,7 +38,6 @@ const links: NavItem[] = [
   { href: "/how-it-works", label: "How it works", section: "how-it-works" },
   { href: "/startups", label: "Startups", section: "startups", remember: true },
   { href: "/news", label: "News", remember: true },
-  { href: "/leaderboard", label: "Leaderboard" },
   { href: "/profile", label: "Profile", signedIn: true },
 ];
 
