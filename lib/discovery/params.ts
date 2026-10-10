@@ -26,7 +26,7 @@ const fields = {
     .optional()
     .transform((value) => value || undefined),
   status: z.enum(PUBLIC_MARKET_STATUSES).optional(),
-  sector: z.string().trim().min(1).max(60).optional(),
+  industry: z.string().trim().min(1).max(60).optional(),
   sort: z.enum(MARKET_SORTS).default("closing"),
   cursor: z.string().trim().min(1).max(64).optional(),
   limit: z.coerce.number().int().min(1).max(API_MAX_LIMIT),
@@ -36,7 +36,7 @@ const fields = {
 export const marketQuerySchema = z.object({
   q: fields.q,
   status: fields.status,
-  sector: fields.sector,
+  industry: fields.industry,
   sort: fields.sort,
   cursor: fields.cursor,
   limit: fields.limit.default(API_DEFAULT_LIMIT),
@@ -45,7 +45,7 @@ export type MarketQuery = z.output<typeof marketQuerySchema>;
 
 export const startupQuerySchema = z.object({
   q: fields.q,
-  sector: fields.sector,
+  industry: fields.industry,
   cursor: fields.cursor,
   limit: fields.limit.default(API_DEFAULT_LIMIT),
 });
@@ -56,7 +56,7 @@ export function parseMarketParams(raw: RawParams): MarketQuery {
   return {
     q: fields.q.catch(undefined).parse(first(raw, "q")),
     status: fields.status.catch(undefined).parse(first(raw, "status") || undefined),
-    sector: fields.sector.catch(undefined).parse(first(raw, "sector") || undefined),
+    industry: fields.industry.catch(undefined).parse(first(raw, "industry") || undefined),
     sort: fields.sort.catch("closing").parse(first(raw, "sort")),
     cursor: fields.cursor.catch(undefined).parse(first(raw, "cursor") || undefined),
     limit: PAGE_SIZE,
@@ -66,7 +66,7 @@ export function parseMarketParams(raw: RawParams): MarketQuery {
 export function parseStartupParams(raw: RawParams): StartupQuery {
   return {
     q: fields.q.catch(undefined).parse(first(raw, "q")),
-    sector: fields.sector.catch(undefined).parse(first(raw, "sector") || undefined),
+    industry: fields.industry.catch(undefined).parse(first(raw, "industry") || undefined),
     cursor: fields.cursor.catch(undefined).parse(first(raw, "cursor") || undefined),
     limit: PAGE_SIZE,
   };

@@ -17,7 +17,7 @@ export function MarketCard({ market }: { market: MarketSummary }) {
           <StartupMark name={market.startup.name} logoUrl={market.startup.logoUrl} size="sm" />
           <div className="min-w-0 text-sm leading-tight">
             <p className="truncate font-semibold text-ink-900">{market.startup.name}</p>
-            <p className="truncate text-xs text-ink-500">{market.startup.sector}</p>
+            <p className="truncate text-xs text-ink-500">{market.startup.industry}</p>
           </div>
         </div>
         <MarketStatusBadge status={market.status} outcome={market.outcome} closesAt={market.closesAt} />
@@ -37,10 +37,12 @@ export function MarketCard({ market }: { market: MarketSummary }) {
             </p>
             <p className="text-xs text-ink-500">YES allocation</p>
           </div>
-          <div className="text-right">
+          {openingBaseline !== null && (
+            <div className="text-right">
               <p className="text-sm font-semibold tabular-nums text-ink-700">{formatShare(openingBaseline)}</p>
               <p className="text-xs text-ink-500">Baseline</p>
             </div>
+          )}
         </div>
         <AllocationBar share={allocation.share} baseline={openingBaseline} size="sm" />
 

@@ -26,7 +26,7 @@ const steps = [
 ];
 
 const measures = [
-  { name: "Opening baseline", body: "The starting estimate set when a market opens.", swatch: "border-t-2 border-dashed border-ink-500" },
+  { name: "Opening baseline", body: "The starting estimate set when a market opens, with its method.", swatch: "border-t-2 border-dashed border-ink-500" },
   { name: "YES allocation", body: "Share of credits on YES. Not a probability.", swatch: "h-1.5 rounded-full bg-red-500" },
   { name: "Calibrated probability", body: "Model estimate from forecasting accuracy, when available.", swatch: "h-0.5 rounded-full bg-ink-900" },
   { name: "Outcome", body: "The verified result, recorded with evidence.", swatch: "h-1.5 rounded-full bg-ink-300" },
@@ -189,10 +189,12 @@ async function Spotlight() {
           <p className="font-display text-4xl font-bold tabular-nums">{formatShare(market.allocation.share)}</p>
           <p className="text-xs text-ink-400">YES allocation</p>
         </div>
-        <div className="text-right">
-          <p className="text-lg font-semibold tabular-nums text-ink-200">{formatShare(market.openingBaseline)}</p>
-          <p className="text-xs text-ink-400">Baseline</p>
-        </div>
+        {market.openingBaseline !== null && (
+          <div className="text-right">
+            <p className="text-lg font-semibold tabular-nums text-ink-200">{formatShare(market.openingBaseline)}</p>
+            <p className="text-xs text-ink-400">Baseline</p>
+          </div>
+        )}
       </div>
       <AllocationBar share={market.allocation.share} baseline={market.openingBaseline} tone="dark" className="mt-3" />
       <p className="mt-4 text-xs text-ink-400">

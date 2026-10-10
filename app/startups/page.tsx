@@ -12,7 +12,7 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { Pagination } from "@/components/ui/Pagination";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { parseStartupParams } from "@/lib/discovery/params";
-import { listSectors, listStartups } from "@/lib/discovery/queries";
+import { listIndustries, listStartups } from "@/lib/discovery/queries";
 
 export const metadata: Metadata = { title: "Startups" };
 
@@ -35,7 +35,7 @@ export default function StartupsPage({ searchParams }: PageProps<"/startups">) {
 
 async function Filters({ searchParams }: Pick<PageProps<"/startups">, "searchParams">) {
   const params = parseStartupParams(await searchParams);
-  const sectors = await listSectors();
+  const industries = await listIndustries();
 
   return (
     <FilterForm action="/startups">
@@ -44,15 +44,15 @@ async function Filters({ searchParams }: Pick<PageProps<"/startups">, "searchPar
           Search startups
         </Label>
         <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-500" aria-hidden />
-        <Input id="q" name="q" type="search" placeholder="Search by name or sector" defaultValue={params.q} className="pl-9" />
+        <Input id="q" name="q" type="search" placeholder="Search by name or industry" defaultValue={params.q} className="pl-9" />
       </div>
       <div className="flex flex-col gap-1 sm:w-56">
-        <Label htmlFor="sector">Sector</Label>
-        <Select id="sector" name="sector" defaultValue={params.sector ?? ""}>
+        <Label htmlFor="industry">Industry</Label>
+        <Select id="industry" name="industry" defaultValue={params.industry ?? ""}>
           <option value="">All</option>
-          {sectors.map((sector) => (
-            <option key={sector} value={sector}>
-              {sector}
+          {industries.map((industry) => (
+            <option key={industry} value={industry}>
+              {industry}
             </option>
           ))}
         </Select>
@@ -68,7 +68,7 @@ async function Results({ searchParams }: Pick<PageProps<"/startups">, "searchPar
   const params = parseStartupParams(await searchParams);
   await io();
   const result = await listStartups(params);
-  const filtered = Boolean(params.q || params.sector);
+  const filtered = Boolean(params.q || params.industry);
 
   return (
     <>
@@ -78,7 +78,7 @@ async function Results({ searchParams }: Pick<PageProps<"/startups">, "searchPar
       {result.items.length === 0 ? (
         <EmptyState
           title={filtered ? "No matching startups" : "No startups yet"}
-          body={filtered ? "Try a different search or sector." : undefined}
+          body={filtered ? "Try a different search or industry." : undefined}
           action={
             filtered ? (
               <ButtonLink href="/startups" variant="outline" size="sm">
@@ -96,7 +96,7 @@ async function Results({ searchParams }: Pick<PageProps<"/startups">, "searchPar
       )}
       <Pagination
         basePath="/startups"
-        params={{ q: params.q, sector: params.sector }}
+        params={{ q: params.q, industry: params.industry }}
         isFirstPage={!params.cursor}
         nextCursor={result.nextCursor}
       />

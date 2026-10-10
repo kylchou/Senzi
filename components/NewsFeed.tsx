@@ -43,7 +43,7 @@ export function NewsFeed({
       {items.map((item) => (
         <li key={item.id} className="group relative p-5 transition-colors hover:bg-ink-50">
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-ink-500">
-            <span className="font-semibold text-ink-700">{item.sourceName}</span>
+            <span className="font-semibold text-ink-700">{item.publisher}</span>
             <span aria-hidden>·</span>
             <time dateTime={item.publishedAt}>{formatDate(item.publishedAt)}</time>
             <span aria-hidden>·</span>

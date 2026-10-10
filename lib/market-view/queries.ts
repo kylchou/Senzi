@@ -3,14 +3,14 @@ import { cache } from "react";
 import type { Prisma } from "@/generated/prisma/client";
 import { db } from "@/lib/db";
 import type { MarketQuery } from "@/lib/discovery/params";
-import { DIRECT_LINK_MARKET_WHERE, PUBLIC_MARKET_WHERE, PUBLIC_STARTUP_WHERE } from "@/lib/permissions";
+import { PUBLIC_MARKET_WHERE, PUBLIC_STARTUP_WHERE } from "@/lib/permissions";
 import { marketDetailSelect, marketSummarySelect, toHistoryPoint, toMarketDetail, toMarketSummary } from "./mappers";
 import type { CursorPage, HistoryPoint, MarketDetail, MarketSummary } from "./types";
 
 const HISTORY_LIMIT = 1000;
 
-/** Listing and search filter. PUBLIC_MARKET_WHERE excludes drafts, unlisted, private, and unpublished startups. */
-export function publicMarketFilter(params: Pick<MarketQuery, "q" | "status" | "sector">): Prisma.MarketWhereInput {
+/** Listing and search filter. PUBLIC_MARKET_WHERE excludes drafts, VC markets, and unpublished startups. */
+export function publicMarketFilter(params: Pick<MarketQuery, "q" | "status" | "industry">): Prisma.MarketWhereInput {
   const and: Prisma.MarketWhereInput[] = [PUBLIC_MARKET_WHERE];
   if (params.q) {
     and.push({
@@ -21,7 +21,7 @@ export function publicMarketFilter(params: Pick<MarketQuery, "q" | "status" | "s
     });
   }
   if (params.status) and.push({ status: params.status });
-  if (params.sector) and.push({ startup: { sector: params.sector } });
+  if (params.industry) and.push({ startup: { industry: params.industry } });
   return { AND: and };
 }
 
@@ -60,23 +60,23 @@ export async function listMarkets(params: MarketQuery): Promise<CursorPage<Marke
 }
 
 export async function listFeaturedMarkets(limit = 6): Promise<MarketSummary[]> {
-  const { items } = await listMarkets({ status: "OPEN", sort: "active", limit, q: undefined, sector: undefined, cursor: undefined });
+  const { items } = await listMarkets({ status: "OPEN", sort: "active", limit, q: undefined, industry: undefined, cursor: undefined });
   return items;
 }
 
-/** Opened by slug, so unlisted markets work by direct link (DIRECT_LINK_MARKET_WHERE). */
+/** A single public market by slug. VC markets and drafts return null. */
 export const getMarket = cache(async (slug: string): Promise<MarketDetail | null> => {
-  const row = await db.market.findFirst({ where: { AND: [{ slug }, DIRECT_LINK_MARKET_WHERE] }, select: marketDetailSelect });
+  const row = await db.market.findFirst({ where: { AND: [{ slug }, PUBLIC_MARKET_WHERE] }, select: marketDetailSelect });
   return row ? toMarketDetail(row) : null;
 });
 
-/** Snapshots written by the forecasting engine, oldest first. */
+/** MarketSnapshot rows written by the forecasting engine, oldest first. */
 export async function getMarketHistory(marketId: string): Promise<HistoryPoint[]> {
-  const rows = await db.probabilitySnapshot.findMany({
-    where: { marketId, market: DIRECT_LINK_MARKET_WHERE },
-    orderBy: { capturedAt: "desc" },
+  const rows = await db.marketSnapshot.findMany({
+    where: { marketId, market: PUBLIC_MARKET_WHERE },
+    orderBy: { sequence: "desc" },
     take: HISTORY_LIMIT,
-    select: { capturedAt: true, communityAllocationShare: true, calibratedProbability: true, uniqueForecasters: true },
+    select: { recordedAt: true, allocationShare: true, calibratedProbability: true, forecasterCount: true },
   });
   return rows.reverse().map(toHistoryPoint);
 }

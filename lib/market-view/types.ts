@@ -5,11 +5,11 @@ import type { NewsVerification, ResolutionOutcome, StartupStage } from "@/lib/ty
  * and rendered by the community UI. Dates are ISO 8601 strings.
  *
  * Three measurements are kept apart on purpose (docs/API.md):
- * - openingBaseline: admin-set starting estimate. Not a community signal.
+ * - openingBaseline: starting estimate with its methodology. Not a community signal.
  * - allocation.share: YES credits / (YES + NO credits). Where forecasters put
  *   virtual credits. Never presented as a probability.
- * - calibratedProbability: model estimate from the forecasting engine, null
- *   until computed.
+ * - calibratedProbability: from the forecasting engine, only once a
+ *   calibration report supports it.
  * The resolved outcome is separate again and only set after resolution.
  */
 
@@ -19,7 +19,7 @@ export type PublicMarketStatus = (typeof PUBLIC_MARKET_STATUSES)[number];
 export interface StartupRef {
   slug: string;
   name: string;
-  sector: string;
+  industry: string;
   logoUrl: string | null;
 }
 
@@ -38,16 +38,24 @@ export interface MarketSummary {
   status: PublicMarketStatus;
   closesAt: string;
   startup: StartupRef;
-  openingBaseline: number;
+  /** Null when no baseline was set. */
+  openingBaseline: number | null;
   allocation: AllocationView;
-  /** Latest model estimate from the forecasting engine, or null. */
+  /** Latest calibrated probability from the forecasting engine, or null. */
   calibratedProbability: number | null;
   /** Unique forecasters at the latest snapshot, or null without one. */
   forecasterCount: number | null;
-  /** When the latest snapshot was captured, or null. */
+  /** When the latest snapshot was recorded, or null. */
   updatedAt: string | null;
   outcome: ResolutionOutcome | null;
   resolvedAt: string | null;
+}
+
+export interface SourceView {
+  title: string;
+  url: string;
+  publisher: string | null;
+  publishedAt: string | null;
 }
 
 export interface ResolutionView {
@@ -59,14 +67,16 @@ export interface ResolutionView {
 
 export interface MarketDetail extends MarketSummary {
   description: string | null;
-  resolutionCriteria: string;
-  resolutionSource: string | null;
+  yesCriteria: string;
+  noCriteria: string;
+  baselineMethodology: string | null;
   category: string | null;
   opensAt: string;
   resolvesBy: string | null;
+  sources: SourceView[];
   resolution: ResolutionView | null;
   coverage: NewsItemView[];
-  startup: StartupRef & { tagline: string; website: string | null };
+  startup: StartupRef & { tagline: string; websiteUrl: string | null };
 }
 
 export interface HistoryPoint {
@@ -82,7 +92,7 @@ export interface StartupSummary {
   slug: string;
   name: string;
   tagline: string;
-  sector: string;
+  industry: string;
   stage: StartupStage;
   headquarters: string | null;
   foundedYear: number | null;
@@ -90,11 +100,20 @@ export interface StartupSummary {
   openMarketCount: number;
 }
 
+export interface StartupFactView {
+  label: string;
+  value: string;
+  sourceName: string;
+  sourceUrl: string;
+  asOf: string;
+  verified: boolean;
+}
+
 export interface NewsItemView {
   id: string;
   title: string;
   url: string;
-  sourceName: string;
+  publisher: string;
   publishedAt: string;
   summary: string | null;
   verification: NewsVerification;
@@ -103,7 +122,8 @@ export interface NewsItemView {
 
 export interface StartupProfile extends StartupSummary {
   description: string;
-  website: string | null;
+  websiteUrl: string | null;
+  facts: StartupFactView[];
   markets: MarketSummary[];
   news: NewsItemView[];
 }

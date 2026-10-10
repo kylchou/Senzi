@@ -12,7 +12,7 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { Pagination } from "@/components/ui/Pagination";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { parseMarketParams } from "@/lib/discovery/params";
-import { listSectors } from "@/lib/discovery/queries";
+import { listIndustries } from "@/lib/discovery/queries";
 import { listMarkets } from "@/lib/market-view/queries";
 
 export const metadata: Metadata = { title: "Markets" };
@@ -50,7 +50,7 @@ export default function MarketsPage({ searchParams }: PageProps<"/markets">) {
 
 async function Filters({ searchParams }: Pick<PageProps<"/markets">, "searchParams">) {
   const params = parseMarketParams(await searchParams);
-  const sectors = await listSectors();
+  const industries = await listIndustries();
 
   return (
     <FilterForm action="/markets">
@@ -73,12 +73,12 @@ async function Filters({ searchParams }: Pick<PageProps<"/markets">, "searchPara
           </Select>
         </div>
         <div className="flex flex-col gap-1">
-          <Label htmlFor="sector">Sector</Label>
-          <Select id="sector" name="sector" defaultValue={params.sector ?? ""}>
+          <Label htmlFor="industry">Industry</Label>
+          <Select id="industry" name="industry" defaultValue={params.industry ?? ""}>
             <option value="">All</option>
-            {sectors.map((sector) => (
-              <option key={sector} value={sector}>
-                {sector}
+            {industries.map((industry) => (
+              <option key={industry} value={industry}>
+                {industry}
               </option>
             ))}
           </Select>
@@ -105,7 +105,7 @@ async function Results({ searchParams }: Pick<PageProps<"/markets">, "searchPara
   const params = parseMarketParams(await searchParams);
   await io();
   const result = await listMarkets(params);
-  const filtered = Boolean(params.q || params.status || params.sector);
+  const filtered = Boolean(params.q || params.status || params.industry);
 
   return (
     <>
@@ -136,7 +136,7 @@ async function Results({ searchParams }: Pick<PageProps<"/markets">, "searchPara
         params={{
           q: params.q,
           status: params.status,
-          sector: params.sector,
+          industry: params.industry,
           sort: params.sort === "closing" ? undefined : params.sort,
         }}
         isFirstPage={!params.cursor}

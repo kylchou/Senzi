@@ -11,14 +11,14 @@ import type {
 export const startupRefSelect = {
   slug: true,
   name: true,
-  sector: true,
+  industry: true,
   logoUrl: true,
 } satisfies Prisma.StartupSelect;
 
 const latestSnapshot = {
-  orderBy: { capturedAt: "desc" },
+  orderBy: { sequence: "desc" },
   take: 1,
-  select: { calibratedProbability: true, uniqueForecasters: true, capturedAt: true },
+  select: { calibratedProbability: true, forecasterCount: true, recordedAt: true },
 } satisfies Prisma.Market$snapshotsArgs;
 
 export const marketSummarySelect = {
@@ -39,8 +39,8 @@ export const marketSummarySelect = {
 export const newsItemSelect = {
   id: true,
   title: true,
-  sourceUrl: true,
-  sourceName: true,
+  url: true,
+  publisher: true,
   publishedAt: true,
   summary: true,
   verification: true,
@@ -50,12 +50,17 @@ export const newsItemSelect = {
 export const marketDetailSelect = {
   ...marketSummarySelect,
   description: true,
-  resolutionCriteria: true,
-  resolutionSource: true,
+  yesCriteria: true,
+  noCriteria: true,
+  baselineMethodology: true,
   category: true,
   opensAt: true,
   resolvesBy: true,
-  startup: { select: { ...startupRefSelect, tagline: true, website: true } },
+  startup: { select: { ...startupRefSelect, tagline: true, websiteUrl: true } },
+  sources: {
+    orderBy: [{ position: "asc" }, { id: "asc" }],
+    select: { title: true, url: true, publisher: true, publishedAt: true },
+  },
   resolution: { select: { outcome: true, resolvedAt: true, evidenceSummary: true, evidenceUrls: true } },
   news: { orderBy: { publishedAt: "desc" }, take: 10, select: newsItemSelect },
 } satisfies Prisma.MarketSelect;
@@ -77,7 +82,7 @@ export function allocationShare(yesCredits: number, noCredits: number): number |
 }
 
 function toStartupRef(row: SummaryRow["startup"]): StartupRef {
-  return { slug: row.slug, name: row.name, sector: row.sector, logoUrl: row.logoUrl };
+  return { slug: row.slug, name: row.name, industry: row.industry, logoUrl: row.logoUrl };
 }
 
 export function toMarketSummary(row: SummaryRow): MarketSummary {
@@ -90,7 +95,7 @@ export function toMarketSummary(row: SummaryRow): MarketSummary {
     status: row.status as PublicMarketStatus,
     closesAt: row.closesAt.toISOString(),
     startup: toStartupRef(row.startup),
-    openingBaseline: row.openingBaseline,
+    openingBaseline: cleanShare(row.openingBaseline),
     allocation: {
       share: allocationShare(row.yesCredits, row.noCredits),
       yesCredits: row.yesCredits,
@@ -98,8 +103,8 @@ export function toMarketSummary(row: SummaryRow): MarketSummary {
       forecastCount: row.forecastCount,
     },
     calibratedProbability: cleanShare(snapshot?.calibratedProbability),
-    forecasterCount: snapshot?.uniqueForecasters ?? null,
-    updatedAt: snapshot?.capturedAt.toISOString() ?? null,
+    forecasterCount: snapshot?.forecasterCount ?? null,
+    updatedAt: snapshot?.recordedAt.toISOString() ?? null,
     outcome: row.resolution?.outcome ?? null,
     resolvedAt: row.resolution?.resolvedAt.toISOString() ?? null,
   };
@@ -110,8 +115,8 @@ export function toNewsItem(row: NewsRow): NewsItemView {
   return {
     id: row.id,
     title: row.title,
-    url: row.sourceUrl,
-    sourceName: row.sourceName,
+    url: row.url,
+    publisher: row.publisher,
     publishedAt: row.publishedAt.toISOString(),
     summary: row.summary,
     verification: row.verification,
@@ -123,11 +128,18 @@ export function toMarketDetail(row: DetailRow): MarketDetail {
   return {
     ...toMarketSummary(row),
     description: row.description,
-    resolutionCriteria: row.resolutionCriteria,
-    resolutionSource: row.resolutionSource,
+    yesCriteria: row.yesCriteria,
+    noCriteria: row.noCriteria,
+    baselineMethodology: row.baselineMethodology,
     category: row.category,
     opensAt: row.opensAt.toISOString(),
     resolvesBy: row.resolvesBy?.toISOString() ?? null,
+    sources: row.sources.map((source) => ({
+      title: source.title,
+      url: source.url,
+      publisher: source.publisher,
+      publishedAt: source.publishedAt?.toISOString() ?? null,
+    })),
     resolution: row.resolution
       ? {
           outcome: row.resolution.outcome,
@@ -137,20 +149,20 @@ export function toMarketDetail(row: DetailRow): MarketDetail {
         }
       : null,
     coverage: row.news.map(toNewsItem),
-    startup: { ...toStartupRef(row.startup), tagline: row.startup.tagline, website: row.startup.website },
+    startup: { ...toStartupRef(row.startup), tagline: row.startup.tagline, websiteUrl: row.startup.websiteUrl },
   };
 }
 
 export function toHistoryPoint(row: {
-  capturedAt: Date;
-  communityAllocationShare: number | null;
+  recordedAt: Date;
+  allocationShare: number | null;
   calibratedProbability: number | null;
-  uniqueForecasters: number;
+  forecasterCount: number;
 }): HistoryPoint {
   return {
-    at: row.capturedAt.toISOString(),
-    share: cleanShare(row.communityAllocationShare),
+    at: row.recordedAt.toISOString(),
+    share: cleanShare(row.allocationShare),
     calibrated: cleanShare(row.calibratedProbability),
-    forecasterCount: row.uniqueForecasters,
+    forecasterCount: row.forecasterCount,
   };
 }

@@ -13,7 +13,7 @@ export function MarketStatusBadge({
   closesAt: string;
 }) {
   if (status === "RESOLVED") {
-    return <Badge tone="dark">{outcome === "CANCELLED" ? "Resolved: cancelled" : `Resolved: ${outcome ?? "pending"}`}</Badge>;
+    return <Badge tone="dark">{outcome === "VOID" ? "Resolved: void" : `Resolved: ${outcome ?? "pending"}`}</Badge>;
   }
   if (status === "CANCELLED") return <Badge tone="outline">Cancelled</Badge>;
   if (status === "CLOSED" || isPastDeadline(closesAt)) return <Badge>Closed</Badge>;

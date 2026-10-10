@@ -8,8 +8,7 @@ Every public query uses the shared filters from `lib/permissions.ts`:
 
 | Where | Filter |
 | --- | --- |
-| Market listings, search, homepage, startup profiles | `PUBLIC_MARKET_WHERE` |
-| Market opened by slug (`/markets/:slug`, `/api/markets/:slug`) | `DIRECT_LINK_MARKET_WHERE`, so unlisted markets work by link |
+| Market listings, search, homepage, startup profiles, market pages by slug | `PUBLIC_MARKET_WHERE` |
 | Startup listings and profiles | `PUBLIC_STARTUP_WHERE` |
 | News | Only items whose startup is published and whose market (if any) is public (`lib/news/queries.ts`) |
 
@@ -20,11 +19,11 @@ Outcome and evidence come from `Resolution` and only appear once a market is res
 | Label | Source |
 | --- | --- |
 | YES allocation | `Market.yesCredits / (yesCredits + noCredits)`, null when nothing is allocated. Never called a probability. |
-| Calibrated | Latest `ProbabilitySnapshot.calibratedProbability`. Shows "Not yet available" until the engine fills it. |
-| Opening baseline | `Market.openingBaseline` |
-| Outcome | `Resolution.outcome`, `evidenceSummary`, `evidenceUrls` |
+| Calibrated | Latest `MarketSnapshot.calibratedProbability`. Shows "Not yet available" until the engine fills it. |
+| Opening baseline | `Market.openingBaseline` with `baselineMethodology` in its tooltip. Shows "Not set" when empty. |
+| Outcome | `Resolution.outcome` (`YES`, `NO`, `VOID`), `evidenceSummary`, `evidenceUrls` |
 
-News carries its `verification` label: Verified, Reported (unverified), or Disputed.
+Market pages show `yesCriteria`, `noCriteria`, and `MarketSource` rows (by `position`). Startup profiles show `StartupFact` rows with their source and date. News carries its `verification` label: Verified, Reported (unverified), or Disputed.
 
 ## Public read API
 
@@ -32,10 +31,10 @@ Same envelope as `docs/API.md`: `{ data, meta }` and `{ error: { code, message }
 
 | Route | Query | `data` |
 | --- | --- | --- |
-| `GET /api/markets` | `q`, `status`, `sector`, `sort` (`closing`, `active`, `newest`), `cursor`, `limit` | `MarketSummary[]` |
+| `GET /api/markets` | `q`, `status`, `industry`, `sort` (`closing`, `active`, `newest`), `cursor`, `limit` | `MarketSummary[]` |
 | `GET /api/markets/:slug` | | `MarketDetail` |
 | `GET /api/markets/:slug/history` | | `{ marketId, openingBaseline, points: HistoryPoint[] }` |
-| `GET /api/startups` | `q`, `sector`, `cursor`, `limit` | `StartupSummary[]` |
+| `GET /api/startups` | `q`, `industry`, `cursor`, `limit` | `StartupSummary[]` |
 | `GET /api/startups/:slug` | | `StartupProfile` |
 
 Types: `lib/market-view/types.ts`.

@@ -3,7 +3,7 @@ import { Suspense } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { io } from "next/cache";
-import { ChevronRight, MapPin } from "lucide-react";
+import { BadgeCheck, ChevronRight, MapPin } from "lucide-react";
 import { MarketCard } from "@/components/MarketCard";
 import { NewsFeed } from "@/components/NewsFeed";
 import { Badge } from "@/components/ui/Badge";
@@ -13,7 +13,7 @@ import { ExternalLink } from "@/components/ui/ExternalLink";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { StartupMark } from "@/components/ui/StartupMark";
 import { getStartupProfile } from "@/lib/discovery/queries";
-import { formatStage } from "@/lib/market-view/format";
+import { formatDate, formatStage } from "@/lib/market-view/format";
 
 export async function generateMetadata({ params }: PageProps<"/startups/[slug]">): Promise<Metadata> {
   const startup = await getStartupProfile((await params).slug).catch(() => null);
@@ -39,7 +39,7 @@ async function StartupView({ params }: Pick<PageProps<"/startups/[slug]">, "para
   const open = startup.markets.filter((market) => market.status === "OPEN");
   const past = startup.markets.filter((market) => market.status !== "OPEN");
   const details = [
-    { label: "Sector", value: startup.sector },
+    { label: "Industry", value: startup.industry },
     { label: "Stage", value: formatStage(startup.stage) },
     { label: "Founded", value: startup.foundedYear?.toString() },
     { label: "Headquarters", value: startup.headquarters },
@@ -62,7 +62,7 @@ async function StartupView({ params }: Pick<PageProps<"/startups/[slug]">, "para
               <h1 className="text-3xl font-bold text-ink-900 sm:text-4xl">{startup.name}</h1>
               <p className="mt-1 text-ink-700">{startup.tagline}</p>
               <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-ink-600">
-                <Badge>{startup.sector}</Badge>
+                <Badge>{startup.industry}</Badge>
                 <span>{formatStage(startup.stage)}</span>
                 {startup.headquarters && (
                   <span className="inline-flex items-center gap-1">
@@ -70,7 +70,7 @@ async function StartupView({ params }: Pick<PageProps<"/startups/[slug]">, "para
                     {startup.headquarters}
                   </span>
                 )}
-                {startup.website && <ExternalLink href={startup.website}>Website</ExternalLink>}
+                {startup.websiteUrl && <ExternalLink href={startup.websiteUrl}>Website</ExternalLink>}
               </div>
             </div>
           </div>
@@ -128,6 +128,41 @@ async function StartupView({ params }: Pick<PageProps<"/startups/[slug]">, "para
                 </div>
               ))}
             </dl>
+          </section>
+
+          <section aria-labelledby="facts-heading">
+            <h2 id="facts-heading" className="mb-1 font-display text-xl font-bold text-ink-900">
+              Public information
+            </h2>
+            <p className="mb-4 text-xs text-ink-500">Each item links to its source.</p>
+            {startup.facts.length === 0 ? (
+              <EmptyState title="No sourced information yet" />
+            ) : (
+              <dl className="divide-y divide-ink-100 rounded-[var(--radius-card)] border border-ink-200 bg-white">
+                {startup.facts.map((fact) => (
+                  <div key={`${fact.label}-${fact.sourceUrl}`} className="px-5 py-4">
+                    <dt className="flex items-center gap-1.5 text-xs font-medium text-ink-600">
+                      {fact.label}
+                      {fact.verified ? (
+                        <span className="inline-flex items-center gap-0.5 text-red-700">
+                          <BadgeCheck className="size-3.5" aria-hidden />
+                          Verified
+                        </span>
+                      ) : (
+                        <span className="text-ink-500">Reported</span>
+                      )}
+                    </dt>
+                    <dd className="mt-0.5 font-semibold text-ink-900">{fact.value}</dd>
+                    <dd className="mt-1 text-xs text-ink-500">
+                      <ExternalLink href={fact.sourceUrl} className="font-normal text-ink-600">
+                        {fact.sourceName}
+                      </ExternalLink>{" "}
+                      · as of {formatDate(fact.asOf)}
+                    </dd>
+                  </div>
+                ))}
+              </dl>
+            )}
           </section>
 
           <section aria-labelledby="news-heading">

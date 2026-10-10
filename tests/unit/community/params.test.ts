@@ -14,7 +14,7 @@ describe("parseMarketParams", () => {
     expect(parseMarketParams({})).toEqual({
       q: undefined,
       status: undefined,
-      sector: undefined,
+      industry: undefined,
       sort: "closing",
       cursor: undefined,
       limit: PAGE_SIZE,
@@ -22,8 +22,8 @@ describe("parseMarketParams", () => {
   });
 
   it("accepts valid filters", () => {
-    const params = parseMarketParams({ q: "  series b ", status: "RESOLVED", sector: "Fintech", sort: "active", cursor: "abc" });
-    expect(params).toMatchObject({ q: "series b", status: "RESOLVED", sector: "Fintech", sort: "active", cursor: "abc" });
+    const params = parseMarketParams({ q: "  series b ", status: "RESOLVED", industry: "Fintech", sort: "active", cursor: "abc" });
+    expect(params).toMatchObject({ q: "series b", status: "RESOLVED", industry: "Fintech", sort: "active", cursor: "abc" });
   });
 
   it("falls back on invalid values instead of throwing", () => {
@@ -39,7 +39,7 @@ describe("parseMarketParams", () => {
 
   it("reads the first value of repeated params and URLSearchParams", () => {
     expect(parseMarketParams({ q: ["one", "two"] }).q).toBe("one");
-    expect(parseMarketParams(new URLSearchParams("sector=AI")).sector).toBe("AI");
+    expect(parseMarketParams(new URLSearchParams("industry=AI")).industry).toBe("AI");
   });
 });
 
@@ -56,8 +56,8 @@ describe("marketQuerySchema (API)", () => {
 });
 
 describe("startup params", () => {
-  it("parses query and sector", () => {
-    expect(parseStartupParams({ q: "robot", sector: "Hardware" })).toMatchObject({ q: "robot", sector: "Hardware" });
+  it("parses query and industry", () => {
+    expect(parseStartupParams({ q: "robot", industry: "Hardware" })).toMatchObject({ q: "robot", industry: "Hardware" });
     expect(startupQuerySchema.parse({ limit: "5" }).limit).toBe(5);
   });
 });
@@ -72,7 +72,7 @@ describe("parseSearchQuery", () => {
 
 describe("toQueryString", () => {
   it("drops empty values", () => {
-    expect(toQueryString({ q: "ai", status: undefined, sector: "" })).toBe("?q=ai");
+    expect(toQueryString({ q: "ai", status: undefined, industry: "" })).toBe("?q=ai");
     expect(toQueryString({ cursor: "c1" })).toBe("?cursor=c1");
     expect(toQueryString({})).toBe("");
   });
