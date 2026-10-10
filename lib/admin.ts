@@ -42,7 +42,7 @@ import {
  * settlement status helpers at the bottom.
  */
 
-function assertAdmin(actor: SessionUser) {
+export function assertAdmin(actor: SessionUser) {
   if (actor.platformRole !== PlatformRole.ADMIN) throw forbidden("Administrator access required");
 }
 
