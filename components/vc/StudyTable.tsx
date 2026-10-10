@@ -53,7 +53,13 @@ export function StudyTable({ rows, showChange = false }: { rows: StudyRow[]; sho
                 <StatusBadge status={study.status} />
               </td>
               <td className="px-2 py-2 text-right tabular-nums">
-                {formatShare(estimate?.modelValue ?? baselineValue ?? estimate?.openingBaseline?.value ?? study.baselineValue)}
+                {(baselineValue ?? estimate?.openingBaseline?.value ?? study.baselineValue) == null && !study.marketId ? (
+                  <span className="text-xs text-amber-700 dark:text-amber-300" title="The model can't set an opening line yet, so forecasting can't open">
+                    Not enough data
+                  </span>
+                ) : (
+                  formatShare(estimate?.modelValue ?? baselineValue ?? estimate?.openingBaseline?.value ?? study.baselineValue)
+                )}
               </td>
               <td className="px-2 py-2 text-right font-medium tabular-nums text-slate-900 dark:text-slate-100">
                 {formatShare(estimate?.generalPrice, 1)}

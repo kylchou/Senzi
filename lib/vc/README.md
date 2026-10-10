@@ -43,9 +43,21 @@ Reads the aggregates the forecasting engine maintains: `Market.yesCredits / noCr
 
 These three values are always shown separately and labelled:
 
-- Opening baseline: a reference value with a documented methodology, set before forecasting starts.
+- Opening baseline: the model's estimate when forecasting opens (see "Opening line" below). Never typed in by a person.
 - Community YES credit-allocation share: YES credits ÷ total credits. It is never called a probability.
 - Calibrated probability: shown only when the latest `MarketSnapshot.calibratedProbability` is set. Otherwise the UI shows "Not available".
+
+## Opening line (set by the model)
+
+Firms type any YES/NO question. Nobody types odds: the opening price comes from the baseline model (`lib/model`, `computeDirectBaseline`).
+
+1. **Link the question to a metric.** In the study form, "Estimate opening line" calls `POST /api/vc/opening-line`. If the firm hasn't picked a metric, the AI (Tyche's Meta model, `assistant/suggest-metric.ts`) proposes one of the startup's metrics, a threshold and a date. It only proposes: every field is checked against the metrics that exist, and the firm confirms with "Use this measurement". A linked question and its YES/NO criteria are reworded to exactly what the model priced, and its public resolution source is added to the study's sources. Only metrics with an independent public resolution source can be linked (today, weekly npm/PyPI downloads); a question about ARR or other firm-only KPIs gets "Not enough data".
+2. **Firm figures (optional).** The firm enters its own figures once per company on the company page (`/vc/companies/[slug]`, `server/company-model.ts`, stored as sponsor-provided `ModelDataPoint` rows for that organization). Figures for the linked metric fill weeks public data doesn't cover. The ones used are recorded on `StudyModelEstimate.observations`. They're visible only to the owning firm, never written to market tables (`publicInputs()`), and never resolve the question.
+3. **Not enough data.** If no metric measures the question, or there's too little history, the study is saved with `NOT_MEASURABLE` or `INSUFFICIENT_DATA`. It can be submitted and approved, but **opening is blocked** until the model can estimate it.
+4. **Opening.** `open` re-runs the model with current data. The market is created at the model's probability (`lib/admin.ts createMarketForStudy`, which now requires the `model` block): the opening price, the first point of the model line, and a `ModelBaselineSnapshot` whose confidence sets the starting liquidity (low confidence → early forecasts move the price more).
+5. **Refresh.** The cron (`openingLine.refreshOpenMarkets`) re-runs the model for open study markets and publishes changed estimates through the forecasting engine's `recordModelValue`. Before the first forecast this also moves the opening price; after it, only the model line moves.
+
+Code: `services/opening-line.ts`, `model-estimate.ts` (pure, shared with the seed), `server/model-adapter.ts`, `opening-line.ts` (wording, confidence, redaction), `components/vc/OpeningLinePanel.tsx`.
 
 ## Study lifecycle
 
