@@ -27,7 +27,7 @@ export default function HomePage() {
         {/* Sits on the page itself (no framed card) and follows the light or dark theme. */}
         <section
           id="top"
-          className="relative scroll-mt-24 bg-[radial-gradient(ellipse_70%_60%_at_50%_0%,color-mix(in_srgb,var(--color-red-500)_6%,transparent),transparent)]"
+          className="relative scroll-mt-6 bg-[radial-gradient(ellipse_70%_60%_at_50%_0%,color-mix(in_srgb,var(--color-red-500)_6%,transparent),transparent)]"
         >
           <Container className="flex flex-col items-center pb-14 pt-20 text-center sm:pb-20 sm:pt-28">
             <HeroGreeting />
@@ -52,7 +52,7 @@ export default function HomePage() {
           </Container>
         </section>
 
-        <Container id="explore" className="home-reveal scroll-mt-24 pb-16 pt-4 sm:pb-20">
+        <Container id="explore" className="home-reveal scroll-mt-6 pb-16 pt-4 sm:pb-20">
           <SectionHeading title="Open markets" href="/markets" />
           <StreamIn fallback={<CardGridSkeleton count={6} />}>
             <OpenMarkets />
@@ -63,7 +63,7 @@ export default function HomePage() {
           <Moves />
         </StreamIn>
 
-        <section id="how-it-works" className="scroll-mt-24">
+        <section id="how-it-works" className="scroll-mt-6">
           <Container className="py-16 sm:py-20">
             <div className="home-reveal mx-auto mb-10 max-w-2xl text-center">
               <h2 className="text-3xl font-bold text-ink-900 sm:text-4xl">How it works</h2>
@@ -75,7 +75,7 @@ export default function HomePage() {
           </Container>
         </section>
 
-        <Container id="startups" className="home-reveal grid scroll-mt-24 gap-16 py-16 sm:py-20 lg:grid-cols-[1.4fr_1fr]">
+        <Container id="startups" className="home-reveal grid scroll-mt-6 gap-16 py-16 sm:py-20 lg:grid-cols-[1.4fr_1fr]">
           <div>
             <SectionHeading title="Startups" href="/startups" />
             <StreamIn fallback={<CardGridSkeleton count={4} variant="startup" className="lg:grid-cols-2" />}>

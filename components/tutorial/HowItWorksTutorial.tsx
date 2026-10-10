@@ -162,7 +162,7 @@ export function HowItWorksTutorial() {
     (practice.resolved && won && submittedPreview ? submittedPreview.payoutIfRight : 0);
 
   return (
-    <div ref={sectionRef} id="tutorial" className={cn("scroll-mt-24", started && "max-lg:pb-[46vh]")}>
+    <div ref={sectionRef} id="tutorial" className={cn("scroll-mt-6", started && "max-lg:pb-[46vh]")}>
       <div className="grid gap-6 lg:grid-cols-[1.35fr_1fr] lg:items-start">
         {/* Practice market */}
         <div className="relative">
@@ -405,7 +405,7 @@ export function HowItWorksTutorial() {
           role="region"
           aria-labelledby={titleId}
           className={cn(
-            "surface-card p-6 text-ink-900 outline-none lg:sticky lg:top-24",
+            "surface-card p-6 text-ink-900 outline-none lg:sticky lg:top-6",
             // On small screens the guide becomes a bottom sheet so it stays next to what you're tapping.
             started &&
               "max-lg:fixed max-lg:inset-x-3 max-lg:bottom-3 max-lg:z-30 max-lg:max-h-[42vh] max-lg:overflow-y-auto max-lg:p-5 max-md:bottom-[calc(max(0.75rem,env(safe-area-inset-bottom))+4.25rem)] max-md:max-h-[38vh]",
@@ -604,7 +604,7 @@ function Spot({
     <div
       data-spot={id}
       className={cn(
-        "relative scroll-mt-24 rounded-xl transition-all duration-300",
+        "relative scroll-mt-6 rounded-xl transition-all duration-300",
         isActive && "z-10 bg-surface ring-2 ring-red-500 ring-offset-2 ring-offset-surface shadow-[0_0_0_6px_rgb(255_44_44/0.08)]",
         dimmed && "pointer-events-none opacity-35 saturate-50",
         className,

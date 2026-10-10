@@ -48,7 +48,7 @@ function isActive(pathname: string | null, href: string) {
 export function Navbar() {
   return (
     <header
-      className="sticky top-0 z-40 border-b border-hairline bg-page/80 backdrop-blur-xl supports-[backdrop-filter]:bg-page/70"
+      className="relative z-40 border-b border-hairline bg-page"
       // Stays still while page content transitions underneath.
       style={{ viewTransitionName: "site-header" }}
     >
@@ -108,7 +108,7 @@ function useActiveSection(enabled: boolean) {
         // The topmost section that is meaningfully on screen wins.
         setActive(HOME_SECTIONS.find((id) => (visible.get(id) ?? 0) > 0.15) ?? null);
       },
-      { rootMargin: "-72px 0px -40% 0px", threshold: [0, 0.15, 0.4] },
+      { rootMargin: "0px 0px -40% 0px", threshold: [0, 0.15, 0.4] },
     );
     for (const id of HOME_SECTIONS) {
       const el = document.getElementById(id);
