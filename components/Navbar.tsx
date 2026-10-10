@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
+import { useAuth } from "@clerk/nextjs";
 import { Search } from "lucide-react";
 import { AuthControls } from "@/components/ui/AuthControls";
 import { openCommandPalette, ShortcutHint } from "@/components/ui/CommandPalette";
@@ -24,15 +25,17 @@ interface NavItem {
   exact?: boolean;
   /** Reopen the listing with its last-used filters. */
   remember?: boolean;
+  /** Only shown when signed in. */
+  signedIn?: boolean;
 }
 
 // The logo links home, so there is no separate Home link.
 const links: NavItem[] = [
   { href: "/markets", label: "Markets", section: "explore", remember: true },
-  // "#tutorial" also starts the walkthrough (see HowItWorksTutorial).
-  { href: "/#tutorial", label: "How it works", section: "how-it-works", exact: true },
+  { href: "/how-it-works", label: "How it works", section: "how-it-works" },
   { href: "/startups", label: "Startups", section: "startups", remember: true },
   { href: "/news", label: "News", remember: true },
+  { href: "/profile", label: "Profile", signedIn: true },
 ];
 
 /** Homepage section ids, top to bottom. */
@@ -129,9 +132,10 @@ const linkClass =
 function NavLinks({ pathname }: { pathname: string | null }) {
   const onHome = pathname === "/";
   const section = useActiveSection(onHome);
+  const { isSignedIn } = useAuth();
   return (
     <>
-      {links.map((link) => {
+      {links.filter((link) => !link.signedIn || isSignedIn).map((link) => {
         const active = onHome
           ? link.section !== undefined && link.section === section
           : !link.exact && isActive(pathname, link.href);
