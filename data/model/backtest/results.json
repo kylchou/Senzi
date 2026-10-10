@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-10T04:09:04.695Z",
+  "generatedAt": "2026-10-10T18:17:07.511Z",
   "split": "2025-10-01",
   "series": [
     "npm_downloads:@supabase/supabase-js",
@@ -69,7 +69,18 @@
       0.9
     ],
     "spikeThreshold": 4,
-    "levelShiftThreshold": 0.5
+    "levelShiftThreshold": 0.5,
+    "npmIndex": {
+      "sigmaScale": 1.25,
+      "driftPerWeek": 0.03,
+      "trendDamping": 0.75,
+      "tailShrink": 0.05,
+      "indexTrendDamping": 1,
+      "indexSigmaScale": 1,
+      "volatilityWeeks": 104,
+      "minShareDays": 4,
+      "betaWeeks": null
+    }
   },
   "test": {
     "trend": {
@@ -945,6 +956,456 @@
     "shipped": {
       "rangeSigmaScale": 0.5,
       "rangeDriftPerWeek": 0.1
+    }
+  },
+  "npmIndex": {
+    "packages": [
+      "react",
+      "lodash",
+      "typescript",
+      "express",
+      "axios",
+      "chalk",
+      "semver",
+      "tslib",
+      "debug",
+      "commander",
+      "uuid",
+      "@types/node"
+    ],
+    "cases": {
+      "calibration": 22176,
+      "test": 7266
+    },
+    "tunedOnCalibration": {
+      "fitWeeks": 16,
+      "minWeeks": 3,
+      "fullWeightWeeks": 8,
+      "minShrinkWeight": 0.5,
+      "sigmaScale": 1,
+      "driftPerWeek": 0.02,
+      "levelAnchor": "last",
+      "trendDamping": 0.75,
+      "tailShrink": 0.05,
+      "rangeSigmaScale": 0.5,
+      "rangeDriftPerWeek": 0.1,
+      "scaleFloor": 0.03,
+      "bootstrapReplicates": 500,
+      "bandQuantiles": [
+        0.1,
+        0.9
+      ],
+      "uninformativeBand": [
+        0.1,
+        0.9
+      ],
+      "spikeThreshold": 4,
+      "levelShiftThreshold": 0.5,
+      "npmIndex": {
+        "sigmaScale": 1.25,
+        "driftPerWeek": 0.03,
+        "trendDamping": 0.75,
+        "tailShrink": 0.05,
+        "indexTrendDamping": 1,
+        "indexSigmaScale": 1,
+        "volatilityWeeks": 104,
+        "minShareDays": 4,
+        "betaWeeks": null
+      },
+      "indexTrendDamping": 1,
+      "indexSigmaScale": 1,
+      "logLoss": 0.33551712372050196
+    },
+    "rawCalibrationLogLoss": 0.31341917751993387,
+    "shipped": {
+      "fitWeeks": 16,
+      "minWeeks": 3,
+      "fullWeightWeeks": 8,
+      "minShrinkWeight": 0.5,
+      "sigmaScale": 1.25,
+      "driftPerWeek": 0.03,
+      "levelAnchor": "last",
+      "trendDamping": 0.75,
+      "tailShrink": 0.05,
+      "rangeSigmaScale": 0.5,
+      "rangeDriftPerWeek": 0.1,
+      "scaleFloor": 0.03,
+      "bootstrapReplicates": 500,
+      "bandQuantiles": [
+        0.1,
+        0.9
+      ],
+      "uninformativeBand": [
+        0.1,
+        0.9
+      ],
+      "spikeThreshold": 4,
+      "levelShiftThreshold": 0.5,
+      "npmIndex": {
+        "sigmaScale": 1.25,
+        "driftPerWeek": 0.03,
+        "trendDamping": 0.75,
+        "tailShrink": 0.05,
+        "indexTrendDamping": 1,
+        "indexSigmaScale": 1,
+        "volatilityWeeks": 104,
+        "minShareDays": 4,
+        "betaWeeks": null
+      },
+      "indexTrendDamping": 1,
+      "indexSigmaScale": 1,
+      "volatilityWeeks": 104,
+      "minShareDays": 4,
+      "betaWeeks": null
+    },
+    "test": {
+      "n": 7266,
+      "raw": {
+        "n": 7266,
+        "brier": 0.11067308292964637,
+        "logLoss": 0.3568213771520932,
+        "baseRate": 0.6153316818056702
+      },
+      "index": {
+        "n": 7266,
+        "brier": 0.11454029802367441,
+        "logLoss": 0.3642057123244602,
+        "baseRate": 0.6153316818056702
+      }
+    },
+    "shiftPeriod": {
+      "n": 1008,
+      "raw": {
+        "n": 1008,
+        "brier": 0.08205822762292436,
+        "logLoss": 0.2669105987602582,
+        "baseRate": 0.6507936507936508
+      },
+      "index": {
+        "n": 1008,
+        "brier": 0.07279127643719563,
+        "logLoss": 0.24507073574747795,
+        "baseRate": 0.6507936507936508
+      }
+    },
+    "byHorizon": [
+      {
+        "horizon": 1,
+        "n": 1932,
+        "raw": {
+          "n": 1932,
+          "brier": 0.09362671519416503,
+          "logLoss": 0.31681853727985226,
+          "baseRate": 0.4932712215320911
+        },
+        "index": {
+          "n": 1932,
+          "brier": 0.09461977989682441,
+          "logLoss": 0.31467959982623894,
+          "baseRate": 0.4932712215320911
+        },
+        "medianApeRaw": 0.04541111341449233,
+        "medianApeIndex": 0.046441207449370525,
+        "coverageRaw": 0.8105590062111802,
+        "coverageIndex": 0.8633540372670807
+      },
+      {
+        "horizon": 2,
+        "n": 1890,
+        "raw": {
+          "n": 1890,
+          "brier": 0.10297961519587143,
+          "logLoss": 0.3323842942859416,
+          "baseRate": 0.5518518518518518
+        },
+        "index": {
+          "n": 1890,
+          "brier": 0.11282828666209188,
+          "logLoss": 0.3598510468626669,
+          "baseRate": 0.5518518518518518
+        },
+        "medianApeRaw": 0.06788847650404906,
+        "medianApeIndex": 0.0635418352263657,
+        "coverageRaw": 0.7428571428571429,
+        "coverageIndex": 0.7936507936507936
+      },
+      {
+        "horizon": 4,
+        "n": 1806,
+        "raw": {
+          "n": 1806,
+          "brier": 0.1136814509922101,
+          "logLoss": 0.36112416031961103,
+          "baseRate": 0.6489479512735327
+        },
+        "index": {
+          "n": 1806,
+          "brier": 0.11999926156228118,
+          "logLoss": 0.3772700887078696,
+          "baseRate": 0.6489479512735327
+        },
+        "medianApeRaw": 0.09676398832020994,
+        "medianApeIndex": 0.09041770150186812,
+        "coverageRaw": 0.6877076411960132,
+        "coverageIndex": 0.760797342192691
+      },
+      {
+        "horizon": 8,
+        "n": 1638,
+        "raw": {
+          "n": 1638,
+          "brier": 0.13633921465174356,
+          "logLoss": 0.42745675373919345,
+          "baseRate": 0.7954822954822954
+        },
+        "index": {
+          "n": 1638,
+          "brier": 0.13399283425306505,
+          "logLoss": 0.4132414286375968,
+          "baseRate": 0.7954822954822954
+        },
+        "medianApeRaw": 0.1703393665379742,
+        "medianApeIndex": 0.16108200092411762,
+        "coverageRaw": 0.5641025641025641,
+        "coverageIndex": 0.673992673992674
+      }
+    ],
+    "bySeries": [
+      {
+        "metricId": "npm_downloads:@supabase/supabase-js",
+        "n": 1038,
+        "raw": {
+          "n": 1038,
+          "brier": 0.11794838554925005,
+          "logLoss": 0.3764893201208977,
+          "baseRate": 0.6098265895953757
+        },
+        "index": {
+          "n": 1038,
+          "brier": 0.11205931551346165,
+          "logLoss": 0.36000034706331135,
+          "baseRate": 0.6098265895953757
+        }
+      },
+      {
+        "metricId": "npm_downloads:convex",
+        "n": 1038,
+        "raw": {
+          "n": 1038,
+          "brier": 0.10663611575384269,
+          "logLoss": 0.33652460343011364,
+          "baseRate": 0.6579961464354528
+        },
+        "index": {
+          "n": 1038,
+          "brier": 0.0986409178386159,
+          "logLoss": 0.31677451996700373,
+          "baseRate": 0.6579961464354528
+        }
+      },
+      {
+        "metricId": "npm_downloads:next",
+        "n": 1038,
+        "raw": {
+          "n": 1038,
+          "brier": 0.15844857484382358,
+          "logLoss": 0.5014310125960603,
+          "baseRate": 0.5578034682080925
+        },
+        "index": {
+          "n": 1038,
+          "brier": 0.1671923907452552,
+          "logLoss": 0.5155317489678717,
+          "baseRate": 0.5578034682080925
+        }
+      },
+      {
+        "metricId": "npm_downloads:posthog-js",
+        "n": 1038,
+        "raw": {
+          "n": 1038,
+          "brier": 0.13066111973067093,
+          "logLoss": 0.40888493573651286,
+          "baseRate": 0.6040462427745664
+        },
+        "index": {
+          "n": 1038,
+          "brier": 0.12677031667733668,
+          "logLoss": 0.3910320840772453,
+          "baseRate": 0.6040462427745664
+        }
+      },
+      {
+        "metricId": "npm_downloads:resend",
+        "n": 1038,
+        "raw": {
+          "n": 1038,
+          "brier": 0.07974827735379657,
+          "logLoss": 0.26452643566177675,
+          "baseRate": 0.6801541425818882
+        },
+        "index": {
+          "n": 1038,
+          "brier": 0.09980024271634187,
+          "logLoss": 0.3241414217564455,
+          "baseRate": 0.6801541425818882
+        }
+      },
+      {
+        "metricId": "npm_downloads:stripe",
+        "n": 1038,
+        "raw": {
+          "n": 1038,
+          "brier": 0.0774202383489806,
+          "logLoss": 0.26872829001426235,
+          "baseRate": 0.6069364161849711
+        },
+        "index": {
+          "n": 1038,
+          "brier": 0.08934565536927165,
+          "logLoss": 0.2992955871446003,
+          "baseRate": 0.6069364161849711
+        }
+      },
+      {
+        "metricId": "npm_downloads:vercel",
+        "n": 1038,
+        "raw": {
+          "n": 1038,
+          "brier": 0.10384886892715886,
+          "logLoss": 0.34116504250504,
+          "baseRate": 0.5905587668593449
+        },
+        "index": {
+          "n": 1038,
+          "brier": 0.10797324730543804,
+          "logLoss": 0.3426642772947418,
+          "baseRate": 0.5905587668593449
+        }
+      }
+    ],
+    "ece": {
+      "raw": 0.05187635855822865,
+      "index": 0.0424964751011678
+    },
+    "variants": [
+      {
+        "indexTrendDamping": 0,
+        "indexSigmaScale": 1,
+        "test": {
+          "n": 7266,
+          "brier": 0.13253898292600358,
+          "logLoss": 0.4137475583339307,
+          "baseRate": 0.6153316818056702
+        },
+        "shiftPeriod": {
+          "n": 1008,
+          "brier": 0.10401913301358327,
+          "logLoss": 0.32938948910016225,
+          "baseRate": 0.6507936507936508
+        }
+      },
+      {
+        "indexTrendDamping": 0.5,
+        "indexSigmaScale": 1,
+        "test": {
+          "n": 7266,
+          "brier": 0.11997393797168121,
+          "logLoss": 0.3788857201671972,
+          "baseRate": 0.6153316818056702
+        },
+        "shiftPeriod": {
+          "n": 1008,
+          "brier": 0.08641032473083825,
+          "logLoss": 0.28151203626177645,
+          "baseRate": 0.6507936507936508
+        }
+      },
+      {
+        "indexTrendDamping": 1,
+        "indexSigmaScale": 1,
+        "test": {
+          "n": 7266,
+          "brier": 0.11454029802367441,
+          "logLoss": 0.3642057123244602,
+          "baseRate": 0.6153316818056702
+        },
+        "shiftPeriod": {
+          "n": 1008,
+          "brier": 0.07279127643719563,
+          "logLoss": 0.24507073574747795,
+          "baseRate": 0.6507936507936508
+        }
+      },
+      {
+        "indexTrendDamping": 1,
+        "indexSigmaScale": 2,
+        "test": {
+          "n": 7266,
+          "brier": 0.1175594463813065,
+          "logLoss": 0.37495739867249117,
+          "baseRate": 0.6153316818056702
+        },
+        "shiftPeriod": {
+          "n": 1008,
+          "brier": 0.08109550690082994,
+          "logLoss": 0.2805405773424424,
+          "baseRate": 0.6507936507936508
+        }
+      }
+    ],
+    "estimatedBeta": {
+      "tuned": {
+        "fitWeeks": 16,
+        "minWeeks": 3,
+        "fullWeightWeeks": 8,
+        "minShrinkWeight": 0.5,
+        "sigmaScale": 1.25,
+        "driftPerWeek": 0.03,
+        "levelAnchor": "last",
+        "trendDamping": 0.75,
+        "tailShrink": 0.05,
+        "rangeSigmaScale": 0.5,
+        "rangeDriftPerWeek": 0.1,
+        "scaleFloor": 0.03,
+        "bootstrapReplicates": 500,
+        "bandQuantiles": [
+          0.1,
+          0.9
+        ],
+        "uninformativeBand": [
+          0.1,
+          0.9
+        ],
+        "spikeThreshold": 4,
+        "levelShiftThreshold": 0.5,
+        "npmIndex": {
+          "sigmaScale": 1.25,
+          "driftPerWeek": 0.03,
+          "trendDamping": 0.75,
+          "tailShrink": 0.05,
+          "indexTrendDamping": 1,
+          "indexSigmaScale": 1,
+          "volatilityWeeks": 104,
+          "minShareDays": 4,
+          "betaWeeks": null
+        },
+        "indexTrendDamping": 1,
+        "indexSigmaScale": 1,
+        "logLoss": 0.3306394605771959
+      },
+      "test": {
+        "n": 7266,
+        "brier": 0.11404411897721489,
+        "logLoss": 0.363272550890991,
+        "baseRate": 0.6153316818056702
+      },
+      "shiftPeriod": {
+        "n": 1008,
+        "brier": 0.07301638065403888,
+        "logLoss": 0.24448549593119429,
+        "baseRate": 0.6507936507936508
+      }
     }
   }
 }

@@ -118,6 +118,44 @@ A persistent step larger than the threshold restarts the fit after the step. The
 
 Average width of the model-uncertainty band (10th–90th percentile) on a sample of test cases: 0.132.
 
+## npm index
+
+npm questions are fitted relative to an npm-wide index: the equal-weighted mean of log 7-day totals for 12 large, unrelated packages (react, lodash, typescript, express, axios, chalk, semver, tslib, debug, commander, uuid, @types/node). See `lib/model/npm-index.ts`. The rows below score the raw model (shipped settings) and the index model on the same npm cases (22176 calibration, 7266 test).
+
+Index settings tuned on the calibration period: index trend carried 1, index spread × 1, level anchor last, trend damping 0.75, tail shrink 0.05, σ scale 1.25, drift 0.03. Calibration-period log loss: index 0.336, raw 0.313.
+
+| Cases | n | Brier (raw) | Brier (index) | Log loss (raw) | Log loss (index) |
+| --- | --- | --- | --- | --- | --- |
+| Test period | 7266 | 0.111 | 0.115 | 0.357 | 0.364 |
+| As-of 2026-07-01 on (npm-wide shift) | 1008 | 0.082 | 0.073 | 0.267 | 0.245 |
+| 1 week(s) ahead | 1932 | 0.094 | 0.095 | 0.317 | 0.315 |
+| 2 week(s) ahead | 1890 | 0.103 | 0.113 | 0.332 | 0.360 |
+| 4 week(s) ahead | 1806 | 0.114 | 0.120 | 0.361 | 0.377 |
+| 8 week(s) ahead | 1638 | 0.136 | 0.134 | 0.427 | 0.413 |
+| npm_downloads:@supabase/supabase-js | 1038 | 0.118 | 0.112 | 0.376 | 0.360 |
+| npm_downloads:convex | 1038 | 0.107 | 0.099 | 0.337 | 0.317 |
+| npm_downloads:next | 1038 | 0.158 | 0.167 | 0.501 | 0.516 |
+| npm_downloads:posthog-js | 1038 | 0.131 | 0.127 | 0.409 | 0.391 |
+| npm_downloads:resend | 1038 | 0.080 | 0.100 | 0.265 | 0.324 |
+| npm_downloads:stripe | 1038 | 0.077 | 0.089 | 0.269 | 0.299 |
+| npm_downloads:vercel | 1038 | 0.104 | 0.108 | 0.341 | 0.343 |
+
+Calibration error on the test period: raw 0.052, index 0.042. Median absolute error of the median forecast at 1/2/4/8 weeks: raw 4.5% / 6.8% / 9.7% / 17.0%, index 4.6% / 6.4% / 9.0% / 16.1%. Actual totals inside the probability model's 80% range: raw 81% / 74% / 69% / 56%, index 86% / 79% / 76% / 67%.
+
+Alternatives, scored on the test period for information only (settings are chosen on the calibration period):
+
+| Index trend carried | Index spread × | Test Brier | Test log loss | Shift-period Brier |
+| --- | --- | --- | --- | --- |
+| 0 | 1 | 0.133 | 0.414 | 0.104 |
+| 0.5 | 1 | 0.120 | 0.379 | 0.086 |
+| 1 | 1 | 0.115 | 0.364 | 0.073 |
+| 1 | 2 | 0.118 | 0.375 | 0.081 |
+
+Assuming npm stays at its current level (index trend 0) scores worst, including during the shift: npm kept growing after the jump. Estimating how strongly each package moves with npm (beta from 52 weeks, instead of 1) scored test Brier 0.114 and shift-period Brier 0.073, about the same as beta = 1. The weekly estimates swing widely between dates, so the simpler beta = 1 is used.
+
+**Reading this.** The index model is better calibrated and better during the npm-wide shift, slightly worse over the whole test period, and worse on some series. Holiday weeks (Dec 20 – Jan 10) are left out of the index's spread unless the question's own span touches them.
+
+
 ## Limits of this backtest
 
 - **No revenue ground truth.** None of the demo companies publish revenue, so the model is only tested on public download counts.
