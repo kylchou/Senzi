@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/Button";
 import { cn } from "@/components/ui/cn";
 import { toast } from "@/components/ui/Toaster";
 import { refreshMe } from "@/components/ui/me-client";
+import { Term } from "@/components/ui/Term";
 import { formatCredits, formatDateTime, formatShare } from "@/lib/market-view/format";
 import {
   errorMessage,
@@ -137,9 +138,11 @@ export function ForecastPanel({
     >
       <div className="flex items-baseline justify-between gap-2">
         <h2 id="forecast-heading" className="font-display text-lg font-bold text-ink-900">
-          Forecast
+          <Term id="forecast" />
         </h2>
-        <span className="text-xs text-ink-500">Virtual credits</span>
+        <span className="text-xs text-ink-500">
+          <Term id="credits" />
+        </span>
       </div>
 
       {closed ? (
