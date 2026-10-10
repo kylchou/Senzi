@@ -1,0 +1,154 @@
+import { afterAll, beforeEach, describe, expect, it } from "vitest";
+import { MarketStatus, OrgRole, SettlementStatus } from "@/generated/prisma/enums";
+import {
+  adjustUserCredits,
+  changeMarketStatus,
+  claimResolutionForSettlement,
+  closeExpiredMarkets,
+  completeResolutionSettlement,
+  resolveMarket,
+  setPlatformRole,
+  updateMarket,
+} from "@/lib/admin";
+import { db } from "@/lib/db";
+import { makeAdmin, makeMarket, makeOrg, makeUser, placeForecast, resetDatabase } from "./helpers";
+
+beforeEach(resetDatabase);
+afterAll(() => db.$disconnect());
+
+const evidence = {
+  evidenceSummary: "The company announced the milestone in a press release before the deadline.",
+  evidenceUrls: ["https://example.com/press"],
+};
+
+describe("market lifecycle", () => {
+  it("only lets platform admins manage markets", async () => {
+    const admin = await makeAdmin();
+    const user = await makeUser();
+    const market = await makeMarket(admin);
+    await expect(changeMarketStatus(user, market.id, { status: "CLOSED" })).rejects.toMatchObject({ code: "FORBIDDEN" });
+  });
+
+  it("records an opening snapshot with the admin baseline when a market opens", async () => {
+    const admin = await makeAdmin();
+    const market = await makeMarket(admin, { open: false });
+    expect(market.status).toBe(MarketStatus.DRAFT);
+    expect(await db.probabilitySnapshot.count({ where: { marketId: market.id } })).toBe(0);
+
+    await changeMarketStatus(admin, market.id, { status: "OPEN" });
+    const snapshot = await db.probabilitySnapshot.findFirstOrThrow({ where: { marketId: market.id } });
+    expect(snapshot).toMatchObject({ trigger: "OPENING", openingBaseline: 0.4, communityAllocationShare: null });
+  });
+
+  it("rejects transitions that skip the resolution workflow", async () => {
+    const admin = await makeAdmin();
+    const market = await makeMarket(admin);
+    await expect(
+      changeMarketStatus(admin, market.id, { status: "OPEN" }),
+    ).rejects.toMatchObject({ code: "INVALID_STATE" });
+  });
+
+  it("locks the market terms once someone has forecast", async () => {
+    const admin = await makeAdmin();
+    const user = await makeUser();
+    const market = await makeMarket(admin);
+    await updateMarket(admin, market.id, { openingBaseline: 0.6 });
+
+    await placeForecast(user, market.id);
+    await expect(updateMarket(admin, market.id, { openingBaseline: 0.7 })).rejects.toMatchObject({
+      code: "INVALID_STATE",
+    });
+    // Unchanged values and non-term fields are still fine.
+    await updateMarket(admin, market.id, { openingBaseline: 0.6, description: "More context." });
+  });
+
+  it("requires resolution (not a status change) to cancel a market with forecasts", async () => {
+    const admin = await makeAdmin();
+    const user = await makeUser();
+    const market = await makeMarket(admin);
+    await placeForecast(user, market.id);
+    await expect(changeMarketStatus(admin, market.id, { status: "CANCELLED" })).rejects.toMatchObject({
+      code: "INVALID_STATE",
+    });
+  });
+
+  it("closes markets past their deadline", async () => {
+    const admin = await makeAdmin();
+    const market = await makeMarket(admin);
+    expect(await closeExpiredMarkets(new Date(market.closesAt.getTime() + 1))).toBe(1);
+    expect((await db.market.findUniqueOrThrow({ where: { id: market.id } })).status).toBe(MarketStatus.CLOSED);
+  });
+});
+
+describe("resolution", () => {
+  it("records evidence, notifies forecasters, audits, and leaves settlement pending", async () => {
+    const admin = await makeAdmin();
+    const user = await makeUser();
+    const market = await makeMarket(admin);
+    await placeForecast(user, market.id);
+
+    const resolution = await resolveMarket(admin, market.id, { outcome: "YES", ...evidence });
+    expect(resolution.settlementStatus).toBe(SettlementStatus.PENDING);
+    expect((await db.market.findUniqueOrThrow({ where: { id: market.id } })).status).toBe(MarketStatus.RESOLVED);
+    expect(await db.notification.count({ where: { userId: user.id, type: "MARKET_RESOLVED" } })).toBe(1);
+    expect(await db.auditLog.count({ where: { action: "market.resolve", entityId: market.id } })).toBe(1);
+  });
+
+  it("can only resolve a market once, even concurrently", async () => {
+    const admin = await makeAdmin();
+    const market = await makeMarket(admin);
+    const results = await Promise.allSettled([
+      resolveMarket(admin, market.id, { outcome: "YES", ...evidence }),
+      resolveMarket(admin, market.id, { outcome: "NO", ...evidence }),
+    ]);
+    expect(results.filter((r) => r.status === "fulfilled")).toHaveLength(1);
+    expect(await db.resolution.count({ where: { marketId: market.id } })).toBe(1);
+  });
+
+  it("marks cancelled outcomes as CANCELLED markets", async () => {
+    const admin = await makeAdmin();
+    const market = await makeMarket(admin);
+    await resolveMarket(admin, market.id, { outcome: "CANCELLED", ...evidence });
+    expect((await db.market.findUniqueOrThrow({ where: { id: market.id } })).status).toBe(MarketStatus.CANCELLED);
+  });
+
+  it("lets exactly one settlement worker claim a resolution", async () => {
+    const admin = await makeAdmin();
+    const market = await makeMarket(admin);
+    const resolution = await resolveMarket(admin, market.id, { outcome: "NO", ...evidence });
+
+    const claims = await Promise.all([1, 2, 3].map(() => claimResolutionForSettlement(resolution.id)));
+    expect(claims.filter(Boolean)).toHaveLength(1);
+
+    await completeResolutionSettlement(resolution.id);
+    expect(await claimResolutionForSettlement(resolution.id)).toBe(false);
+  });
+});
+
+describe("admin credits and roles", () => {
+  it("grants credits idempotently with an audit entry", async () => {
+    const admin = await makeAdmin();
+    const user = await makeUser();
+    const input = { userId: user.id, amount: 500, type: "ADMIN_GRANT" as const, memo: "Hackathon prize", idempotencyKey: "grant-hackathon-1" };
+
+    const first = await adjustUserCredits(admin, input);
+    const second = await adjustUserCredits(admin, input);
+    expect(second.replayed).toBe(true);
+    expect(second.transaction.id).toBe(first.transaction.id);
+    expect(await db.auditLog.count({ where: { action: "credits.adjust" } })).toBe(1);
+  });
+
+  it("does not let admins change their own role", async () => {
+    const admin = await makeAdmin();
+    await expect(setPlatformRole(admin, admin.id, "USER")).rejects.toMatchObject({ code: "INVALID_STATE" });
+  });
+
+  it("requires an organization for private markets", async () => {
+    const admin = await makeAdmin();
+    const owner = await makeUser();
+    const org = await makeOrg([[owner, OrgRole.OWNER]]);
+    const market = await makeMarket(admin, { private: org.id });
+    expect(market.organizationId).toBe(org.id);
+    await expect(updateMarket(admin, market.id, { organizationId: null })).rejects.toThrow();
+  });
+});

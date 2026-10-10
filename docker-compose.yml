@@ -1,0 +1,16 @@
+# Local Postgres for development and tests: `docker compose up -d`
+services:
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: senzi
+      POSTGRES_PASSWORD: senzi
+      POSTGRES_DB: senzi
+    ports:
+      - "5432:5432"
+    volumes:
+      - senzi-pg:/var/lib/postgresql/data
+      - ./prisma/docker-init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+
+volumes:
+  senzi-pg:

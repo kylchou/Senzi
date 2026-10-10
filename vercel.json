@@ -1,0 +1,3 @@
+{
+  "crons": [{ "path": "/api/admin/cron/close-markets", "schedule": "*/15 * * * *" }]
+}

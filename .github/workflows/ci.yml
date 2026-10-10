@@ -1,0 +1,76 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main, dev]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: senzi
+          POSTGRES_PASSWORD: senzi
+          POSTGRES_DB: senzi
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U senzi"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://senzi:senzi@localhost:5432/senzi
+      TEST_DATABASE_URL: postgresql://senzi:senzi@localhost:5432/senzi_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Create test database
+        run: PGPASSWORD=senzi psql -h localhost -U senzi -d senzi -c "CREATE DATABASE senzi_test"
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - name: Migrations apply cleanly
+        run: npx prisma migrate deploy
+      - name: Schema matches migrations
+        run: npx prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma --exit-code
+      - name: Seed runs
+        run: npm run db:seed
+      - run: npm run test:integration
+      - run: npm run build
+
+  e2e:
+    # Needs Clerk test keys stored as repo secrets.
+    if: ${{ vars.RUN_E2E == 'true' }}
+    needs: check
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: senzi
+          POSTGRES_PASSWORD: senzi
+          POSTGRES_DB: senzi
+        ports: ["5432:5432"]
+        options: --health-cmd "pg_isready -U senzi" --health-interval 5s --health-retries 10
+    env:
+      DATABASE_URL: postgresql://senzi:senzi@localhost:5432/senzi
+      NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.CLERK_PUBLISHABLE_KEY }}
+      CLERK_SECRET_KEY: ${{ secrets.CLERK_SECRET_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx prisma migrate deploy && npm run db:seed
+      - run: npx playwright install --with-deps chromium
+      - run: npm run build
+      - run: npm run test:e2e
