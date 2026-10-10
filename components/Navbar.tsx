@@ -3,8 +3,8 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Suspense } from "react";
-import { Search } from "lucide-react";
+import { Suspense, useEffect, useState } from "react";
+import { Building2, House, LineChart, Newspaper, Pencil, Search, type LucideIcon } from "lucide-react";
 import { AuthControls } from "@/components/ui/AuthControls";
 import { openCommandPalette, ShortcutHint } from "@/components/ui/CommandPalette";
 import { NotificationsBell } from "@/components/ui/NotificationsBell";
@@ -13,11 +13,29 @@ import { VcLink } from "@/components/ui/VcLink";
 import { cn } from "@/components/ui/cn";
 import { useRememberedHref } from "@/components/ui/remembered-filters";
 
-const links = [
-  { href: "/markets", label: "Markets" },
-  { href: "/startups", label: "Startups" },
-  { href: "/news", label: "News" },
+interface NavItem {
+  href: string;
+  label: string;
+  icon: LucideIcon;
+  /** Homepage section highlighted while it's in view (the homepage only). */
+  section?: string;
+  /** Exact match only (Home, and in-page links). */
+  exact?: boolean;
+  /** Reopen the listing with its last-used filters. */
+  remember?: boolean;
+}
+
+const links: NavItem[] = [
+  { href: "/", label: "Home", icon: House, section: "top", exact: true },
+  { href: "/markets", label: "Markets", icon: LineChart, section: "explore", remember: true },
+  // "#tutorial" also starts the walkthrough (see HowItWorksTutorial).
+  { href: "/#tutorial", label: "How it works", icon: Pencil, section: "how-it-works", exact: true },
+  { href: "/startups", label: "Startups", icon: Building2, section: "startups", remember: true },
+  { href: "/news", label: "News", icon: Newspaper, remember: true },
 ];
+
+/** Homepage section ids, top to bottom. */
+const HOME_SECTIONS = ["top", "explore", "how-it-works", "startups"];
 
 function isActive(pathname: string | null, href: string) {
   return pathname !== null && (pathname === href || pathname.startsWith(`${href}/`));
@@ -77,30 +95,63 @@ function RoutedNavLinks() {
   return <NavLinks pathname={usePathname()} />;
 }
 
+/** Which homepage section is in view, for highlighting the matching link. */
+function useActiveSection(enabled: boolean) {
+  const [active, setActive] = useState<string | null>(null);
+  useEffect(() => {
+    if (!enabled) return;
+    const visible = new Map<string, number>();
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) visible.set(entry.target.id, entry.isIntersecting ? entry.intersectionRatio : 0);
+        // The topmost section that is meaningfully on screen wins.
+        setActive(HOME_SECTIONS.find((id) => (visible.get(id) ?? 0) > 0.15) ?? null);
+      },
+      { rootMargin: "-72px 0px -40% 0px", threshold: [0, 0.15, 0.4] },
+    );
+    for (const id of HOME_SECTIONS) {
+      const el = document.getElementById(id);
+      if (el) observer.observe(el);
+    }
+    return () => observer.disconnect();
+  }, [enabled]);
+  return enabled ? active : null;
+}
+
 const linkClass =
-  "rounded-full px-3.5 py-1.5 text-sm font-medium text-mist-300 transition-colors duration-200 hover:bg-white/5 hover:text-white";
+  "group inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium text-mist-300 transition-colors duration-200 hover:bg-white/5 hover:text-white";
 
 function NavLinks({ pathname }: { pathname: string | null }) {
+  const onHome = pathname === "/";
+  const section = useActiveSection(onHome);
   return (
     <>
-      {links.map((link) => (
-        <NavLink key={link.href} link={link} pathname={pathname} />
-      ))}
+      {links.map((link) => {
+        const active = onHome
+          ? link.section !== undefined && link.section === section
+          : !link.exact && isActive(pathname, link.href);
+        return <NavLink key={link.href} link={link} active={active} inPage={onHome && active} />;
+      })}
       <VcLink active={isActive(pathname, "/vc")} className={linkClass} />
     </>
   );
 }
 
-/** Opens the listing with its last-used filters. */
-function NavLink({ link, pathname }: { link: (typeof links)[number]; pathname: string | null }) {
-  const href = useRememberedHref(link.href);
+function NavLink({ link, active, inPage }: { link: NavItem; active: boolean; inPage: boolean }) {
+  const remembered = useRememberedHref(link.href);
   return (
     <Link
-      href={href}
-      aria-current={isActive(pathname, link.href) ? "page" : undefined}
-      className={cn(linkClass, isActive(pathname, link.href) && "bg-white/10 text-white")}
+      href={link.remember ? remembered : link.href}
+      aria-current={active ? (inPage ? "location" : "page") : undefined}
+      aria-label={link.label}
+      title={link.label}
+      className={cn(linkClass, active && "bg-white/10 text-white")}
     >
-      {link.label}
+      <link.icon
+        className={cn("size-4 transition-colors", active ? "text-red-500" : "text-mist-400 group-hover:text-white")}
+        aria-hidden
+      />
+      <span className="hidden lg:inline">{link.label}</span>
     </Link>
   );
 }

@@ -1,9 +1,11 @@
+import Image from "next/image";
 import Link from "next/link";
 import { io } from "next/cache";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, Pencil } from "lucide-react";
 import { MarketCard } from "@/components/MarketCard";
 import { NewsFeed } from "@/components/NewsFeed";
 import { StartupCard } from "@/components/StartupCard";
+import { HowItWorksTutorial } from "@/components/tutorial/HowItWorksTutorial";
 import { AllocationBar } from "@/components/ui/AllocationBar";
 import { BiggestMoves } from "@/components/ui/BiggestMoves";
 import { HeroGreeting } from "@/components/ui/HeroGreeting";
@@ -20,15 +22,6 @@ import { getPublicCounts, listBiggestMoves, listFeaturedMarkets } from "@/lib/ma
 import { safe } from "@/lib/market-view/safe";
 import { listNews } from "@/lib/news/queries";
 import { PageTransition, StreamIn } from "@/components/ui/Transitions";
-
-const steps = [
-  { title: "Pick a question", body: "Every market asks a measurable YES or NO question about a startup milestone." },
-  { title: "Allocate credits", body: "Place virtual credits on the outcome you expect. No real money involved." },
-  {
-    title: "Track the outcome",
-    body: "Follow community movement and see results once verified evidence settles each market.",
-  },
-];
 
 const measures = [
   {
@@ -53,43 +46,54 @@ export default function HomePage() {
   return (
     <PageTransition>
       <main id="main" className="flex-1">
-        <Container className="pt-6">
+        <Container id="top" className="scroll-mt-24 pt-6">
           <section className="relative overflow-hidden rounded-[var(--radius-hero)] bg-night text-white">
             <div
               aria-hidden
-              className="dot-grid pointer-events-none absolute inset-0 text-white/[0.12] [mask-image:radial-gradient(ellipse_at_85%_15%,black_10%,transparent_60%)]"
+              className="dot-grid pointer-events-none absolute inset-0 text-white/[0.12] [mask-image:radial-gradient(ellipse_at_50%_30%,black_10%,transparent_65%)]"
             />
             <div
               aria-hidden
-              className="pointer-events-none absolute -right-24 -top-24 size-80 rounded-full bg-red-500/20 blur-3xl"
+              className="pointer-events-none absolute left-1/2 top-10 size-[32rem] -translate-x-1/2 rounded-full bg-red-500/20 blur-3xl motion-safe:animate-[home-glow_9s_ease-in-out_infinite]"
             />
-            <div className="relative grid items-center gap-12 px-6 py-14 sm:px-12 sm:py-20 lg:grid-cols-[1.1fr_1fr]">
-              <div>
-                <HeroGreeting />
-                <h1 className="text-4xl font-bold leading-[1.05] sm:text-6xl">
-                  Forecast what startups do <span className="text-red-500">next.</span>
-                </h1>
-                <p className="mt-5 max-w-lg text-lg text-mist-300">
-                  Allocate virtual credits on measurable startup milestones and see where the community stands.
-                </p>
-                <div className="mt-8 flex flex-wrap gap-3">
-                  <ButtonLink href="/markets" variant="accent" size="lg">
-                    Explore markets <ArrowRight className="size-4" aria-hidden />
-                  </ButtonLink>
-                  <SignInCta variant="inverse">Sign in</SignInCta>
-                </div>
-                <StreamIn fallback={<div className="mt-10 h-12" />}>
-                  <HeroStats />
+            <div className="relative flex flex-col items-center px-6 pb-12 pt-14 text-center sm:px-12 sm:pb-16 sm:pt-20">
+              <HeroGreeting />
+              <Image
+                src="/senzi-logo.png"
+                alt="Senzi"
+                width={1385}
+                height={395}
+                priority
+                className="h-auto w-[min(72vw,520px)] drop-shadow-[0_8px_40px_rgb(255_44_44/0.25)] motion-safe:animate-[home-rise_900ms_cubic-bezier(0.2,0.8,0.2,1)_both]"
+              />
+              <h1 className="mt-8 text-2xl font-bold leading-tight sm:text-4xl motion-safe:animate-[home-rise_900ms_120ms_cubic-bezier(0.2,0.8,0.2,1)_both]">
+                Forecast what startups do <span className="text-red-500">next.</span>
+              </h1>
+              <p className="mt-4 max-w-xl text-base text-mist-300 sm:text-lg motion-safe:animate-[home-rise_900ms_220ms_cubic-bezier(0.2,0.8,0.2,1)_both]">
+                Allocate virtual credits on measurable startup milestones and see where the community stands. No real
+                money, ever.
+              </p>
+              <div className="mt-8 flex flex-wrap justify-center gap-3 motion-safe:animate-[home-rise_900ms_320ms_cubic-bezier(0.2,0.8,0.2,1)_both]">
+                <ButtonLink href="/markets" variant="accent" size="lg">
+                  Explore markets <ArrowRight className="size-4" aria-hidden />
+                </ButtonLink>
+                <ButtonLink href="/#tutorial" variant="inverse" size="lg">
+                  <Pencil className="size-4" aria-hidden /> How it works
+                </ButtonLink>
+              </div>
+              <StreamIn fallback={<div className="mt-10 h-12" />}>
+                <HeroStats />
+              </StreamIn>
+              <div className="mt-12 w-full max-w-xl text-left">
+                <StreamIn fallback={<Skeleton className="h-56 rounded-2xl bg-white/5" />}>
+                  <Spotlight />
                 </StreamIn>
               </div>
-              <StreamIn fallback={<Skeleton className="h-72 rounded-2xl bg-white/5" />}>
-                <Spotlight />
-              </StreamIn>
             </div>
           </section>
         </Container>
 
-        <Container className="py-16 sm:py-20">
+        <Container id="explore" className="home-reveal scroll-mt-24 py-16 sm:py-20">
           <SectionHeading eyebrow="Live" title="Open markets" href="/markets" />
           <StreamIn fallback={<CardGridSkeleton count={6} />}>
             <OpenMarkets />
@@ -100,27 +104,30 @@ export default function HomePage() {
           <Moves />
         </StreamIn>
 
-        <section>
-          <Container className="grid gap-12 py-16 sm:py-20 lg:grid-cols-2">
-            <div>
-              <SectionHeading eyebrow="How it works" title="Three steps" />
-              <ol className="surface-card space-y-6 p-6 sm:p-8">
-                {steps.map((step, index) => (
-                  <li key={step.title} className="flex gap-4">
-                    <span className="font-display text-3xl font-bold leading-none text-red-500 tabular-nums">
-                      {String(index + 1).padStart(2, "0")}
-                    </span>
-                    <div>
-                      <h3 className="font-display font-semibold text-ink-900">{step.title}</h3>
-                      <p className="mt-1 text-sm text-ink-600">{step.body}</p>
-                    </div>
-                  </li>
-                ))}
-              </ol>
+        <section id="how-it-works" className="relative scroll-mt-24 overflow-x-clip">
+          {/* Soft glows instead of a section divider; overflow-x-clip (not hidden) keeps the guide panel sticky. */}
+          <div
+            aria-hidden
+            className="pointer-events-none absolute -right-40 top-24 size-96 rounded-full bg-red-500/[0.07] blur-3xl"
+          />
+          <div
+            aria-hidden
+            className="pointer-events-none absolute -left-48 bottom-24 size-96 rounded-full bg-ink-300/20 blur-3xl"
+          />
+          <Container className="relative py-16 sm:py-20">
+            <div className="home-reveal mx-auto mb-10 max-w-2xl text-center">
+              <p className="mb-1 text-xs font-semibold uppercase tracking-[0.14em] text-red-700">How it works</p>
+              <h2 className="text-3xl font-bold text-ink-900 sm:text-4xl">Do it with us, once</h2>
+              <p className="mt-3 text-ink-600">
+                Forecast on a practice market, step by step. It uses a made-up startup and practice credits, so nothing
+                touches your account.
+              </p>
             </div>
-            <div>
+            <HowItWorksTutorial />
+
+            <div className="home-reveal mt-20">
               <SectionHeading eyebrow="Reading the numbers" title="What each figure means" />
-              <ul className="grid gap-3 sm:grid-cols-2">
+              <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                 {measures.map((measure) => (
                   <li key={measure.name} className="surface-card p-5">
                     <span aria-hidden className={`block w-8 ${measure.swatch}`} />
@@ -133,7 +140,7 @@ export default function HomePage() {
           </Container>
         </section>
 
-        <Container className="grid gap-16 py-16 sm:py-20 lg:grid-cols-[1.4fr_1fr]">
+        <Container id="startups" className="home-reveal grid scroll-mt-24 gap-16 py-16 sm:py-20 lg:grid-cols-[1.4fr_1fr]">
           <div>
             <SectionHeading title="Startups" href="/startups" />
             <StreamIn fallback={<CardGridSkeleton count={4} variant="startup" className="lg:grid-cols-2" />}>
@@ -155,8 +162,10 @@ export default function HomePage() {
               className="pointer-events-none absolute -bottom-24 left-1/2 h-48 w-2/3 -translate-x-1/2 rounded-full bg-red-500/25 blur-3xl"
             />
             <h2 className="relative text-3xl font-bold sm:text-4xl">Start forecasting</h2>
-            <p className="relative mx-auto mt-3 max-w-md text-mist-300">Every account starts with virtual credits.</p>
-            <div className="relative mt-6">
+            <p className="relative mx-auto mt-3 max-w-md text-mist-300">
+              Every account starts with virtual credits. They have no cash value.
+            </p>
+            <div className="relative mt-6 flex flex-wrap justify-center gap-3">
               <SignInCta
                 signedIn={
                   <ButtonLink href="/markets" variant="accent" size="lg">
@@ -166,6 +175,9 @@ export default function HomePage() {
               >
                 Sign in
               </SignInCta>
+              <ButtonLink href="/#tutorial" variant="inverse" size="lg">
+                Try the walkthrough
+              </ButtonLink>
             </div>
           </div>
         </Container>
@@ -179,7 +191,7 @@ async function HeroStats() {
   const counts = await safe(getPublicCounts);
   if (!counts.data) return null;
   return (
-    <dl className="mt-10 flex gap-10">
+    <dl className="mt-10 flex justify-center gap-10">
       <div>
         <dt className="text-xs text-mist-400">Open markets</dt>
         <dd className="font-display text-2xl font-bold tabular-nums">{counts.data.openMarkets}</dd>

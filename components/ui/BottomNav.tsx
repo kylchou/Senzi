@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Suspense } from "react";
 import { SignInButton, UserButton, useAuth } from "@clerk/nextjs";
-import { Building2, Home, LineChart, Search, User } from "lucide-react";
+import { Building2, Home, LineChart, Pencil, Search, User } from "lucide-react";
 import { cn } from "./cn";
 import { openCommandPalette } from "./CommandPalette";
 import { useRememberedHref } from "./remembered-filters";
@@ -13,6 +13,8 @@ const tabs = [
   { href: "/", label: "Home", Icon: Home, exact: true },
   { href: "/markets", label: "Markets", Icon: LineChart, exact: false },
   { href: "/startups", label: "Startups", Icon: Building2, exact: false },
+  // Opens the homepage walkthrough (see HowItWorksTutorial).
+  { href: "/#tutorial", label: "Learn", Icon: Pencil, exact: true },
 ];
 
 const itemClass =
