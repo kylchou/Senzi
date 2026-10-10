@@ -48,7 +48,9 @@ export default async function AdminMarketPage({ params }: PageProps<"/admin/mark
         <dl className="grid grid-cols-2 gap-4 text-sm sm:grid-cols-4">
           <div>
             <dt className="text-zinc-500">Opening baseline</dt>
-            <dd className="text-lg font-medium">{percent(market.openingBaseline)}</dd>
+            <dd className="text-lg font-medium">
+              {market.openingBaseline != null ? percent(market.openingBaseline) : "Not set"}
+            </dd>
           </div>
           <div>
             <dt className="text-zinc-500">Community allocation (YES share of credits)</dt>
@@ -108,13 +110,17 @@ export default async function AdminMarketPage({ params }: PageProps<"/admin/mark
       {resolvable && (
         <Section title="Resolve">
           <ActionForm action={resolveMarketAction.bind(null, market.id)} submitLabel="Record resolution" tone="danger">
-            <p className="text-sm text-zinc-600 dark:text-zinc-400">
-              Criteria: <span className="whitespace-pre-wrap">{market.resolutionCriteria}</span>
-            </p>
+            <div className="space-y-1 text-sm text-zinc-600 dark:text-zinc-400">
+              <p>YES if: <span className="whitespace-pre-wrap">{market.yesCriteria}</span></p>
+              <p>NO if: <span className="whitespace-pre-wrap">{market.noCriteria}</span></p>
+            </div>
             <Select
               label="Outcome"
               name="outcome"
-              options={Object.values(ResolutionOutcome).map((o) => ({ value: o, label: o }))}
+              options={Object.values(ResolutionOutcome).map((o) => ({
+                value: o,
+                label: o === ResolutionOutcome.VOID ? "VOID (refund all stakes)" : o,
+              }))}
             />
             <TextArea label="Evidence summary" name="evidenceSummary" required hint="How the evidence meets (or fails) the criteria." />
             <TextArea label="Evidence links" name="evidenceUrls" required rows={3} hint="One URL per line." />

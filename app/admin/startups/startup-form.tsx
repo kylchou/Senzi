@@ -20,9 +20,9 @@ export function StartupForm({
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Name" name="name" required defaultValue={startup?.name} />
         <Field label="Slug" name="slug" required defaultValue={startup?.slug} hint="lowercase-with-hyphens" />
-        <Field label="Sector" name="sector" required defaultValue={startup?.sector} />
+        <Field label="Industry" name="industry" required defaultValue={startup?.industry} />
         <Select label="Stage" name="stage" options={stageOptions} defaultValue={startup?.stage ?? StartupStage.SEED} />
-        <Field label="Website" name="website" type="url" defaultValue={startup?.website ?? ""} />
+        <Field label="Website" name="websiteUrl" type="url" defaultValue={startup?.websiteUrl ?? ""} />
         <Field label="Logo URL" name="logoUrl" type="url" defaultValue={startup?.logoUrl ?? ""} />
         <Field label="Founded" name="foundedYear" type="number" defaultValue={startup?.foundedYear ?? ""} />
         <Field label="Headquarters" name="headquarters" defaultValue={startup?.headquarters ?? ""} />
