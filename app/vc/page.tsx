@@ -72,7 +72,7 @@ export default async function VcDashboardPage({
           href="/vc/studies/new"
           className="rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-700 dark:bg-slate-100 dark:text-slate-900"
         >
-          Propose a study
+          Ask a question
         </Link>
       </header>
 
@@ -129,7 +129,7 @@ export default async function VcDashboardPage({
         </div>
 
         {d.activeStudies.length === 0 ? (
-          <EmptyState title="No open studies" action={{ href: "/vc/studies/new", label: "Propose a study" }}>
+          <EmptyState title="No open studies" action={{ href: "/vc/studies/new", label: "Ask a question" }}>
             Studies open for forecasting after platform review.
           </EmptyState>
         ) : activeStudies.length === 0 && filtered ? (
@@ -197,19 +197,25 @@ export default async function VcDashboardPage({
 
         <Section
           id="watch"
-          title="Watchlists"
-          actions={<Link href="/vc/watchlists" className="text-sm underline">Manage</Link>}
+          title="Following"
+          actions={<Link href="/vc/companies" className="text-sm underline">Companies</Link>}
         >
-          {d.watchlistSummary.length === 0 ? (
-            <p className="text-sm text-slate-500 dark:text-slate-400">No watchlists yet.</p>
+          {d.following.startups.length === 0 && d.following.studyCount === 0 ? (
+            <p className="text-sm text-slate-500 dark:text-slate-400">Not following anything yet. Find a company under Companies to follow it.</p>
           ) : (
             <ul className="space-y-1 text-sm">
-              {d.watchlistSummary.map((w) => (
-                <li key={w.id} className="flex justify-between">
-                  <span>{w.name}</span>
-                  <span className="text-slate-500">{w.itemCount} followed</span>
+              {d.following.startups.map((s) => (
+                <li key={s.id}>
+                  <Link href={`/vc/companies/${s.id}`} className="hover:underline">
+                    {s.name}
+                  </Link>
                 </li>
               ))}
+              {d.following.studyCount > 0 && (
+                <li className="text-slate-500">
+                  {d.following.studyCount} question{d.following.studyCount === 1 ? "" : "s"} followed
+                </li>
+              )}
             </ul>
           )}
         </Section>

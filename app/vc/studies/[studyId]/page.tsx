@@ -36,9 +36,9 @@ export default async function StudyPage({ params }: { params: Promise<{ studyId:
   const freshness = describeFreshness(estimate, study.status, now);
   const uncertainty = describeUncertainty(estimate, history, freshness);
 
-  const [notes, watchlists] = await Promise.all([
+  const [notes, following] = await Promise.all([
     permissions.canViewPrivate ? services.studies.listNotes(ctx, studyId) : Promise.resolve([]),
-    services.watchlists.listForPicker(ctx),
+    services.watchlists.isFollowing(ctx, { type: "STUDY", studyId }),
   ]);
   const authorIds = [...new Set([...notes.map((n) => n.authorId), ...events.map((e) => e.actorId).filter(Boolean)])];
   const authors = Object.fromEntries(
@@ -76,7 +76,7 @@ export default async function StudyPage({ params }: { params: Promise<{ studyId:
               Report
             </Link>
           )}
-          {watchlists && <FollowButton target={{ type: "STUDY", studyId: study.id }} watchlists={watchlists} />}
+          {following !== null && <FollowButton target={{ type: "STUDY", studyId: study.id }} following={following} />}
         </div>
       </header>
 

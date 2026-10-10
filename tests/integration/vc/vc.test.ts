@@ -319,7 +319,7 @@ describe("adapters", () => {
     expect((await deps.platform.getStartups([w.startup.id]))[0]).toMatchObject({ id: w.startup.id, industry: "Testing" });
   });
 
-  it("dedupes alerts and keeps watchlist names unique per firm", async () => {
+  it("dedupes alerts and keeps each firm's watchlist to itself", async () => {
     const w = await world();
     const alert = { organizationId: w.orgA.id, type: "DEADLINE_APPROACHING" as const, title: "t", body: "b", dedupeKey: "k1" };
     expect(await deps.repo.createAlerts([alert])).toHaveLength(1);
@@ -328,9 +328,11 @@ describe("adapters", () => {
     expect(await services.alerts.unreadCount(w.ctx.analystA)).toBe(0);
     expect(await services.alerts.unreadCount(w.ctx.ownerA)).toBe(1);
 
-    await services.watchlists.create(w.ctx.analystA, "Core");
-    await expectCode(services.watchlists.create(w.ctx.analystA, "Core"), "CONFLICT");
-    expect(await services.watchlists.list(w.ctx.ownerB)).toEqual([]);
+    await services.watchlists.follow(w.ctx.analystA, { type: "STARTUP", startupId: w.startup.id });
+    await services.watchlists.follow(w.ctx.ownerA, { type: "STARTUP", startupId: w.startup.id });
+    expect(await db.watchlistItem.count()).toBe(1);
+    expect((await services.watchlists.overview(w.ctx.analystA)).followed.map((x) => x.startup.id)).toEqual([w.startup.id]);
+    expect((await services.watchlists.overview(w.ctx.ownerB)).followed).toEqual([]);
   });
 });
 
