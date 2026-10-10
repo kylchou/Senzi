@@ -57,8 +57,12 @@ describe("user provisioning", () => {
 
 describe("account types", () => {
   it("takes the type chosen at signup", async () => {
-    const user = await provisionUser(identity({ accountType: "TRADER" }));
-    expect(user.accountType).toBe("TRADER");
+    const trader = await provisionUser(identity({ accountType: "TRADER" }));
+    expect(trader.accountType).toBe("TRADER");
+    expect(trader.accountVerifiedAt).not.toBeNull();
+    // VCs wait for review.
+    const vc = await provisionUser(identity({ authId: "user_vc", email: "vc@fund.example", accountType: "VC" }));
+    expect(vc.accountVerifiedAt).toBeNull();
   });
 
   it("keeps a pending invite's VC type, and fills it only when empty", async () => {
@@ -84,8 +88,10 @@ describe("account types", () => {
   it("ignores junk metadata and routes each type home", () => {
     expect(parseAccountType("ADMIN")).toBeNull();
     expect(parseAccountType(undefined)).toBeNull();
-    expect(homePathFor("VC")).toBe("/vc");
-    expect(homePathFor("TRADER")).toBe("/profile");
-    expect(homePathFor(null)).toBe("/onboarding");
+    const now = new Date();
+    expect(homePathFor({ accountType: "VC", accountVerifiedAt: now })).toBe("/vc");
+    expect(homePathFor({ accountType: "VC", accountVerifiedAt: null })).toBe("/onboarding");
+    expect(homePathFor({ accountType: "TRADER", accountVerifiedAt: now })).toBe("/profile");
+    expect(homePathFor({ accountType: null, accountVerifiedAt: null })).toBe("/onboarding");
   });
 });

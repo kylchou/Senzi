@@ -29,6 +29,7 @@ import {
   retrySettlement,
 } from "@/lib/resolutions";
 import { requirePlatformAdmin } from "@/lib/auth";
+import { reviewVcVerification } from "@/lib/verification";
 import type { SessionUser, ValidationIssue } from "@/lib/types";
 import {
   adminCreditAdjustmentSchema,
@@ -41,6 +42,7 @@ import {
   proposeResolutionSchema,
   rejectProposalSchema,
   startupFactSchema,
+  reviewVerificationSchema,
   setAccountTypeSchema,
   setPlatformRoleSchema,
   updateMarketSchema,
@@ -303,6 +305,14 @@ export async function setAccountTypeAction(_: ActionState, fd: FormData): Promis
         setAccountTypeSchema.parse({ accountType: text(fd, "accountType"), reason: text(fd, "reason") }),
       ),
     "Account type updated",
+  );
+}
+
+export async function reviewVerificationAction(requestId: string, _: ActionState, fd: FormData): Promise<ActionState> {
+  return run(
+    (admin) =>
+      reviewVcVerification(admin, requestId, reviewVerificationSchema.parse({ decision: text(fd, "decision"), note: text(fd, "note") })),
+    "Decision saved",
   );
 }
 

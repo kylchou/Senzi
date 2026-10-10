@@ -20,6 +20,7 @@ export const RATE_LIMITS = {
   orgCreate: { limit: 5, windowSeconds: 60 * 60 },
   orgInvite: { limit: 30, windowSeconds: 60 * 60 },
   profileUpdate: { limit: 30, windowSeconds: 60 * 60 },
+  verificationSubmit: { limit: 5, windowSeconds: 24 * 60 * 60 },
   creditAdjust: { limit: 60, windowSeconds: 60 * 60 },
   resolutionReview: { limit: 60, windowSeconds: 60 * 60 },
   forecastSubmit: { limit: 60, windowSeconds: 60 },

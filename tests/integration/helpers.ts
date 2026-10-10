@@ -17,7 +17,7 @@ export async function resetDatabase() {
 }
 
 export async function makeUser(
-  opts: { admin?: boolean; credits?: boolean; name?: string; accountType?: AccountType | null } = {},
+  opts: { admin?: boolean; credits?: boolean; name?: string; accountType?: AccountType | null; verified?: boolean } = {},
 ): Promise<SessionUser> {
   const tag = randomUUID().slice(0, 8);
   const user = await db.user.create({
@@ -27,8 +27,9 @@ export async function makeUser(
       displayName: opts.name ?? `User ${tag}`,
       platformRole: opts.admin ? PlatformRole.ADMIN : PlatformRole.USER,
       accountType: opts.accountType === undefined ? AccountType.TRADER : opts.accountType,
+      accountVerifiedAt: opts.verified === false || opts.accountType === null ? null : new Date(),
     },
-    select: { id: true, authId: true, email: true, username: true, displayName: true, avatarUrl: true, platformRole: true, accountType: true },
+    select: { id: true, authId: true, email: true, username: true, displayName: true, avatarUrl: true, platformRole: true, accountType: true, accountVerifiedAt: true },
   });
   if (opts.credits !== false) await db.$transaction((tx) => grantSignupCredits(tx, user.id));
   return user;
