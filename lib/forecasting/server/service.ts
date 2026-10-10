@@ -7,6 +7,7 @@ import "server-only";
 import { ApiError } from "@/lib/api-response";
 import { createCreditLedger } from "@/lib/credit-ledger";
 import { db, type TxClient } from "@/lib/db";
+import { isVerifiedUserOf } from "@/lib/product-verification";
 import { createForecastingEngine, type ForecastingEngine } from "../engine";
 import { ForecastingError, type ForecastingErrorCode } from "../errors";
 import { createLmsrRule, createLmsrSettlement } from "../lmsr-pricing";
@@ -14,11 +15,13 @@ import type { Clock, TraderDirectory } from "../ports";
 import { systemClock, uuidIds } from "../adapters/simple";
 import { PrismaForecastRepository, PrismaLockManager } from "./prisma-repository";
 
-/** Nobody is a verified product user until the verification service exists (docs/API.md). */
-const noVerifiedUsers: TraderDirectory = {
-  isVerifiedUserOf: async () => false,
-  hasConflictOfInterest: async () => false,
-};
+/** Verified product users come from lib/product-verification.ts. Conflicts aren't tracked yet. */
+function tradersFor(tx: TxClient): TraderDirectory {
+  return {
+    isVerifiedUserOf: (userId, companyId) => isVerifiedUserOf(userId, companyId, tx),
+    hasConflictOfInterest: async () => false,
+  };
+}
 
 /**
  * Ky's ledger doesn't accept market-maker entries yet, so stakes and payouts
@@ -36,7 +39,7 @@ export function engineFor(tx: TxClient, clock: Clock = systemClock): Forecasting
     locks: new PrismaLockManager(tx),
     clock,
     ids: uuidIds,
-    traders: noVerifiedUsers,
+    traders: tradersFor(tx),
     settlementAuthorizer: { isAuthorizedResolutionCaller: (a) => a.kind === "service" && a.serviceId === MARKET_MAKER_SERVICE },
     estimateRule: createLmsrRule(),
     settlementModel: createLmsrSettlement(),

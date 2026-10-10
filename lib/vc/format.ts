@@ -65,3 +65,20 @@ export const ALERT_TYPE_LABELS: Record<AlertType, { label: string; icon: string 
   STUDY_RESOLVED: { label: "Resolved", icon: "✓" },
   STUDY_STATUS_CHANGED: { label: "Status change", icon: "●" },
 };
+
+const compact = new Intl.NumberFormat("en-US", { notation: "compact", maximumFractionDigits: 1 });
+
+/** An indicator value in its unit: "#1,840" for ranks, "$12M" for USD, "1.2M downloads" otherwise. */
+export function formatIndicatorValue(value: number | null | undefined, unit: string): string {
+  if (value == null || Number.isNaN(value)) return "—";
+  if (unit === "rank") return `#${Math.round(value).toLocaleString("en-US")}`;
+  if (unit === "USD") return `$${compact.format(value)}`;
+  return `${value >= 10_000 ? compact.format(value) : value.toLocaleString("en-US")} ${unit}`;
+}
+
+/** Relative change as a signed percentage, e.g. "+12.3%". */
+export function formatRelativeChange(change: number | null | undefined): string {
+  if (change == null || Number.isNaN(change)) return "—";
+  const pct = change * 100;
+  return `${pct > 0 ? "+" : pct < 0 ? "−" : "±"}${Math.abs(pct).toFixed(1)}%`;
+}

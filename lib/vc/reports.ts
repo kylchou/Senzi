@@ -215,7 +215,8 @@ export function csvCell(value: unknown): string {
 
 export function reportToCsv(r: StudyReport): string {
   // Saved v1 documents can predate LMSR. Preserve their original meaning.
-  const priceField = r.communityEstimate?.label.includes("LMSR") ? "general_lmsr_price" : "community_yes_allocation_share";
+  const label = r.communityEstimate?.label ?? "";
+  const priceField = label.includes("LMSR") || label.includes("Crowd price") ? "general_lmsr_price" : "community_yes_allocation_share";
   const rows: unknown[][] = [
     ["field", "value"],
     ["question", r.study.question],

@@ -39,6 +39,7 @@ const summary = (id: string, share: number | null): MarketSummary => ({
   question: id,
   status: "OPEN",
   closesAt: at(30),
+  verifiedUsersOnly: false,
   startup: { slug: "s", name: "S", industry: "AI", logoUrl: null },
   openingBaseline: 0.5,
   allocation: { share, yesCredits: 0, noCredits: 0, forecastCount: 0 },
