@@ -68,14 +68,7 @@ Back-relations on `User`: `assignedAlerts VcAlert[] @relation("VcAlertAssignee")
 
 Personal inbox copies currently reuse `MARKET_CLOSING` (deadlines), `MARKET_RESOLVED` (resolutions) and `SYSTEM` (movements and status changes). Please add `VC_ALERT` to `NotificationType`, so the bell can group and filter them. The VC alert id is already in `Notification.data.vcAlertId`.
 
-## Felix: make `lib/model` and `lib/forecasting` bundleable by Next.js
+## Done
 
-Relative imports in both folders end in `.js` (for example `from './store.js'`). Vitest and `tsx` resolve those to the `.ts` files, but Next.js 16's bundler (Turbopack) doesn't, so `next build` fails as soon as an app route imports either module. Nothing imported them until now.
-
-- **Fix:** drop the `.js` suffix on relative imports (`'./store.js'` → `'./store'`). I checked in a scratch copy: after that change in `lib/model`, `next build` passes with the comparison page reading real indicators.
-- **What waits on it:** public indicators on the startup comparison page. `lib/vc/server/indicators-adapter.ts` is written and tested against the real model data. Until the fix lands, the app uses a placeholder that shows "temporarily unavailable". Switching over is one line in `lib/vc/server/container.ts`.
-- **`lib/forecasting`:** the same applies before any app code can call the engine. The comparison only uses `stats.ts`, which has no relative imports, so it already builds.
-
-## Kyler: AI research assistant dependency
-
-See [`AI_RESEARCH_ASSISTANT.md`](./AI_RESEARCH_ASSISTANT.md). Before building, it needs approval to add `@anthropic-ai/sdk` to `package.json`, an `ANTHROPIC_API_KEY` in the deployment environment, and a decision on data retention with Anthropic.
+- **Felix: `lib/model` bundleable by Next.js.** Fixed on `dev` in 73d9016 (dropped the `.js` suffixes). The comparison page now reads real indicators through `lib/vc/server/indicators-adapter.ts`.
+- **AI research assistant.** Built as Tyche on the Meta Model API with plain `fetch`, so no new dependency was needed. The deployment needs `SENZI_AI_ASSISTANT_API_KEY`.

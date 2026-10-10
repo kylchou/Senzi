@@ -17,6 +17,7 @@ import type {
   StudyNote,
 } from "../types";
 import { computeConflictFlags } from "./flags";
+import { studyKeyStats } from "./stats";
 import type { ContextPackage, DataTier, EvidenceItem, OmittedEvidence } from "./types";
 
 /** Most items of each kind sent with one question; newest first. */
@@ -239,6 +240,7 @@ export function buildStudyContext(input: StudyContextInput): ContextPackage {
   let change7d: { value: number; fromId: string | null; toId: string | null } | null = null;
   let currentId: string | null = null;
   let calibratedId: string | null = null;
+  let firstPoint: { id: string; share: number; forecasters: number; at: Date } | null = null;
   if (estimate && study.marketId) {
     const current = estimateItem(study.marketId, estimate, `${studyHref}#estimates`);
     currentId = current.id;
@@ -284,6 +286,9 @@ export function buildStudyContext(input: StudyContextInput): ContextPackage {
     if (sorted.length > picked.size) {
       omitted.push({ kind: "community_estimate", count: sorted.length - picked.size, reason: "Only the earliest, 7-day-ago and latest snapshots are included." });
     }
+    if (first && first.id !== latest?.id) {
+      firstPoint = { id: `snapshot:${first.id}`, share: first.yesShare!, forecasters: first.participantCount, at: first.at };
+    }
     if (latest && weekAgo && latest.id !== weekAgo.id) {
       change7d = { value: latest.yesShare! - weekAgo.yesShare!, fromId: `snapshot:${weekAgo.id}`, toId: `snapshot:${latest.id}` };
     }
@@ -326,6 +331,21 @@ export function buildStudyContext(input: StudyContextInput): ContextPackage {
   } else if (input.notesOmittedReason) {
     omitted.push({ kind: "firm_note", count: 0, reason: input.notesOmittedReason });
   }
+
+  const stats = studyKeyStats({
+    id: `stats:${study.id}`,
+    href: `${studyHref}#estimates`,
+    now,
+    status: study.status,
+    deadline: study.deadline,
+    current: estimate && currentId ? { id: currentId, share: estimate.allocation.yesShare, forecasters: estimate.participantCount } : null,
+    baseline: baseline.value != null ? { id: baselineId, value: baseline.value } : null,
+    first: firstPoint,
+    change7d,
+    facts: facts.map((f) => ({ id: `fact:${f.id}`, verified: f.verified, asOf: f.asOf })),
+    news: news.map((n) => ({ id: `news:${n.id}`, verification: n.verification, publishedAt: n.publishedAt })),
+  });
+  if (stats) items.push(stats);
 
   items.push(
     ...computeConflictFlags({

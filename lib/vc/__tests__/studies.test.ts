@@ -254,3 +254,33 @@ describe("access control through the service", () => {
     await expectCode(s.services.studies.listReviewQueue(users.ownerA), "FORBIDDEN");
   });
 });
+
+describe("study page evidence", () => {
+  it("includes the startup's public facts and news with their verification status", async () => {
+    const s = setup();
+    const study = await openStudy(s);
+    s.platform.state.facts.push({
+      id: "f1", startupId: study.startupId, label: "Series B", value: "$40M", sourceName: "TechCrunch",
+      sourceUrl: "https://example.com/b", asOf: new Date(NOW.getTime() - 200 * DAY), verified: true,
+    });
+    s.platform.state.news.push({
+      id: "n1", startupId: study.startupId, title: "Contract signed", summary: null, publisher: "Wire",
+      url: "https://example.com/n", publishedAt: new Date(NOW.getTime() - 3 * DAY), verification: "DISPUTED",
+    });
+    const detail = await s.services.studies.get(users.analystA, study.id);
+    expect(detail.evidence.facts.map((f) => [f.id, f.verified])).toEqual([["f1", true]]);
+    expect(detail.evidence.news.map((n) => [n.id, n.verification])).toEqual([["n1", "DISPUTED"]]);
+  });
+
+  it("shows nothing about unpublished startups and nothing to people who can't view the study", async () => {
+    const s = setup();
+    const study = await openStudy(s, { visibility: "ORGANIZATION" });
+    s.platform.state.facts.push({
+      id: "f1", startupId: study.startupId, label: "Series B", value: "$40M", sourceName: "TechCrunch",
+      sourceUrl: "https://example.com/b", asOf: NOW, verified: true,
+    });
+    await expectCode(s.services.studies.get(users.analystB, study.id), "NOT_FOUND");
+    s.platform.state.startups.find((x) => x.id === study.startupId)!.isPublished = false;
+    expect((await s.services.studies.get(users.analystA, study.id)).evidence.facts).toEqual([]);
+  });
+});

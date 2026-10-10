@@ -10,7 +10,7 @@ Credits are virtual. They can't be bought, cashed out, or withdrawn, and forecas
 |---|---|---|
 | Kyler | Backend, database & security | `prisma/`, `lib/{db,auth,permissions,validation,api-response,credits,admin,types,audit,organizations,users}.ts`, `app/api/{users,organizations,admin}/`, `app/admin/`, shared config and CI |
 | Felix | Forecasting engine & analytics | Forecast submission, probability history, portfolios, leaderboards, settlement |
-| Darsh | VC intelligence | Private dashboards, studies, watchlists, alerts, reports |
+| Darsh | VC intelligence | Private dashboards, studies, watchlists, alerts, reports, AI assistant Tyche |
 | Sahil | Community UI & design | Homepage, startup directory, markets, search, news, forecasting UI, public read APIs |
 
 Schema changes go through Kyler. Open an issue or ping him instead of editing `prisma/schema.prisma` yourself.
