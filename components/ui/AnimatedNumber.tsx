@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { motionReduced } from "./a11y/preferences";
 import { cn } from "./cn";
 
 type Kind = "share" | "count";
@@ -10,8 +11,6 @@ function format(value: number | null, kind: Kind): string {
   return kind === "share" ? `${Math.round(value * 100)}%` : new Intl.NumberFormat("en-US").format(Math.round(value));
 }
 
-const prefersReducedMotion = () =>
-  typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 /**
  * A number that counts to its new value and briefly highlights when it
@@ -34,7 +33,7 @@ export function AnimatedNumber({
   // Adjust state while rendering when the value prop changes (no effect needed).
   if (value !== previous) {
     setPrevious(value);
-    if (previous !== null && value !== null && !prefersReducedMotion()) {
+    if (previous !== null && value !== null && !motionReduced()) {
       setTween({ from: previous, to: value, id: (tween?.id ?? 0) + 1 });
       setCurrent(previous);
     } else {

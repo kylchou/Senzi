@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useId, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { useFocusTrap } from "./a11y/useFocusTrap";
 import { ArrowRight, Building2, Clock, CornerDownLeft, LineChart, Search, X } from "lucide-react";
 import { formatShare } from "@/lib/market-view/format";
 import { cn } from "./cn";
@@ -63,6 +64,8 @@ export function CommandPalette() {
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
   const restoreFocus = useRef<HTMLElement | null>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(dialogRef, open);
   const listId = useId();
   const [query, setQuery] = useState("");
   const [hits, setHits] = useState<{ markets: MarketHit[]; startups: StartupHit[] } | null>(null);
@@ -213,6 +216,7 @@ export function CommandPalette() {
         className="absolute inset-0 animate-[vt-fade_150ms_ease-out] bg-ink-950/40 backdrop-blur-sm dark:bg-black/60"
       />
       <div
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-label="Search markets and startups"

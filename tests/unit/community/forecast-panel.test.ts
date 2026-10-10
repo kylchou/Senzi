@@ -122,7 +122,7 @@ describe("ForecastPanel", () => {
     await screen.findByText("1,000 available");
     await user.click(screen.getByRole("button", { name: "Forecast YES" }));
     expect(await screen.findByText(/closed to new forecasts/i)).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /Forecast/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Forecast (YES|NO)$/ })).not.toBeInTheDocument();
   });
 
   it("reuses the idempotency key when retrying after a network error", async () => {

@@ -55,6 +55,15 @@ describe("submitForecast", () => {
   });
 });
 
+describe("receipt from the LMSR forecast API", () => {
+  it("accepts a null balance and reads the General Users estimate after", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      json(201, { data: { ...receipt, balanceAfter: null, priceBefore: 0.4, priceAfter: 0.43, shares: 30, sequence: 4, replayed: false, digest: "x" } }),
+    );
+    await expect(submitForecast(input)).resolves.toMatchObject({ balanceAfter: null, priceAfter: 0.43 });
+  });
+});
+
 describe("fetchBalance", () => {
   it("reads creditBalance from GET /api/users/me", async () => {
     const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(json(200, { data: { creditBalance: 1000 } }));
