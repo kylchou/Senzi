@@ -18,7 +18,7 @@ import {
   type EngineOptions,
   type Market,
   type SettlementModel,
-} from '../index.js';
+} from '../index';
 
 /** Fraction of forecasts (by count, not amount) on YES. Null for an empty market. */
 export const countShareRule: CommunityEstimateRule = {

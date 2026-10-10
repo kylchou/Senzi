@@ -2,10 +2,10 @@
 // per model update, and at settlement. Feeds the three-line chart, reports and
 // calibration analysis.
 
-import { ForecastingError } from './errors.js';
-import { computeLine, verifiedOnly } from './estimates.js';
-import type { CommunityEstimateRule } from './ports.js';
-import type { EstimateKind, Forecast, Market, MarketSnapshot, SnapshotTrigger } from './types.js';
+import { ForecastingError } from './errors';
+import { computeLine, verifiedOnly } from './estimates';
+import type { CommunityEstimateRule } from './ports';
+import type { EstimateKind, Forecast, Market, MarketSnapshot, SnapshotTrigger } from './types';
 
 export function buildSnapshot(params: {
   market: Market;
@@ -38,6 +38,12 @@ export function buildSnapshot(params: {
     estimateRuleId: rule?.id ?? null,
     estimateKind: rule?.kind ?? null,
   };
+}
+
+/** Next snapshot number for a market. Uses the highest existing number, since other code (e.g. market opening) also writes snapshots. */
+export async function nextSnapshotSequence(repo: { listSnapshots(marketId: string): Promise<MarketSnapshot[]> }, marketId: string): Promise<number> {
+  const snaps = await repo.listSnapshots(marketId);
+  return snaps.reduce((m, s) => Math.max(m, s.sequence), 0) + 1;
 }
 
 export interface HistoryQuery {

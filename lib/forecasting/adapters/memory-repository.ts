@@ -1,6 +1,6 @@
-import { ForecastingError } from '../errors.js';
-import type { ForecastRepository } from '../ports.js';
-import type { Forecast, Market, MarketSnapshot, SettlementRecord } from '../types.js';
+import { ForecastingError } from '../errors';
+import type { ForecastRepository } from '../ports';
+import type { Forecast, Market, MarketSnapshot, SettlementRecord } from '../types';
 
 const copy = <T>(v: T): T => structuredClone(v);
 

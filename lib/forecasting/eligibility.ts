@@ -2,9 +2,9 @@
 // sponsors can't trade on their own questions, and employees, advisors and
 // investors can't trade on their company.
 
-import type { EngineConfig } from './config.js';
-import type { TraderDirectory } from './ports.js';
-import type { Market } from './types.js';
+import type { EngineConfig } from './config';
+import type { TraderDirectory } from './ports';
+import type { Market } from './types';
 
 export type IneligibleReason = 'SPONSOR_OF_MARKET' | 'CONFLICT_OF_INTEREST' | 'NOT_VERIFIED';
 
