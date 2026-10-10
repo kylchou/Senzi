@@ -74,11 +74,10 @@ export function Navbar() {
           <button
             type="button"
             onClick={openCommandPalette}
-            aria-label="Search"
             className="hidden h-9 items-center gap-2 rounded-full border border-white/10 bg-white/5 pl-3 pr-2 text-sm text-mist-300 transition-colors hover:border-white/20 hover:text-white md:flex"
           >
             <Search className="size-4" aria-hidden />
-            <span className="hidden pr-6 xl:inline">Search</span>
+            <span className="pr-6">Search</span>
             <ShortcutHint className="rounded border border-white/15 px-1.5 py-0.5 font-sans text-[10px] font-semibold text-mist-400" />
           </button>
           <ThemeToggle />

@@ -33,6 +33,9 @@ import {
   type TutorialStep,
 } from "@/lib/tutorial/sandbox";
 
+/** Red that stays readable as small text on the charcoal (night) panel: ~5.9:1. */
+const RED_ON_NIGHT = "text-[#ff7a7a]";
+
 /** Links to "#tutorial" (e.g. the navbar pencil) start the walkthrough. */
 export const TUTORIAL_HASH = "#tutorial";
 
@@ -419,7 +422,7 @@ export function HowItWorksTutorial() {
           {started ? (
             <>
               <div className="flex items-center justify-between gap-3">
-                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-red-500">
+                <p className={cn("text-xs font-semibold uppercase tracking-[0.14em]", RED_ON_NIGHT)}>
                   Step {stepIndex + 1} of {TUTORIAL_STEPS.length}
                 </p>
                 <button type="button" onClick={exit} className="rounded-full p-1.5 text-mist-400 hover:bg-white/10 hover:text-white" aria-label="Exit walkthrough">
@@ -480,12 +483,12 @@ export function HowItWorksTutorial() {
             </>
           ) : (
             <>
-              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-red-500">How it works</p>
+              <p className={cn("text-xs font-semibold uppercase tracking-[0.14em]", RED_ON_NIGHT)}>How it works</p>
               <h3 id={titleId} className="mt-2 text-2xl font-bold">Learn by doing</h3>
               <ol className="mt-4 space-y-3 text-sm text-mist-300">
                 {["Read a YES/NO question and how it resolves", "Pick a side and allocate practice credits", "Watch the market resolve and pay out"].map((t, i) => (
                   <li key={t} className="flex gap-3">
-                    <span className="font-display font-extrabold text-red-500 tabular-nums">{String(i + 1).padStart(2, "0")}</span>
+                    <span className={cn("font-display font-extrabold tabular-nums", RED_ON_NIGHT)}>{String(i + 1).padStart(2, "0")}</span>
                     {t}
                   </li>
                 ))}
