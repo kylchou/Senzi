@@ -43,10 +43,9 @@ describe("market rules", () => {
     expect(canTransitionMarket("DRAFT", "CLOSED")).toBe(false);
   });
 
-  it("freezes terms once a market has forecasts", () => {
-    expect(termsAreEditable({ status: "DRAFT", forecastCount: 0 })).toBe(true);
-    expect(termsAreEditable({ status: "OPEN", forecastCount: 0 })).toBe(true);
-    expect(termsAreEditable({ status: "OPEN", forecastCount: 3 })).toBe(false);
-    expect(termsAreEditable({ status: "CLOSED", forecastCount: 0 })).toBe(false);
+  it("freezes terms as soon as a market opens", () => {
+    expect(termsAreEditable({ status: "DRAFT" })).toBe(true);
+    expect(termsAreEditable({ status: "OPEN" })).toBe(false);
+    expect(termsAreEditable({ status: "CLOSED" })).toBe(false);
   });
 });

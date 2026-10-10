@@ -1,5 +1,5 @@
 import type { NewsItem } from "@/generated/prisma/client";
-import { NewsVerification } from "@/generated/prisma/enums";
+import { NewsVerification, SourceLicense } from "@/generated/prisma/enums";
 import type { ActionState } from "../actions";
 import { ActionForm } from "../_components/action-form";
 import { Field, Select, TextArea, toUtcInputValue } from "../_components/ui";
@@ -36,6 +36,12 @@ export function NewsForm({
         <Field label="Published (UTC)" name="publishedAt" type="datetime-local" required defaultValue={toUtcInputValue(item?.publishedAt)} />
       </div>
       <TextArea label="Summary" name="summary" rows={3} defaultValue={item?.summary ?? ""} />
+      <Select
+        label="What we may do with it"
+        name="license"
+        defaultValue={item?.license ?? SourceLicense.LINK_ONLY}
+        options={Object.values(SourceLicense).map((v) => ({ value: v, label: v.replace(/_/g, " ").toLowerCase() }))}
+      />
       <Select
         label="Verification"
         name="verification"

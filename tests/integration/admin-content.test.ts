@@ -36,12 +36,17 @@ describe("startup facts", () => {
     const admin = await makeAdmin();
     const startup = await makeStartup();
     const created = await createStartupFact(admin, startup.id, fact);
-    expect(created.verified).toBe(false);
+    expect(created).toMatchObject({ verified: false, license: "LINK_ONLY", verifiedAt: null });
 
-    await updateStartupFact(admin, created.id, { verified: true });
+    const verified = await updateStartupFact(admin, created.id, { verified: true });
+    expect(verified.verifiedById).toBe(admin.id);
+    expect(verified.verifiedAt).toBeInstanceOf(Date);
     const audit = await db.auditLog.findFirstOrThrow({ where: { action: "startupFact.verify", entityId: created.id } });
     expect(audit.actorId).toBe(admin.id);
-    expect(audit.data).toMatchObject({ verified: { from: false, to: true } });
+    expect(audit.data).toMatchObject({ changes: { verified: { from: false, to: true } } });
+
+    const unverified = await updateStartupFact(admin, created.id, { verified: false });
+    expect(unverified).toMatchObject({ verifiedById: null, verifiedAt: null });
   });
 
   it("keeps a record of deleted facts in the audit log", async () => {

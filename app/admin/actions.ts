@@ -7,7 +7,6 @@ import {
   changeMarketStatus,
   createMarket,
   createStartup,
-  resolveMarket,
   setPlatformRole,
   updateMarket,
   updateStartup,
@@ -21,6 +20,13 @@ import {
   updateStartupFact,
 } from "@/lib/admin-content";
 import { toApiError } from "@/lib/api-response";
+import {
+  approveProposal,
+  proposeCorrection,
+  proposeResolution,
+  rejectProposal,
+  retrySettlement,
+} from "@/lib/resolutions";
 import { requirePlatformAdmin } from "@/lib/auth";
 import type { SessionUser, ValidationIssue } from "@/lib/types";
 import {
@@ -29,7 +35,10 @@ import {
   createStartupSchema,
   marketStatusChangeSchema,
   newsItemSchema,
-  resolveMarketSchema,
+  approveProposalSchema,
+  proposeCorrectionSchema,
+  proposeResolutionSchema,
+  rejectProposalSchema,
   startupFactSchema,
   setPlatformRoleSchema,
   updateMarketSchema,
@@ -161,9 +170,9 @@ function marketFields(fd: FormData) {
     opensAt: utcDate(fd, "opensAt"),
     closesAt: utcDate(fd, "closesAt"),
     resolvesBy: utcDate(fd, "resolvesBy"),
-    minForecastCredits: number(fd, "minForecastCredits") ?? null,
-    maxForecastCredits: number(fd, "maxForecastCredits") ?? null,
-    sources: sources(fd),
+    ...(fd.has("minForecastCredits") ? { minForecastCredits: number(fd, "minForecastCredits") ?? null } : {}),
+    ...(fd.has("maxForecastCredits") ? { maxForecastCredits: number(fd, "maxForecastCredits") ?? null } : {}),
+    ...(fd.has("sources") ? { sources: sources(fd) } : {}),
   };
 }
 
@@ -196,20 +205,65 @@ export async function changeMarketStatusAction(marketId: string, _: ActionState,
   );
 }
 
-export async function resolveMarketAction(marketId: string, _: ActionState, fd: FormData): Promise<ActionState> {
+// --- Resolutions (two-admin approval) -----------------------------------------------
+
+/** Evidence lines are "Title | https://url"; type and license apply to all of them. */
+function proposalFields(fd: FormData) {
+  const sourceType = text(fd, "sourceType") || "OTHER";
+  const license = text(fd, "license") || "LINK_ONLY";
+  return {
+    outcome: text(fd, "outcome"),
+    voidReason: text(fd, "outcome") === "VOID" ? text(fd, "voidReason") || null : null,
+    evidenceSummary: text(fd, "evidenceSummary"),
+    evidence: lines(fd, "evidence").map((line) => {
+      const [title, url] = line.includes("|") ? line.split("|").map((part) => part.trim()) : [line, line];
+      return { title, url, sourceType, license };
+    }),
+  };
+}
+
+export async function proposeResolutionAction(marketId: string, _: ActionState, fd: FormData): Promise<ActionState> {
+  return run(
+    (admin) => proposeResolution(admin, marketId, proposeResolutionSchema.parse(proposalFields(fd))),
+    "Proposal submitted. Another admin needs to approve it.",
+  );
+}
+
+export async function proposeCorrectionAction(resolutionId: string, _: ActionState, fd: FormData): Promise<ActionState> {
   return run(
     (admin) =>
-      resolveMarket(
+      proposeCorrection(
         admin,
-        marketId,
-        resolveMarketSchema.parse({
-          outcome: text(fd, "outcome"),
-          evidenceSummary: text(fd, "evidenceSummary"),
-          evidenceUrls: lines(fd, "evidenceUrls"),
-        }),
+        resolutionId,
+        proposeCorrectionSchema.parse({ ...proposalFields(fd), correctionReason: text(fd, "correctionReason") }),
       ),
-    "Resolution recorded. Settlement is pending.",
+    "Correction submitted. Another admin needs to approve it.",
   );
+}
+
+export async function approveProposalAction(proposalId: string, _: ActionState, fd: FormData): Promise<ActionState> {
+  let settlementNote = "";
+  const state = await run(async (admin) => {
+    const { settlement } = await approveProposal(admin, proposalId, approveProposalSchema.parse({ note: text(fd, "note") }));
+    settlementNote = settlement.ran ? ` Settlement: ${settlement.status}.` : settlement.error ? ` ${settlement.error}; it will run later.` : "";
+  }, "Approved.");
+  return state.ok ? { ...state, message: `Approved.${settlementNote}` } : state;
+}
+
+export async function rejectProposalAction(proposalId: string, _: ActionState, fd: FormData): Promise<ActionState> {
+  return run(
+    (admin) => rejectProposal(admin, proposalId, rejectProposalSchema.parse({ reason: text(fd, "reason") }).reason),
+    "Proposal rejected",
+  );
+}
+
+export async function retrySettlementAction(resolutionId: string): Promise<ActionState> {
+  let message = "";
+  const state = await run(async (admin) => {
+    const result = await retrySettlement(admin, resolutionId);
+    message = result.ran ? `Settlement ${result.status.toLowerCase()}${result.error ? `: ${result.error}` : ""}` : result.error ?? "Nothing to do";
+  }, "Done");
+  return state.ok ? { ...state, message } : state;
 }
 
 // --- Users & credits ----------------------------------------------------------
@@ -252,6 +306,8 @@ export async function createFactAction(startupId: string, _: ActionState, fd: Fo
           sourceName: text(fd, "sourceName"),
           sourceUrl: text(fd, "sourceUrl"),
           asOf: utcDate(fd, "asOf"),
+          sourceType: text(fd, "sourceType") || undefined,
+          license: text(fd, "license") || undefined,
           verified: checkbox(fd, "verified"),
         }),
       ),
@@ -282,6 +338,7 @@ function newsFields(fd: FormData) {
     url: text(fd, "url"),
     publishedAt: utcDate(fd, "publishedAt"),
     verification: text(fd, "verification"),
+    license: text(fd, "license") || undefined,
   };
 }
 

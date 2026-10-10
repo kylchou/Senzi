@@ -24,6 +24,7 @@ const STATUS_BY_CODE: Record<ApiErrorCode, number> = {
   CONFLICT: 409,
   INSUFFICIENT_CREDITS: 409,
   INVALID_STATE: 409,
+  RATE_LIMITED: 429,
   INTERNAL_ERROR: 500,
 };
 
@@ -95,7 +96,11 @@ export function errorResponse(error: unknown) {
       ...(apiError.details ? { details: apiError.details } : {}),
     },
   };
-  return NextResponse.json(body, { status: apiError.status });
+  const retryAfter = (apiError.details as { retryAfter?: number } | undefined)?.retryAfter;
+  return NextResponse.json(body, {
+    status: apiError.status,
+    ...(apiError.code === "RATE_LIMITED" && retryAfter ? { headers: { "Retry-After": String(retryAfter) } } : {}),
+  });
 }
 
 /**
