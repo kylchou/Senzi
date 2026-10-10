@@ -8,7 +8,7 @@ export const MIN_DEADLINE_LEAD_MS = DAY;
 /** Deadlines further out than this are rejected as unmeasurable. */
 export const MAX_DEADLINE_LEAD_MS = 3 * 365 * DAY;
 
-/** A change in YES allocation share of at least this much (0..1) triggers an alert. */
+/** A change in General LMSR price of at least this much (0..1) triggers an alert. */
 export const MOVEMENT_ALERT_THRESHOLD = 0.1;
 /** Smaller change still worth surfacing on the dashboard. */
 export const MOVEMENT_DASHBOARD_THRESHOLD = 0.05;
@@ -29,22 +29,22 @@ export const MAX_TREND_POINTS = 200;
 export const MAX_PARTICIPANTS = 500;
 export const MAX_SOURCES = 20;
 
-export const ALLOCATION_SHARE_LABEL = "Community YES credit-allocation share";
+export const ALLOCATION_SHARE_LABEL = "General LMSR price";
 export const ALLOCATION_SHARE_EXPLAINER =
-  "The share of virtual credits the community has allocated to YES. It reflects where participants placed credits, not a calibrated probability.";
+  "The LMSR market-maker YES price from all trades. It is not a calibrated probability.";
 export const BASELINE_EXPLAINER =
   "The opening baseline was set before community forecasting began, using the methodology shown. It is a starting reference, not a forecast.";
 export const CALIBRATION_EXPLAINER =
   "A calibrated probability is shown only when enough resolved forecasts exist to evaluate calibration.";
 
 export const VC_DISCLAIMER =
-  "VentureCast estimates are research signals generated from virtual-credit forecasts. They are not guaranteed predictions, investment advice, or recommendations. No real money is wagered. Do not share or act on material nonpublic information.";
+  "Senzi estimates are research signals generated from virtual-credit forecasts. They are not guaranteed predictions, investment advice, or recommendations. No real money is wagered. Do not share or act on material nonpublic information.";
 
 export const STANDARD_LIMITATIONS = [
   "Forecasts use virtual credits only; participants have no financial stake in the outcome.",
-  "The community allocation share measures how credits were allocated, not a calibrated probability.",
+  "The LMSR market price is not a calibrated probability.",
   "Participants are self-selected and may not be representative of informed opinion.",
-  "Estimates rely on publicly available information; they do not reflect nonpublic company data.",
+  "The model may use this firm's matching sponsor-provided inputs; those inputs are unverified.",
   "Historical movements can reflect a small number of large allocations rather than broad consensus.",
 ];
 

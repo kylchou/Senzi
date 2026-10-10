@@ -19,7 +19,7 @@ const Y_TICKS = [0, 0.25, 0.5, 0.75, 1];
 const pct = (v: number) => `${Math.round(v * 100)}%`;
 
 /**
- * Historical community YES credit-allocation share, with the opening baseline
+ * Historical general LMSR price, with the opening baseline
  * drawn as a separate dashed reference line. Includes a crosshair tooltip and
  * an accessible table view.
  */
@@ -118,7 +118,7 @@ export function TrendChart({ points, baseline }: { points: TrendPoint[]; baselin
             <thead className="sticky top-0 bg-slate-50 dark:bg-slate-900">
               <tr>
                 <th className="px-2 py-1 font-medium">Time</th>
-                <th className="px-2 py-1 text-right font-medium">YES allocation share</th>
+                <th className="px-2 py-1 text-right font-medium">General LMSR price</th>
               </tr>
             </thead>
             <tbody>
@@ -225,13 +225,13 @@ export function TrendChart({ points, baseline }: { points: TrendPoint[]; baselin
               <div className="font-semibold tabular-nums text-slate-900 dark:text-slate-50">
                 {hovered.v == null ? "No allocation" : `${(hovered.v * 100).toFixed(1)}%`}
               </div>
-              <div>YES allocation share</div>
+              <div>General LMSR price</div>
               {baseline != null && <div>Baseline {pct(baseline)}</div>}
               <div>{formatDateTime(new Date(hovered.t))}</div>
             </div>
           )}
           <p id={`${titleId}-summary`} className="sr-only">
-            Latest YES allocation share {last.v != null ? `${(last.v * 100).toFixed(1)}%` : "unavailable"} on{" "}
+            Latest General LMSR price {last.v != null ? `${(last.v * 100).toFixed(1)}%` : "unavailable"} on{" "}
             {formatDate(new Date(last.t))}. Use the table view for all values.
           </p>
         </div>

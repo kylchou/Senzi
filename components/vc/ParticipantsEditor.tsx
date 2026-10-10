@@ -36,7 +36,7 @@ export function ParticipantsEditor({
     } catch (err) {
       if (err instanceof VcApiError) {
         const unknown = (err.details as { unknownEmails?: string[] } | undefined)?.unknownEmails;
-        setError(unknown?.length ? `No VentureCast account for: ${unknown.join(", ")}` : err.message);
+        setError(unknown?.length ? `No Senzi account for: ${unknown.join(", ")}` : err.message);
       } else {
         setError("Could not update participants");
       }
@@ -97,7 +97,7 @@ export function ParticipantsEditor({
           </button>
         </form>
       )}
-      <p className={hintClass}>Participants must already have a VentureCast account.</p>
+      <p className={hintClass}>Participants must already have a Senzi account.</p>
       {error && (
         <p role="alert" className={errorClass}>
           {error}

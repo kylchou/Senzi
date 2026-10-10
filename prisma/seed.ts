@@ -2,6 +2,7 @@ import "dotenv/config";
 import { createHash, randomUUID } from "node:crypto";
 import { Prisma } from "../generated/prisma/client";
 import {
+  AccountType,
   CreditTransactionType,
   EstimateKind,
   ForecastSide,
@@ -23,11 +24,14 @@ import { grantSignupCredits } from "../lib/credits";
 import { applyTrade, defaultLiquidity, openingState, quoteTrade, sharesForSpend, yesPrice } from "../lib/forecasting/lmsr";
 import { LMSR_RULE_ID } from "../lib/forecasting/lmsr-pricing";
 import { db } from "../lib/db";
+import { FileModelStore } from "../lib/model";
+import { estimateWithModel } from "../lib/vc/model-estimate";
 import { PENDING_AUTH_PREFIX, SIGNUP_GRANT_CREDITS } from "../lib/types";
 import {
   achievements,
   facts,
   markets,
+  modelStartups,
   news,
   SEED_ANCHOR,
   startups,
@@ -72,6 +76,8 @@ async function main() {
     return;
   }
   const random = rng(20261001);
+  // Northstar's members are VC accounts; everyone else trades.
+  const VC_HANDLES = new Set(["maya", "theo", "priya"]);
 
   // --- Users (seed accounts cannot sign in; their authIds are placeholders) ---
   const userIds = new Map<string, string>();
@@ -83,6 +89,8 @@ async function main() {
         username: u.handle,
         displayName: u.displayName,
         platformRole: u.role === "ADMIN" ? PlatformRole.ADMIN : PlatformRole.USER,
+        accountType: VC_HANDLES.has(u.handle) ? AccountType.VC : AccountType.TRADER,
+        accountVerifiedAt: new Date(),
       },
     });
     await db.$transaction((tx) => grantSignupCredits(tx, user.id));
@@ -130,6 +138,8 @@ async function main() {
         email: demoEmail,
         displayName: demoEmail.split("@")[0]!,
         platformRole: PlatformRole.ADMIN,
+        accountType: AccountType.VC,
+        accountVerifiedAt: new Date(),
       },
     });
     demoUserId = demo.id;
@@ -170,6 +180,12 @@ async function main() {
   for (const s of startups) {
     const row = await db.startup.create({
       data: { ...s, websiteUrl: `https://${s.slug}.example.com`, isPublished: true, isDemo: true, createdById: adminId },
+    });
+    startupIds.set(s.slug, row.id);
+  }
+  for (const { domain, ...s } of modelStartups) {
+    const row = await db.startup.create({
+      data: { ...s, websiteUrl: `https://${domain}`, isPublished: true, isDemo: true, createdById: adminId },
     });
     startupIds.set(s.slug, row.id);
   }
@@ -542,8 +558,7 @@ async function main() {
       question: "Will Meridian Pay launch payroll in Brazil by June 30, 2027?",
       yesCriteria: "YES if Meridian Pay publicly lists Brazil as a supported payroll country on or before 2027-06-30.",
       noCriteria: "Resolves NO if Brazil is not listed as supported by the deadline.",
-      baselineValue: 0.35,
-      baselineMethodology: "Historical pace of Meridian's country launches.",
+      // No metric measures a country launch, so the model has no opening line: it can be reviewed but not opened.
       deadline: daysFrom(270),
       visibility: StudyVisibility.PUBLIC,
       status: StudyStatus.SUBMITTED,
@@ -571,6 +586,64 @@ async function main() {
       visibility: StudyVisibility.ORGANIZATION,
       status: StudyStatus.DRAFT,
       events: { create: studyEvents("lena", [[null, StudyStatus.DRAFT, "create", -1]]) },
+    },
+  });
+
+  // An approved study the model priced from Supabase's public npm downloads, ready to open.
+  const supabaseId = startupIds.get("supabase")!;
+  const supabaseLink = { metricId: "npm_downloads:@supabase/supabase-js", threshold: 38_000_000, targetDate: "2026-12-13" };
+  const supabaseLine = estimateWithModel(new FileModelStore(), {
+    startup: { id: supabaseId, name: "Supabase", slug: "supabase" },
+    link: supabaseLink,
+    observations: [],
+    asOf: SEED_ANCHOR,
+  });
+  const supabaseOk = supabaseLine.status === "OK";
+  await db.researchStudy.create({
+    data: {
+      organizationId: northstar.id,
+      createdById: uid("theo"),
+      startupId: supabaseId,
+      question: supabaseLine.question!,
+      yesCriteria: supabaseLine.yesCriteria!,
+      noCriteria: supabaseLine.noCriteria!,
+      context: "Developer adoption check before a follow-on discussion.",
+      baselineValue: supabaseOk ? supabaseLine.probability : null,
+      baselineMethodology: supabaseOk ? supabaseLine.methodology : null,
+      deadline: daysFrom(60),
+      visibility: StudyVisibility.ORGANIZATION,
+      status: StudyStatus.APPROVED,
+      submittedAt: daysFrom(-3),
+      approvedAt: daysFrom(-1),
+      version: 3,
+      // The public source the question resolves from, as the app adds it for linked questions.
+      sources: { create: [{ url: supabaseLine.resolutionSource!.url, title: supabaseLine.resolutionSource!.title, publisher: "Public data source" }] },
+      events: {
+        create: studyEvents("theo", [
+          [null, StudyStatus.DRAFT, "create", -4],
+          [StudyStatus.DRAFT, StudyStatus.SUBMITTED, "submit", -3],
+          [StudyStatus.SUBMITTED, StudyStatus.APPROVED, "approve", -1],
+        ]),
+      },
+      modelEstimate: {
+        create: {
+          status: supabaseOk ? "OK" : "INSUFFICIENT_DATA",
+          metricId: supabaseLink.metricId,
+          threshold: supabaseLink.threshold,
+          targetDate: new Date(`${supabaseLink.targetDate}T00:00:00Z`),
+          probability: supabaseLine.probability,
+          low: supabaseLine.low,
+          high: supabaseLine.high,
+          confidence: supabaseLine.confidence,
+          modelVersion: supabaseLine.modelVersion,
+          inputsHash: supabaseLine.inputsHash,
+          methodology: supabaseLine.methodology,
+          notes: supabaseLine.notes,
+          inputsUsed: supabaseLine.inputsUsed as object[],
+          calculatedAt: SEED_ANCHOR,
+          calculatedById: uid("theo"),
+        },
+      },
     },
   });
 

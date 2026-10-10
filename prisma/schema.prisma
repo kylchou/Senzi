@@ -32,6 +32,19 @@ enum PlatformRole {
   ADMIN
 }
 
+/// Which side of the product someone signed up for. Chosen once; only an
+/// admin can change it. NULL means signed in but not chosen yet (/onboarding).
+enum AccountType {
+  VC // sponsors: open questions, read the VC dashboard
+  TRADER // forecasters: trade on public markets
+}
+
+enum VerificationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 /// Role inside a VC organization. Ordered from most to least privileged.
 enum OrgRole {
   OWNER
@@ -170,6 +183,15 @@ enum StudyVisibility {
   RESTRICTED
 }
 
+enum StudyEstimateStatus {
+  /// The model estimated the linked metric question.
+  OK
+  /// Linked to a metric, but there's too little history to estimate it.
+  INSUFFICIENT_DATA
+  /// No metric we have data for measures this question.
+  NOT_MEASURABLE
+}
+
 enum WatchlistItemType {
   STARTUP
   STUDY
@@ -229,49 +251,80 @@ enum NotificationType {
 // ---------------------------------------------------------------------------
 
 model User {
-  id            String       @id @default(cuid())
+  id                String       @id @default(cuid())
   /// Subject ID from the auth provider (Clerk user id).
-  authId        String       @unique
-  email         String       @unique
-  username      String?      @unique
-  displayName   String
-  avatarUrl     String?
-  bio           String?
-  platformRole  PlatformRole @default(USER)
+  authId            String       @unique
+  email             String       @unique
+  username          String?      @unique
+  displayName       String
+  avatarUrl         String?
+  bio               String?
+  platformRole      PlatformRole @default(USER)
+  accountType       AccountType?
+  /// When the account type was verified. Traders: verified email at signup.
+  /// VCs: an admin approved their firm details, or a firm invited them.
+  accountVerifiedAt DateTime?
   /// Cached balance. The CreditTransaction ledger is authoritative; this
   /// column is only ever changed together with a ledger row (lib/credits.ts).
   /// CHECK (creditBalance >= 0).
-  creditBalance Int          @default(0)
-  createdAt     DateTime     @default(now())
-  updatedAt     DateTime     @updatedAt
+  creditBalance     Int          @default(0)
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
 
-  memberships            OrganizationMembership[]
-  invitedMembers         OrganizationMembership[] @relation("MembershipInvitedBy")
-  forecasts              Forecast[]
-  creditTransactions     CreditTransaction[]      @relation("CreditTransactionUser")
-  creditActions          CreditTransaction[]      @relation("CreditTransactionActor")
-  notifications          Notification[]
-  achievements           UserAchievement[]
-  createdStartups        Startup[]
-  createdMarkets         Market[]                 @relation("MarketCreatedBy")
-  resolutions            Resolution[]
-  resolutionsApproved    Resolution[]             @relation("ResolutionApprovedBy")
-  proposalsMade          ResolutionProposal[]     @relation("ProposalProposedBy")
-  proposalsReviewed      ResolutionProposal[]     @relation("ProposalReviewedBy")
-  evidenceSubmitted      ResolutionEvidence[]
-  factsVerified          StartupFact[]            @relation("FactVerifiedBy")
-  newsVerified           NewsItem[]               @relation("NewsVerifiedBy")
-  createdNews            NewsItem[]
-  createdStudies         ResearchStudy[]          @relation("StudyCreatedBy")
-  studyParticipations    StudyParticipant[]       @relation("StudyParticipantUser")
-  addedParticipants      StudyParticipant[]       @relation("StudyParticipantAddedBy")
-  studyEvents            StudyEvent[]
-  studyNotes             StudyNote[]
-  createdWatchlists      Watchlist[]
-  watchlistItemsAdded    WatchlistItem[]
-  alertReceipts          VcAlertReceipt[]
-  createdReports         VcReport[]
-  modelDataPointsEntered ModelDataPoint[]
+  memberships             OrganizationMembership[]
+  invitedMembers          OrganizationMembership[] @relation("MembershipInvitedBy")
+  forecasts               Forecast[]
+  creditTransactions      CreditTransaction[]      @relation("CreditTransactionUser")
+  creditActions           CreditTransaction[]      @relation("CreditTransactionActor")
+  notifications           Notification[]
+  achievements            UserAchievement[]
+  createdStartups         Startup[]
+  createdMarkets          Market[]                 @relation("MarketCreatedBy")
+  resolutions             Resolution[]
+  resolutionsApproved     Resolution[]             @relation("ResolutionApprovedBy")
+  proposalsMade           ResolutionProposal[]     @relation("ProposalProposedBy")
+  proposalsReviewed       ResolutionProposal[]     @relation("ProposalReviewedBy")
+  evidenceSubmitted       ResolutionEvidence[]
+  factsVerified           StartupFact[]            @relation("FactVerifiedBy")
+  newsVerified            NewsItem[]               @relation("NewsVerifiedBy")
+  createdNews             NewsItem[]
+  createdStudies          ResearchStudy[]          @relation("StudyCreatedBy")
+  studyParticipations     StudyParticipant[]       @relation("StudyParticipantUser")
+  addedParticipants       StudyParticipant[]       @relation("StudyParticipantAddedBy")
+  studyEvents             StudyEvent[]
+  studyNotes              StudyNote[]
+  createdWatchlists       Watchlist[]
+  watchlistItemsAdded     WatchlistItem[]
+  alertReceipts           VcAlertReceipt[]
+  createdReports          VcReport[]
+  modelDataPointsEntered  ModelDataPoint[]
+  vcVerifications         VcVerificationRequest[]  @relation("VcVerificationUser")
+  vcVerificationsReviewed VcVerificationRequest[]  @relation("VcVerificationReviewer")
+}
+
+/// A VC's firm details, checked by a platform admin before they get VC access.
+/// Never edited after review; a resubmission is a new row.
+model VcVerificationRequest {
+  id           String             @id @default(cuid())
+  userId       String
+  firmName     String
+  firmWebsite  String
+  jobTitle     String
+  workEmail    String
+  linkedinUrl  String?
+  note         String?
+  status       VerificationStatus @default(PENDING)
+  reviewedById String?
+  reviewedAt   DateTime?
+  /// Shown to the applicant. Required when rejecting.
+  reviewNote   String?
+  createdAt    DateTime           @default(now())
+
+  user       User  @relation("VcVerificationUser", fields: [userId], references: [id], onDelete: Cascade)
+  reviewedBy User? @relation("VcVerificationReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+
+  @@index([status, createdAt])
+  @@index([userId, createdAt])
 }
 
 model Organization {
@@ -691,7 +744,8 @@ model ResearchStudy {
   yesCriteria         String
   noCriteria          String
   context             String?
-  /// Opening baseline in (0, 1) and how it was derived.
+  /// Opening baseline in (0, 1) and how it was derived. Set only from the
+  /// model's estimate (StudyModelEstimate); null while it has too little data.
   baselineValue       Float?
   baselineMethodology String?
   deadline            DateTime
@@ -720,10 +774,45 @@ model ResearchStudy {
   notes          StudyNote[]
   reports        VcReport[]
   watchlistItems WatchlistItem[]
+  modelEstimate  StudyModelEstimate?
 
   @@index([organizationId, status])
   @@index([visibility, status])
   @@index([startupId])
+}
+
+/// The model's opening line for a study: which metric measures the question,
+/// the firm's private history for that metric, and the latest estimate.
+/// Observations and inputsUsed may hold the firm's private figures; only the
+/// owning firm sees them. Everything public comes from `methodology`.
+model StudyModelEstimate {
+  id             String              @id @default(cuid())
+  studyId        String              @unique
+  status         StudyEstimateStatus
+  /// The measurable form of the question. Null when NOT_MEASURABLE.
+  metricId       String?
+  threshold      Float?
+  targetDate     DateTime?           @db.Date
+  probability    Float?
+  low            Float?
+  high           Float?
+  /// "low" | "medium" | "high"; sets the market's starting liquidity.
+  confidence     String?
+  modelVersion   String
+  inputsHash     String?
+  /// Public-safe method note; never contains the firm's raw figures.
+  methodology    String?
+  notes          String[]
+  /// Firm-entered history: [{ metricId, value, periodStart, periodEnd, note }].
+  observations   Json                @default("[]")
+  /// Data points the estimate used (public and firm-entered).
+  inputsUsed     Json                @default("[]")
+  calculatedAt   DateTime
+  calculatedById String?
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+
+  study ResearchStudy @relation(fields: [studyId], references: [id], onDelete: Cascade)
 }
 
 model StudySource {

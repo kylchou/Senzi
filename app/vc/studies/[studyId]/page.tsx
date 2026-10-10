@@ -1,13 +1,14 @@
 import Link from "next/link";
 import { EstimateSummary } from "@/components/vc/EstimateSummary";
+import { EvidenceList } from "@/components/vc/EvidenceList";
 import { FollowButton } from "@/components/vc/FollowButton";
 import { NotesPanel } from "@/components/vc/NotesPanel";
 import { ParticipantsEditor } from "@/components/vc/ParticipantsEditor";
 import { Section } from "@/components/vc/Section";
 import { StatusBadge, VisibilityBadge } from "@/components/vc/StatusBadge";
 import { TransitionControls } from "@/components/vc/TransitionControls";
-import { TrendChart } from "@/components/vc/TrendChart";
-import { describeFreshness, describeUncertainty, downsample, resolveBaseline } from "@/lib/vc/estimates";
+import { ThreeLineChart } from "@/components/vc/ThreeLineChart";
+import { describeFreshness, describeUncertainty, resolveBaseline } from "@/lib/vc/estimates";
 import { STATUS_LABELS, VISIBILITY_LABELS, formatDate, formatDateTime } from "@/lib/vc/format";
 import { getVcDeps, getVcServices } from "@/lib/vc/server/container";
 import { orNotFound, requirePageContext } from "@/lib/vc/server/page";
@@ -26,7 +27,8 @@ export default async function StudyPage({ params }: { params: Promise<{ studyId:
   const ctx = await requirePageContext(`/vc/studies/${studyId}`);
   const services = getVcServices();
   const detail = await orNotFound(services.studies.get(ctx, studyId));
-  const { study, permissions, estimate, history, events, participants, startup } = detail;
+  const { study, permissions, estimate, history, events, participants, startup, evidence, openingLine } = detail;
+  const preOpen = study.status === "DRAFT" || study.status === "SUBMITTED" || study.status === "APPROVED";
   const full = permissions.viewLevel === "full";
   const now = new Date();
 
@@ -52,7 +54,7 @@ export default async function StudyPage({ params }: { params: Promise<{ studyId:
         <div className="flex flex-wrap items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
           <StatusBadge status={study.status} />
           <VisibilityBadge visibility={study.visibility} />
-          {startup && <span>{startup.name}</span>}
+          {startup && <Link className="underline" href={`/vc/companies/${startup.slug}`}>{startup.name}</Link>}
           <span>· Deadline {formatDateTime(study.deadline)}</span>
           {!full && <span className="rounded bg-slate-100 px-1.5 text-xs dark:bg-slate-800">Limited view</span>}
         </div>
@@ -104,6 +106,44 @@ export default async function StudyPage({ params }: { params: Promise<{ studyId:
         </Section>
       )}
 
+      {preOpen && (
+        <Section
+          id="opening-line"
+          title="Opening line"
+          description="Set by our model from the startup's data when forecasting opens, not by the proposing firm."
+        >
+          {openingLine?.status === "OK" ? (
+            <div className="space-y-1 text-sm">
+              <p className="text-2xl font-semibold tabular-nums">{Math.round(openingLine.probability! * 100)}%</p>
+              <p className="text-slate-600 dark:text-slate-300">
+                Model uncertainty {Math.round(openingLine.low! * 100)}–{Math.round(openingLine.high! * 100)}% · {openingLine.confidence}{" "}
+                confidence · estimated {formatDateTime(openingLine.asOf)}
+              </p>
+              {openingLine.link && (
+                <p className="text-slate-600 dark:text-slate-300">
+                  Measured with {openingLine.metricLabel ?? openingLine.link.metricId}: at least{" "}
+                  {openingLine.link.threshold.toLocaleString("en-US")} by {openingLine.link.targetDate}.
+                </p>
+              )}
+              <p className="text-xs text-slate-500">
+                The model estimates again with the latest data when forecasting opens, so the opening price can differ slightly.
+              </p>
+            </div>
+          ) : (
+            <div role="status" className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-100">
+              <p className="font-semibold">Not enough data</p>
+              <p className="mt-1">
+                {openingLine?.status === "INSUFFICIENT_DATA"
+                  ? `The model can't estimate ${openingLine.metricLabel ?? "this metric"} yet. ${openingLine.notes.at(-1) ?? ""}`
+                  : "None of the model's metrics for this startup measures this question."}{" "}
+                Forecasting can&apos;t open until the model has enough data to set an opening line.
+              </p>
+              {permissions.canEdit && <p className="mt-1">Edit the draft to link the question to a metric, or add your firm&apos;s figures.</p>}
+            </div>
+          )}
+        </Section>
+      )}
+
       <Section id="estimates" title="Estimates" description="Three different measurements, shown separately. None is investment advice.">
         <EstimateSummary baseline={baseline} estimate={estimate} freshness={freshness} />
         {uncertainty.length > 0 && (
@@ -116,11 +156,11 @@ export default async function StudyPage({ params }: { params: Promise<{ studyId:
       </Section>
 
       <Section id="trend" title="Historical trend">
-        <TrendChart points={downsample(history)} baseline={baseline.value} />
+        <ThreeLineChart marketId={study.marketId ?? study.id} points={history} baseline={baseline.value} />
       </Section>
 
       <div className="grid gap-6 lg:grid-cols-2">
-        <Section id="definition" title="Question definition" description="How this question resolves. Set by the proposing firm and reviewed by VentureCast.">
+        <Section id="definition" title="Question definition" description="How this question resolves. Set by the proposing firm and reviewed by Senzi.">
           <dl className="space-y-3 text-sm">
             <div>
               <dt className="font-medium">Resolves YES if</dt>
@@ -162,6 +202,14 @@ export default async function StudyPage({ params }: { params: Promise<{ studyId:
           )}
         </Section>
       </div>
+
+      <Section
+        id="evidence"
+        title="Startup evidence"
+        description={`Public facts and news about ${startup?.name ?? "this startup"}. Verification status is shown on each item; none of it is an estimate or a forecast.`}
+      >
+        <EvidenceList facts={evidence.facts} news={evidence.news} />
+      </Section>
 
       {full && participants && (
         <Section

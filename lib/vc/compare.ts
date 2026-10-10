@@ -13,7 +13,7 @@ export const SMALL_SAMPLE = 10;
 
 export const COMPARISON_LIMITATIONS = [
   "Questions differ between startups, so counts and scores are not like-for-like measures of company quality.",
-  "The community allocation share is where virtual credits were placed, not a calibrated probability.",
+  "The general LMSR price comes from all trades and is not a calibrated probability.",
   "Indicators are public, scraped signals (downloads, repositories, hiring, filings). They are not revenue, customers, or valuation.",
   "Not investment advice.",
 ];
@@ -33,7 +33,7 @@ export function toCompareQuestion(
     status: estimate?.status ?? market.status,
     closesAt: market.closesAt,
     openingBaseline: estimate?.openingBaseline?.value ?? null,
-    allocationShare: estimate?.allocation.yesShare ?? null,
+    allocationShare: estimate?.generalPrice ?? null,
     calibratedProbability: estimate?.calibratedProbability?.value ?? null,
     forecasters: estimate?.participantCount ?? 0,
     forecastCount: estimate?.forecastCount ?? 0,

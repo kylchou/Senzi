@@ -24,7 +24,17 @@ import type {
   WatchlistItemType,
 } from "./types";
 import type { CreatedAlert, OrgMember, PersonalNotification } from "./alert-delivery";
-import type { CompareIndicators, StartupFactView, StartupNewsView } from "./types";
+import type {
+  CompareIndicators,
+  FirmObservation,
+  MetricLink,
+  ModelConfidence,
+  ModelEstimate,
+  OpeningLineMetric,
+  StartupFactView,
+  StartupNewsView,
+  StudyModelEstimate,
+} from "./types";
 
 //identity, organizations, startups, market creation
 
@@ -38,6 +48,20 @@ export interface CreateMarketForStudyInput {
   noCriteria: string;
   closesAt: Date;
   openingBaseline: { value: number; methodology: string };
+  /** The model estimate behind the opening baseline; starts the market's model line. */
+  model: {
+    low: number;
+    high: number;
+    confidence: ModelConfidence;
+    asOf: Date;
+    modelName: string;
+    modelVersion: string;
+    inputsHash: string;
+    inputsNote: string;
+    /** Public-safe: firm-entered values removed. */
+    inputsUsed: Record<string, unknown>[];
+    notes: string[];
+  };
   /** Non-PUBLIC markets must be excluded from public market APIs. */
   visibility: StudyVisibility;
   sources: { url: string; title: string }[];
@@ -206,6 +230,14 @@ export interface VcRepository {
   countUnreadAlertsByStudy(organizationId: string, userId: string): Promise<{ studyId: string | null; count: number }[]>;
   markAlertsRead(organizationId: string, userId: string, alertIds: string[], at: Date): Promise<void>;
 
+  /** The study's stored opening line, or null if it was never estimated. */
+  findModelEstimate(studyId: string): Promise<StudyModelEstimate | null>;
+  findModelEstimates(studyIds: string[]): Promise<StudyModelEstimate[]>;
+  /** Replaces the study's stored opening line. */
+  saveModelEstimate(estimate: StudyModelEstimate): Promise<void>;
+  /** Figures this firm entered for the startup on its company page (sponsor-provided ModelDataPoint rows). */
+  listFirmFigures(organizationId: string, startupId: string): Promise<FirmObservation[]>;
+
   createReport(data: Omit<SavedReport, "id" | "createdAt">): Promise<SavedReport>;
   listReports(organizationId: string, options: { studyId?: string; limit: number }): Promise<SavedReport[]>;
   findReport(id: string): Promise<SavedReport | null>;
@@ -216,11 +248,37 @@ export interface IndicatorGateway {
   getIndicators(startup: { slug: string; name: string }, asOf: Date): Promise<CompareIndicators>;
 }
 
+/**
+ * The baseline model (lib/model). It turns a measurable question into an
+ * opening line, and publishes later estimates to a market's model line.
+ */
+export interface ModelGateway {
+  /** Metrics the model can forecast for this startup. */
+  metricsFor(startup: { id: string; name: string; slug: string }): OpeningLineMetric[];
+  /**
+   * Runs the model with public history plus the firm's figures for the linked
+   * metric. Never throws for missing data: returns INSUFFICIENT_DATA with notes.
+   */
+  estimate(input: {
+    startup: { id: string; name: string; slug: string };
+    link: MetricLink;
+    observations: FirmObservation[];
+    asOf: Date;
+  }): Promise<ModelEstimate>;
+  /**
+   * Publishes a newer OK estimate to an open market's model line. The opening
+   * price stays fixed once forecasting has started. Returns false when the
+   * market already has this estimate.
+   */
+  publishUpdate(marketId: string, estimate: ModelEstimate): Promise<boolean>;
+}
+
 export interface VcDeps {
   repo: VcRepository;
   platform: PlatformGateway;
   forecasting: ForecastingGateway;
   indicators: IndicatorGateway;
+  model: ModelGateway;
   now: () => Date;
 }
 

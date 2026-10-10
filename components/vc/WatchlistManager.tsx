@@ -14,7 +14,7 @@ import { buttonDanger, buttonPrimary, errorClass, inputClass, labelClass } from 
 
 function Share({ value }: { value: number | null | undefined }) {
   return (
-    <span className="tabular-nums" title="Community YES credit-allocation share (not a calibrated probability)">
+    <span className="tabular-nums" title="General LMSR price (not a calibrated probability)">
       {formatShare(value, 1)} YES alloc.
     </span>
   );
@@ -110,7 +110,7 @@ export function WatchlistManager({ watchlists, canEdit }: { watchlists: Watchlis
                           </Link>
                           <div className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-slate-500">
                             <StatusBadge status={entry.study.status} />
-                            <Share value={entry.estimate?.allocation.yesShare} />
+                            <Share value={entry.estimate?.generalPrice} />
                             <span>{entry.estimate?.participantCount ?? 0} participants</span>
                             <span>Deadline {formatDate(entry.study.deadline)}</span>
                           </div>
@@ -133,12 +133,12 @@ export function WatchlistManager({ watchlists, canEdit }: { watchlists: Watchlis
                                 <Link href={`/vc/studies/${s.study.id}`} className="hover:underline">
                                   {s.study.question}
                                 </Link>{" "}
-                                — <Share value={s.estimate?.allocation.yesShare} />
+                                — <Share value={s.estimate?.generalPrice} />
                               </li>
                             ))}
                             {entry.markets.map((m) => (
                               <li key={m.market.id}>
-                                {m.market.question} — <Share value={m.estimate?.allocation.yesShare} />
+                                {m.market.question} — <Share value={m.estimate?.generalPrice} />
                                 <span className="ml-1 text-slate-400">(public market)</span>
                               </li>
                             ))}

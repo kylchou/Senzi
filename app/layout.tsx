@@ -43,7 +43,8 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <ThemeScript />
       </head>
       <body className="min-h-full flex flex-col">
-        <ClerkProvider>
+        {/* Every sign-in passes through /onboarding, which sends people to the right home. */}
+        <ClerkProvider signInFallbackRedirectUrl="/onboarding" signUpFallbackRedirectUrl="/onboarding">
           <Navbar />
           <div className="flex flex-1 flex-col">{children}</div>
           <SiteFooter />
