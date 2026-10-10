@@ -2,6 +2,8 @@
 
 Private research workspace for venture capital firms: research studies, watchlists, alerts, dashboards and reports.
 
+**Navigation:** there's no separate VC bar. On desktop, **Intelligence** in the site header (`components/ui/VcMenu.tsx`) opens a menu with the three pages and, for people in several firms, the organization switcher. On phones, firm members get an Intelligence tab in the bottom bar (in place of Learn), and VC pages show a slim tab row (`components/vc/VcMobileTabs.tsx`). Both read `GET /api/vc/active-org`. The three pages: **Dashboard** (`/vc`), **Questions** (`/vc/studies`, filtered by stage: in progress, open, finished) and **Companies** (`/vc/companies`: search, the companies the firm follows, and every company). A company page (`/vc/companies/[slug or id]`) holds its public signals, open markets, the firm's own figures and questions, plus Follow and "Compare with…". Compare (`/vc/compare`) and the old watchlist URL live under the Companies tab; alerts and saved reports are reached from the dashboard. Platform admins also see **Review queue**.
+
 Owned paths: `app/vc/**`, `components/vc/**`, `lib/vc/**`, `app/api/studies/**`, `app/api/vc/**`.
 
 Senzi estimates are research signals from virtual-credit forecasts. They are not guaranteed predictions or investment advice. No real money is involved.

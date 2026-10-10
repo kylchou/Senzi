@@ -30,7 +30,7 @@ export default async function VcDashboardPage() {
           href="/vc/studies/new"
           className="rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-700 dark:bg-slate-100 dark:text-slate-900"
         >
-          Propose a study
+          Ask a question
         </Link>
       </header>
 
@@ -75,7 +75,7 @@ export default async function VcDashboardPage() {
         actions={<Link href="/vc/studies" className="text-sm underline">All studies</Link>}
       >
         {d.activeStudies.length === 0 ? (
-          <EmptyState title="No open studies" action={{ href: "/vc/studies/new", label: "Propose a study" }}>
+          <EmptyState title="No open studies" action={{ href: "/vc/studies/new", label: "Ask a question" }}>
             Studies open for forecasting after platform review.
           </EmptyState>
         ) : (
@@ -156,16 +156,16 @@ export default async function VcDashboardPage() {
 
         <Section
           id="watch"
-          title="Watchlist"
-          actions={<Link href="/vc/watchlists" className="text-sm underline">Open</Link>}
+          title="Following"
+          actions={<Link href="/vc/companies" className="text-sm underline">Companies</Link>}
         >
           {d.following.startups.length === 0 && d.following.studyCount === 0 ? (
-            <p className="text-sm text-slate-500 dark:text-slate-400">Not following anything yet. Search for a startup to follow it.</p>
+            <p className="text-sm text-slate-500 dark:text-slate-400">Not following anything yet. Find a company under Companies to follow it.</p>
           ) : (
             <ul className="space-y-1 text-sm">
               {d.following.startups.map((s) => (
                 <li key={s.id}>
-                  <Link href={`/vc/watchlists?startup=${s.id}`} className="hover:underline">
+                  <Link href={`/vc/companies/${s.id}`} className="hover:underline">
                     {s.name}
                   </Link>
                 </li>
