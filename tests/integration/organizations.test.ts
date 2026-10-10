@@ -1,6 +1,6 @@
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { OrgRole, StudyStatus } from "@/generated/prisma/enums";
-import { createMarketForStudy } from "@/lib/admin";
+import { closeMarketForStudy, createMarketForStudy } from "@/lib/admin";
 import { db } from "@/lib/db";
 import { addMember, changeMemberRole, listMembers, removeMember } from "@/lib/organizations";
 import { canViewMarket, requireOrgRole, visibleMarketsWhere } from "@/lib/permissions";
@@ -107,6 +107,24 @@ describe("createMarketForStudy", () => {
     expect(results[0]).toMatchObject({ status: "OPEN", visibility: "ORGANIZATION", organizationId: org.id, openingBaseline: 0.3 });
     expect(await db.marketSource.count({ where: { marketId: results[0]!.id } })).toBe(1);
     expect(await db.marketSnapshot.count({ where: { marketId: results[0]!.id, trigger: "OPENING" } })).toBe(1);
+  });
+
+  it("closes a study's market once, and ignores studies without one", async () => {
+    const owner = await makeUser();
+    const org = await makeOrg([[owner, OrgRole.OWNER]]);
+    const study = await makeStudy(org.id, owner);
+    expect(await closeMarketForStudy({ studyId: study.id, closedById: owner.id })).toBeNull();
+
+    const market = await createMarketForStudy(studyMarketInput(study, "ORGANIZATION"));
+    await db.researchStudy.update({ where: { id: study.id }, data: { marketId: market.id, status: StudyStatus.OPEN } });
+
+    const [first, second] = await Promise.all([
+      closeMarketForStudy({ studyId: study.id, closedById: owner.id, reason: "Closed early" }),
+      closeMarketForStudy({ studyId: study.id, closedById: owner.id }),
+    ]);
+    expect(first?.status).toBe("CLOSED");
+    expect(second?.status).toBe("CLOSED");
+    expect(await db.auditLog.count({ where: { action: "market.closeFromStudy", entityId: market.id } })).toBe(1);
   });
 
   it("refuses studies that haven't been approved", async () => {
