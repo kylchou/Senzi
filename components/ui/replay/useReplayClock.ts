@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { playbackMap } from "@/lib/market-view/replay";
+import { motionReduced } from "../a11y/preferences";
 
 /** Full replay length at 1x, before quiet stretches are compressed. */
 const BASE_DURATION_MS = 16_000;
@@ -62,7 +63,6 @@ export function useReplayClock(start: number, end: number, keyTimes: number[]) {
   return { time, setTime, playing, play, pause, speed, setSpeed, atEnd: time >= end };
 }
 
-const reducedMotion = () => typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 /** A number that eases toward its target each frame instead of jumping. Null stays null. */
 export function useSmoothed(target: number | null): number | null {
@@ -70,7 +70,7 @@ export function useSmoothed(target: number | null): number | null {
   const current = useRef(target);
 
   useEffect(() => {
-    if (target === null || current.current === null || reducedMotion()) {
+    if (target === null || current.current === null || motionReduced()) {
       current.current = target;
       const frame = requestAnimationFrame(() => setValue(target));
       return () => cancelAnimationFrame(frame);
