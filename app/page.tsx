@@ -111,8 +111,7 @@ export default function HomePage() {
               Forecast what startups do <span className="text-red-500">next.</span>
             </h1>
             <p className="mt-5 max-w-xl text-base text-ink-600 sm:text-lg motion-safe:animate-[home-rise_900ms_120ms_cubic-bezier(0.2,0.8,0.2,1)_both]">
-              Allocate virtual credits on measurable startup milestones and see where the community stands. No real
-              money, ever.
+              Allocate virtual credits on measurable startup milestones and see where the community stands.
             </p>
             <div className="mt-8 flex flex-wrap justify-center gap-3 motion-safe:animate-[home-rise_900ms_220ms_cubic-bezier(0.2,0.8,0.2,1)_both]">
               <ButtonLink href="/markets" variant="accent" size="lg">
@@ -145,7 +144,7 @@ export default function HomePage() {
           <Moves />
         </StreamIn>
 
-        <section id="how-it-works" className="scroll-mt-6">
+        <section id="how-it-works" className="render-when-visible scroll-mt-6">
           <Container className="py-16 sm:py-20">
             <div className="home-reveal mx-auto mb-10 max-w-2xl text-center">
               <h2 className="text-3xl font-bold text-ink-900 sm:text-4xl">How it works</h2>
@@ -175,7 +174,7 @@ export default function HomePage() {
           </Container>
         </section>
 
-        <Container id="startups" className="scroll-mt-6">
+        <Container id="startups" className="render-when-visible scroll-mt-6">
           <Secondary label="startups and news" className="py-8" bodyClassName="home-reveal grid gap-16 py-8 sm:py-12 lg:grid-cols-[1.4fr_1fr]">
           <div>
             <SectionHeading title="Startups" href="/startups" />
@@ -193,7 +192,7 @@ export default function HomePage() {
         </Container>
 
         {/* Who it's for. Public copy only; no private research appears here. */}
-        <Container className="home-reveal grid gap-4 pt-12 sm:pt-16 md:grid-cols-2">
+        <Container className="home-reveal render-when-visible grid gap-4 pt-12 sm:pt-16 md:grid-cols-2">
           <div className="surface-card p-6 sm:p-8">
             <Users className="size-6 text-red-700" aria-hidden />
             <h3 className="mt-3 font-display text-xl font-semibold text-ink-900">For forecasters</h3>
@@ -216,7 +215,7 @@ export default function HomePage() {
           </div>
         </Container>
 
-        <Container className="home-reveal pb-4 pt-12 text-center sm:pt-16">
+        <Container className="home-reveal render-when-visible pb-4 pt-12 text-center sm:pt-16">
           <h2 className="text-3xl font-bold text-ink-900 sm:text-4xl">Start forecasting</h2>
           <p className="mx-auto mt-3 max-w-md text-ink-600">Every account starts with virtual credits. They have no cash value.</p>
           <div className="mt-6 flex flex-wrap justify-center gap-3">
@@ -258,7 +257,7 @@ async function Moves() {
   const result = await safe(() => listBiggestMoves(requestTime(), 4));
   if (!result.data || result.data.moves.length === 0) return null;
   return (
-    <Container className="pb-16 sm:pb-20">
+    <Container className="render-when-visible pb-16 sm:pb-20">
       <Secondary label="biggest moves">
       <SectionHeading
         title={result.data.days === 7 ? "Biggest moves this week" : "Biggest moves this month"}

@@ -52,6 +52,14 @@ Expected success: `201 { "data": { "id", "marketId", "side", "credits", "created
 
 Error codes the panel handles: `UNAUTHENTICATED` (sign-in prompt), `INSUFFICIENT_CREDITS`, `INVALID_STATE` (market closed, form locks), `NOT_FOUND`, `CONFLICT`, `VALIDATION_ERROR` (shows the server message), `FORBIDDEN`. The same idempotency key is resent when a user retries after a network failure, and a new one is made when the forecast changes. The browser never computes balances.
 
+## Demo crowd and market charts
+
+`npm run db:seed` adds about 2,000 fictional forecasters (`prisma/seed-crowd.ts`). Sizes follow public forecasting data: Metaculus questions average about 82 forecasters (95th percentile about 166) with about 2 predictions each, most Manifold markets have under 50 traders, and participation and stake sizes are heavily skewed. Seeded result: 1,241 active forecasters, public markets with a median of 91 forecasters (65 to 229 for the 5th to 95th percentile), 1.3 forecasts per forecaster, a median stake of 35 credits, and about 6.5% verified product users. Private research markets keep their two analysts.
+
+Each simulated forecast goes through the LMSR rule like a real one (fill, General Users and Verified Users estimates per snapshot) and debits the ledger, so ledgers verify and Replay has real lines on every market. Seeding takes about 10 seconds.
+
+Market charts draw straight segments between snapshots with an axis zoomed to the data (`lib/market-view/chart.ts`). The YES allocation line starts once 15 forecasters have taken part (`settledPoints`), because the first few forecasts swing the share between 0% and 100%; the data table lists every point.
+
 ## Market Replay
 
 A Replay button beside the market chart opens a dialog that plays the market's history back. Code: `components/ui/replay/` (UI), `lib/market-view/replay.ts` (pure logic, unit tested), `lib/market-view/replay-data.ts` (server query).

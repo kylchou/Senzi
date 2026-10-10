@@ -90,13 +90,27 @@ export function yDomain(values: number[]): ChartDomain {
 }
 
 /** Line paths and a y-axis zoomed to the data (and the baseline, when given). */
+/**
+ * The credit share from the first few forecasters swings between 0% and 100%
+ * (one YES forecast is 100%), so the line starts once this many have taken
+ * part. Crowd estimates stop improving much past 10 to 20 participants. This
+ * also keeps an early spike from stretching the zoomed axis. Markets that
+ * never reach it show every point. The data table lists all.
+ */
+export const MIN_FORECASTERS_FOR_LINE = 15;
+
+export function settledPoints<T extends { forecasterCount: number }>(points: T[]): T[] {
+  const from = points.findIndex((point) => point.forecasterCount >= MIN_FORECASTERS_FOR_LINE);
+  return from > 0 && points.length - from >= 2 ? points.slice(from) : points;
+}
+
 export function buildGeometry(
   history: HistoryPoint[],
   box: ChartBox,
   now: number = Date.now(),
   baseline: number | null = null,
 ): ChartGeometry | null {
-  const data = downsample(plottable(history), 400);
+  const data = downsample(settledPoints(plottable(history)), 400);
   if (data.length === 0) return null;
   const calibrated = downsample(
     history

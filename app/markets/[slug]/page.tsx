@@ -189,7 +189,7 @@ async function MarketView({ params }: Pick<PageProps<"/markets/[slug]">, "params
             />
           </section>
 
-          <Secondary label="sources, coverage, and startup details" bodyClassName="space-y-8">
+          <Secondary label="sources, coverage, and startup details" className="render-when-visible" bodyClassName="space-y-8">
           <section aria-labelledby="sources-heading">
             <h2 id="sources-heading" className="mb-3 font-display text-lg font-bold text-ink-900">
               Sources

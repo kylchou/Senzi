@@ -28,14 +28,25 @@ export function resolveDark(mode: ThemeMode, systemDark: boolean): boolean {
   return mode === "dark" || (mode === "system" && systemDark);
 }
 
-function applyTheme(mode: ThemeMode, animate: boolean) {
+/**
+ * Switches the dark class in a single frame. Measured alternatives were slower:
+ * animating every element's colors froze large pages for most of a second, and
+ * a full-page cross-fade (View Transitions) dropped several frames on slower
+ * machines. One instant restyle is what feels smooth.
+ *
+ * Hover transitions (transition-colors and similar) are off during the swap, so
+ * buttons, links, and cards do not each animate to their new colors and keep
+ * restyling the page for the next few frames. They come back in idle time.
+ */
+function applyTheme(mode: ThemeMode) {
   const root = document.documentElement;
-  if (animate) {
-    // Briefly transition colors so the switch feels smooth instead of instant.
-    root.classList.add("theme-switching");
-    window.setTimeout(() => root.classList.remove("theme-switching"), 300);
-  }
-  root.classList.toggle("dark", resolveDark(mode, media().matches));
+  const dark = resolveDark(mode, media().matches);
+  if (root.classList.contains("dark") === dark) return;
+  root.classList.add("theme-swap");
+  root.classList.toggle("dark", dark);
+  const restore = () => root.classList.remove("theme-swap");
+  if (typeof window.requestIdleCallback === "function") window.requestIdleCallback(restore, { timeout: 500 });
+  else window.setTimeout(restore, 100);
 }
 
 export function setThemeMode(mode: ThemeMode) {
@@ -45,7 +56,7 @@ export function setThemeMode(mode: ThemeMode) {
   } catch {
     // Storage can be unavailable (private mode); the theme still applies for this page.
   }
-  applyTheme(mode, true);
+  applyTheme(mode);
   listeners.forEach((listener) => listener());
 }
 
@@ -66,7 +77,7 @@ export function useThemeMode(): ThemeMode {
   useEffect(() => {
     if (mode !== "system") return;
     const query = media();
-    const onChange = () => applyTheme("system", true);
+    const onChange = () => applyTheme("system");
     query.addEventListener("change", onChange);
     return () => query.removeEventListener("change", onChange);
   }, [mode]);
