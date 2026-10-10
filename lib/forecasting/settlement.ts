@@ -9,11 +9,11 @@
 // - Payout amounts are computed once and stored before any credit is issued, so
 //   a resumed run pays exactly what the first run planned.
 
-import { marketLockKey, requireSettlementModel, type EngineDeps } from './deps.js';
-import { ForecastingError } from './errors.js';
-import { buildSnapshot } from './history.js';
-import type { AuthContext, CreditLedger } from './ports.js';
-import type { Forecast, Market, Outcome, Payout, SettlementRecord } from './types.js';
+import { marketLockKey, requireSettlementModel, type EngineDeps } from './deps';
+import { ForecastingError } from './errors';
+import { buildSnapshot } from './history';
+import type { AuthContext, CreditLedger } from './ports';
+import type { Forecast, Market, Outcome, Payout, SettlementRecord } from './types';
 
 export interface SettleMarketInput {
   marketId: string;

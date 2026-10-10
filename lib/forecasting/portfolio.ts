@@ -2,10 +2,10 @@
 // and resolved forecasts with their original entry information, ledger history
 // and virtual results.
 
-import type { EngineDeps } from './deps.js';
-import { ForecastingError } from './errors.js';
-import type { AuthContext } from './ports.js';
-import type { EntrySnapshot, Forecast, Market, MarketSnapshot, Outcome, Side, SettlementRecord } from './types.js';
+import type { EngineDeps } from './deps';
+import { ForecastingError } from './errors';
+import type { AuthContext } from './ports';
+import type { EntrySnapshot, Forecast, Market, MarketSnapshot, Outcome, Side, SettlementRecord } from './types';
 
 export type PositionStatus = 'active' | 'awaiting_resolution' | 'resolved' | 'cancelled';
 export type PositionResult = 'won' | 'lost' | 'void' | 'pending';

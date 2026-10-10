@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { defaultConfig, type CommunityEstimateRule } from '../index.js';
+import { defaultConfig, type CommunityEstimateRule } from '../index';
 import {
   computeWithRule,
   confidenceFor,
@@ -7,8 +7,8 @@ import {
   formatPercent,
   labelFor,
   type CalibrationEvidence,
-} from '../estimates.js';
-import { DAY, expectCode, modelService, setup, T0 } from './helpers.js';
+} from '../estimates';
+import { DAY, expectCode, modelService, setup, T0 } from './helpers';
 
 const goodEvidence: CalibrationEvidence = {
   line: 'general',

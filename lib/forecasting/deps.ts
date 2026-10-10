@@ -1,5 +1,5 @@
-import type { EngineConfig } from './config.js';
-import { ForecastingError } from './errors.js';
+import type { EngineConfig } from './config';
+import { ForecastingError } from './errors';
 import type {
   AuthContext,
   Clock,
@@ -11,7 +11,7 @@ import type {
   SettlementAuthorizer,
   SettlementModel,
   TraderDirectory,
-} from './ports.js';
+} from './ports';
 
 export interface EngineDeps {
   repo: ForecastRepository;

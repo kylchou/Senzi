@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { resolver, setup, T0 } from './helpers.js';
+import { resolver, setup, T0 } from './helpers';
 
 type T = ReturnType<typeof setup>;
 

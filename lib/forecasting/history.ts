@@ -2,10 +2,10 @@
 // per model update, and at settlement. Feeds the three-line chart, reports and
 // calibration analysis.
 
-import { ForecastingError } from './errors.js';
-import { computeLine, verifiedOnly } from './estimates.js';
-import type { CommunityEstimateRule } from './ports.js';
-import type { EstimateKind, Forecast, Market, MarketSnapshot, SnapshotTrigger } from './types.js';
+import { ForecastingError } from './errors';
+import { computeLine, verifiedOnly } from './estimates';
+import type { CommunityEstimateRule } from './ports';
+import type { EstimateKind, Forecast, Market, MarketSnapshot, SnapshotTrigger } from './types';
 
 export function buildSnapshot(params: {
   market: Market;
