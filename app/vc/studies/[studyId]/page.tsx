@@ -121,7 +121,7 @@ export default async function StudyPage({ params }: { params: Promise<{ studyId:
       </Section>
 
       <div className="grid gap-6 lg:grid-cols-2">
-        <Section id="definition" title="Question definition" description="How this question resolves. Set by the proposing firm and reviewed by VentureCast.">
+        <Section id="definition" title="Question definition" description="How this question resolves. Set by the proposing firm and reviewed by Senzi.">
           <dl className="space-y-3 text-sm">
             <div>
               <dt className="font-medium">Resolves YES if</dt>

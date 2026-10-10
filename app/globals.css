@@ -48,3 +48,13 @@
     }
   }
 }
+
+/* Shared ambient glow behind homepage sections, in place of divider lines. */
+.home-glow {
+  pointer-events: none;
+  position: absolute;
+  width: 24rem;
+  height: 24rem;
+  border-radius: 9999px;
+  filter: blur(64px);
+}

@@ -3,18 +3,17 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Suspense } from "react";
-import { SignInButton, UserButton, useAuth } from "@clerk/nextjs";
-import { Building2, Home, LineChart, Pencil, Search, User } from "lucide-react";
+import { SignInButton, useAuth } from "@clerk/nextjs";
+import { Building2, Compass, Home, Pencil, Search, User } from "lucide-react";
 import { cn } from "./cn";
 import { openCommandPalette } from "./CommandPalette";
 import { useRememberedHref } from "./remembered-filters";
 
 const tabs = [
   { href: "/", label: "Home", Icon: Home, exact: true },
-  { href: "/markets", label: "Markets", Icon: LineChart, exact: false },
+  { href: "/markets", label: "Markets", Icon: Compass, exact: false },
   { href: "/startups", label: "Startups", Icon: Building2, exact: false },
-  // Opens the homepage walkthrough (see HowItWorksTutorial).
-  { href: "/#tutorial", label: "Learn", Icon: Pencil, exact: true },
+  { href: "/how-it-works", label: "Learn", Icon: Pencil, exact: false },
 ];
 
 const itemClass =
@@ -78,10 +77,10 @@ function AccountTab() {
   const { isLoaded, isSignedIn } = useAuth();
   if (isLoaded && isSignedIn) {
     return (
-      <div className={itemClass}>
-        <UserButton />
-        <span>Account</span>
-      </div>
+      <Link href="/profile" className={cn(itemClass, "hover:text-ink-900")}>
+        <User className="size-5" aria-hidden />
+        Profile
+      </Link>
     );
   }
   return (

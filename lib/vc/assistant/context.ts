@@ -27,14 +27,14 @@ export const CAVEATS = {
   allocationShare: "Community YES credit-allocation share: where virtual credits were placed. Not a calibrated probability.",
   baseline: "Opening baseline set before forecasting began. A reference point, not a forecast.",
   calibrated: "Calibrated probability from the forecasting engine.",
-  studySource: "Cited by the study's author; not independently verified by VentureCast.",
-  unverifiedFact: "Not yet verified by VentureCast.",
+  studySource: "Cited by the study's author; not independently verified by Senzi.",
+  unverifiedFact: "Not yet verified by Senzi.",
   newsUnverified: "Unverified report.",
-  newsDisputed: "Disputed: VentureCast has marked this report as disputed.",
+  newsDisputed: "Disputed: Senzi has marked this report as disputed.",
   indicator: "Public signal scraped from a public source. Not revenue, customers, or valuation.",
   trackRecord: "Track record over this firm-visible set of questions only; small samples vary a lot.",
   firmNote: "Private note from your firm. Opinion, not a verified fact.",
-  resolution: "Outcome recorded by VentureCast against documented evidence.",
+  resolution: "Outcome recorded by Senzi against documented evidence.",
 } as const;
 
 const iso = (d: Date | null | undefined) => (d ? d.toISOString() : null);
@@ -75,7 +75,7 @@ function newsItems(news: StartupNewsView[]): EvidenceItem[] {
     numeric: null,
     asOf: iso(n.publishedAt),
     sourceUrl: n.url,
-    caveat: n.verification === "VERIFIED" ? "Verified by VentureCast." : n.verification === "DISPUTED" ? CAVEATS.newsDisputed : CAVEATS.newsUnverified,
+    caveat: n.verification === "VERIFIED" ? "Verified by Senzi." : n.verification === "DISPUTED" ? CAVEATS.newsDisputed : CAVEATS.newsUnverified,
     href: n.url,
   }));
 }
