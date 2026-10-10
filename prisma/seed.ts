@@ -72,6 +72,7 @@ async function main() {
         displayName: u.displayName,
         platformRole: u.role === "ADMIN" ? PlatformRole.ADMIN : PlatformRole.USER,
         accountType: VC_HANDLES.has(u.handle) ? AccountType.VC : AccountType.TRADER,
+        accountVerifiedAt: new Date(),
       },
     });
     await db.$transaction((tx) => grantSignupCredits(tx, user.id));
@@ -92,6 +93,7 @@ async function main() {
         displayName: demoEmail.split("@")[0]!,
         platformRole: PlatformRole.ADMIN,
         accountType: AccountType.VC,
+        accountVerifiedAt: new Date(),
       },
     });
     demoUserId = demo.id;

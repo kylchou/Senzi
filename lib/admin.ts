@@ -622,7 +622,8 @@ export async function setAccountType(
     }
     const user = await tx.user.update({
       where: { id: userId },
-      data: { accountType: input.accountType },
+      // An admin setting the type vouches for it.
+      data: { accountType: input.accountType, accountVerifiedAt: new Date() },
       select: { id: true, displayName: true, email: true, accountType: true },
     });
     await recordAudit(

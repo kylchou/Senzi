@@ -7,6 +7,7 @@
  */
 export {
   AccountType,
+  VerificationStatus,
   CreditTransactionType,
   EstimateKind,
   ForecastSide,
@@ -152,6 +153,8 @@ export interface SessionUser {
   platformRole: PlatformRole;
   /** Null until chosen (see /onboarding). */
   accountType: AccountType | null;
+  /** Null until verified (lib/verification.ts). */
+  accountVerifiedAt: Date | null;
 }
 
 /** Safe to show anyone. Never includes email or credit balance. */

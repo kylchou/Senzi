@@ -11,7 +11,7 @@ const OPTIONS: { type: AccountType; title: string; body: string; Icon: typeof Li
   {
     type: "VC",
     title: "I'm with a VC firm",
-    body: "Open questions about startups and read your firm's private research. VC accounts can't trade.",
+    body: "Open questions about startups and read your firm's private research. We check your firm before turning this on, and VC accounts can't trade.",
     Icon: Briefcase,
   },
 ];

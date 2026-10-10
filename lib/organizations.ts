@@ -1,4 +1,4 @@
-import { AccountType, NotificationType, OrgRole } from "@/generated/prisma/enums";
+import { AccountType, NotificationType, OrgRole, PlatformRole } from "@/generated/prisma/enums";
 import { conflict, forbidden, invalidState, notFound } from "@/lib/api-response";
 import { recordAudit } from "@/lib/audit";
 import { db, isUniqueViolation, type TxClient } from "@/lib/db";
@@ -33,6 +33,10 @@ export async function listMyOrganizations(user: SessionUser): Promise<Membership
 }
 
 export async function createOrganization(user: SessionUser, input: CreateOrganizationInput, ctx: RequestContext = {}) {
+  const verifiedVc = user.accountType === AccountType.VC && user.accountVerifiedAt !== null;
+  if (!verifiedVc && user.platformRole !== PlatformRole.ADMIN) {
+    throw forbidden("Only verified VC accounts can create an organization");
+  }
   try {
     return await db.$transaction(async (tx) => {
       const org = await tx.organization.create({
@@ -147,8 +151,10 @@ export async function addMember(
       if (existing?.accountType === AccountType.TRADER) {
         throw invalidState("That person has a trader account. A Senzi admin has to switch it to VC before they can join.");
       }
-      if (existing && !existing.accountType) {
-        await tx.user.update({ where: { id: existing.id }, data: { accountType: AccountType.VC } });
+      // Being added by a firm that's already on Senzi verifies a VC.
+      if (existing) {
+        await tx.user.updateMany({ where: { id: existing.id, accountType: null }, data: { accountType: AccountType.VC } });
+        await tx.user.updateMany({ where: { id: existing.id, accountVerifiedAt: null }, data: { accountVerifiedAt: new Date() } });
       }
       const target =
         existing ??
@@ -158,6 +164,7 @@ export async function addMember(
             email: input.email,
             displayName: input.email.split("@")[0]!,
             accountType: AccountType.VC,
+            accountVerifiedAt: new Date(),
           },
           select: { id: true, accountType: true },
         }));
