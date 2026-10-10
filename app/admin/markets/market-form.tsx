@@ -6,8 +6,8 @@ import { Field, Select, TextArea, toUtcInputValue } from "../_components/ui";
 
 const visibilityOptions = [
   { value: MarketVisibility.PUBLIC, label: "Public" },
-  { value: MarketVisibility.UNLISTED, label: "Unlisted (direct link only)" },
-  { value: MarketVisibility.PRIVATE, label: "Private (one organization)" },
+  { value: MarketVisibility.ORGANIZATION, label: "Organization members" },
+  { value: MarketVisibility.RESTRICTED, label: "Restricted (org admins and invitees)" },
 ];
 
 export function MarketForm({
@@ -20,7 +20,7 @@ export function MarketForm({
   submitLabel,
 }: {
   action: (state: ActionState, fd: FormData) => Promise<ActionState>;
-  market?: Market;
+  market?: Market & { sources?: { title: string; url: string }[] };
   startups: { id: string; name: string }[];
   organizations: { id: string; name: string }[];
   defaultStartupId?: string;
@@ -50,11 +50,18 @@ export function MarketForm({
           hint="A YES/NO question ending in “?”"
         />
         <TextArea
-          label="Resolution criteria"
-          name="resolutionCriteria"
+          label="Resolves YES if"
+          name="yesCriteria"
           required
-          defaultValue={market?.resolutionCriteria}
-          hint="Exactly what has to happen, by when, for this to resolve YES."
+          defaultValue={market?.yesCriteria}
+          hint="Exactly what has to happen, by when."
+        />
+        <TextArea
+          label="Resolves NO if"
+          name="noCriteria"
+          required
+          defaultValue={market?.noCriteria}
+          hint="Usually: the YES criteria aren't met by the deadline."
         />
         <div className="grid gap-4 sm:grid-cols-2">
           <Field
@@ -64,9 +71,14 @@ export function MarketForm({
             min={1}
             max={99}
             step={0.1}
-            required
-            defaultValue={market ? Math.round(market.openingBaseline * 1000) / 10 : 50}
-            hint="Admin starting estimate. Not a community signal."
+            defaultValue={market?.openingBaseline != null ? Math.round(market.openingBaseline * 1000) / 10 : ""}
+            hint="Optional starting estimate. Not a community signal."
+          />
+          <Field
+            label="Baseline methodology"
+            name="baselineMethodology"
+            defaultValue={market?.baselineMethodology ?? ""}
+            hint="Required with a baseline, e.g. base rate of Series B within 18 months of an A."
           />
           <Select
             label="Visibility"
@@ -89,7 +101,18 @@ export function MarketForm({
         <Field label="Deadline (UTC)" name="closesAt" type="datetime-local" required defaultValue={toUtcInputValue(market?.closesAt)} />
         <Field label="Resolve by (UTC)" name="resolvesBy" type="datetime-local" defaultValue={toUtcInputValue(market?.resolvesBy)} />
       </div>
-      <Field label="Resolution source" name="resolutionSource" defaultValue={market?.resolutionSource ?? ""} hint="Where the resolver will look, e.g. SEC filings or the company blog." />
+      <TextArea
+        label="Resolution sources"
+        name="sources"
+        rows={3}
+        required
+        defaultValue={market?.sources?.map((s) => `${s.title} | ${s.url}`).join("\n") ?? ""}
+        hint="Where the resolver will look. One per line: Title | https://link"
+      />
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field label="Min credits per forecast" name="minForecastCredits" type="number" min={1} defaultValue={market?.minForecastCredits ?? ""} />
+        <Field label="Max credits per forecast" name="maxForecastCredits" type="number" min={1} defaultValue={market?.maxForecastCredits ?? ""} />
+      </div>
       <TextArea label="Description" name="description" defaultValue={market?.description ?? ""} />
       {!market && <Field label="Open immediately" name="openImmediately" type="checkbox" />}
     </ActionForm>

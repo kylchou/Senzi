@@ -7,6 +7,8 @@ import {
   ResolutionOutcome,
   SettlementStatus,
   SnapshotTrigger,
+  StudyStatus,
+  StudyVisibility,
 } from "@/generated/prisma/enums";
 import { conflict, forbidden, invalidState, notFound } from "@/lib/api-response";
 import { recordAudit } from "@/lib/audit";
@@ -15,9 +17,12 @@ import { db, isUniqueViolation, type TxClient } from "@/lib/db";
 import type { AdminMarketSummary, AdminStartupSummary, RequestContext, SessionUser } from "@/lib/types";
 import {
   checkMarketInvariants,
+  createMarketForStudySchema,
   type AdminCreditAdjustmentInput,
+  type CreateMarketForStudyInput,
   type CreateMarketInput,
   type CreateStartupInput,
+  type MarketSourceInput,
   type MarketStatusChangeInput,
   type ResolveMarketInput,
   type UpdateMarketInput,
@@ -84,7 +89,7 @@ export async function listAdminStartups(actor: SessionUser, opts: { q?: string }
       id: true,
       slug: true,
       name: true,
-      sector: true,
+      industry: true,
       stage: true,
       isPublished: true,
       _count: { select: { markets: true } },
@@ -124,12 +129,14 @@ export function canTransitionMarket(from: MarketStatus, to: MarketStatus): boole
 const TERMS_FIELDS = [
   "startupId",
   "question",
-  "resolutionCriteria",
+  "yesCriteria",
+  "noCriteria",
   "openingBaseline",
+  "baselineMethodology",
   "visibility",
   "organizationId",
   "opensAt",
-] as const satisfies readonly (keyof UpdateMarketInput)[];
+] as const satisfies readonly (keyof UpdateMarketInput & keyof Market)[];
 
 function sameValue(a: unknown, b: unknown) {
   if (a instanceof Date && b instanceof Date) return a.getTime() === b.getTime();
@@ -157,26 +164,32 @@ async function assertMarketReferences(
   }
 }
 
-/** Records the admin-set opening baseline as the first point of the market's history. */
+/** Records the opening baseline as the first point of the market's history. */
 async function createOpeningSnapshot(tx: TxClient, market: Market) {
-  await tx.probabilitySnapshot.create({
+  const last = await tx.marketSnapshot.aggregate({ where: { marketId: market.id }, _max: { sequence: true } });
+  await tx.marketSnapshot.create({
     data: {
       marketId: market.id,
+      sequence: (last._max.sequence ?? 0) + 1,
       trigger: SnapshotTrigger.OPENING,
       openingBaseline: market.openingBaseline,
+      modelValue: market.modelValue,
       yesCredits: market.yesCredits,
       noCredits: market.noCredits,
-      communityAllocationShare: null,
-      calibratedProbability: null,
+      allocationShare: null,
       forecastCount: market.forecastCount,
-      uniqueForecasters: 0,
+      forecasterCount: 0,
     },
   });
 }
 
+function sourceRows(sources: MarketSourceInput[]) {
+  return sources.map((source, position) => ({ ...source, position }));
+}
+
 export async function createMarket(actor: SessionUser, input: CreateMarketInput, ctx: RequestContext = {}) {
   assertAdmin(actor);
-  const { openImmediately, ...fields } = input;
+  const { openImmediately, sources, ...fields } = input;
   const now = new Date();
   if (openImmediately && fields.closesAt <= now) {
     throw invalidState("Cannot open a market whose deadline has passed");
@@ -188,9 +201,11 @@ export async function createMarket(actor: SessionUser, input: CreateMarketInput,
       data: {
         ...fields,
         organizationId: fields.organizationId ?? null,
+        baselineSetAt: fields.openingBaseline != null ? now : null,
         status: openImmediately ? MarketStatus.OPEN : MarketStatus.DRAFT,
         opensAt: openImmediately && fields.opensAt > now ? now : fields.opensAt,
         createdById: actor.id,
+        sources: { create: sourceRows(sources) },
       },
     });
     if (market.status === MarketStatus.OPEN) await createOpeningSnapshot(tx, market);
@@ -233,6 +248,10 @@ export async function updateMarket(
         `Cannot change ${touchedTerms.join(", ")} after forecasts have been placed`,
       );
     }
+    const linkedStudy = await tx.researchStudy.findUnique({ where: { marketId }, select: { id: true } });
+    if (linkedStudy && (touchedTerms as string[]).some((f) => f === "visibility" || f === "organizationId")) {
+      throw invalidState("This market belongs to a research study; change visibility through the study");
+    }
 
     // Re-check cross-field rules against the merged record.
     const merged = { ...market, ...input };
@@ -242,7 +261,15 @@ export async function updateMarket(
     }
     await assertMarketReferences(tx, input);
 
-    const updated = await tx.market.update({ where: { id: marketId }, data: input });
+    const { sources, ...fields } = input;
+    const updated = await tx.market.update({
+      where: { id: marketId },
+      data: {
+        ...fields,
+        ...(touchedTerms.includes("openingBaseline") ? { baselineSetAt: new Date() } : {}),
+        ...(sources ? { sources: { deleteMany: {}, create: sourceRows(sources) } } : {}),
+      },
+    });
     await recordAudit(
       {
         actorId: actor.id,
@@ -309,6 +336,77 @@ export async function changeMarketStatus(
 }
 
 /**
+ * Opens the market for a reviewed VC research study. Called by VC Intelligence
+ * after a platform admin approves and opens the study; that caller checks
+ * authorization. Idempotent on studyId: the market's slug is derived from it,
+ * so repeated or concurrent calls return the same market. Does not write to
+ * the study itself; VC Intelligence stores the returned market id.
+ */
+export async function createMarketForStudy(raw: CreateMarketForStudyInput): Promise<Market> {
+  const input = createMarketForStudySchema.parse(raw);
+  const slug = `study-${input.studyId}`;
+
+  const existing = await db.market.findUnique({ where: { slug } });
+  if (existing) return existing;
+
+  try {
+    return await db.$transaction(async (tx) => {
+      const study = await tx.researchStudy.findUnique({
+        where: { id: input.studyId },
+        select: { organizationId: true, startupId: true, status: true },
+      });
+      if (!study) throw notFound("Study");
+      if (study.organizationId !== input.organizationId || study.startupId !== input.startupId) {
+        throw invalidState("Market details don't match the study");
+      }
+      if (study.status !== StudyStatus.APPROVED && study.status !== StudyStatus.OPEN) {
+        throw invalidState("Only approved studies can open a market");
+      }
+      const now = new Date();
+      if (input.closesAt <= now) throw invalidState("The study deadline has already passed");
+
+      const isPublic = input.visibility === StudyVisibility.PUBLIC;
+      const market = await tx.market.create({
+        data: {
+          slug,
+          startupId: input.startupId,
+          question: input.question,
+          yesCriteria: input.yesCriteria,
+          noCriteria: input.noCriteria,
+          openingBaseline: input.openingBaseline.value,
+          baselineMethodology: input.openingBaseline.methodology,
+          baselineSetAt: now,
+          visibility: input.visibility,
+          organizationId: isPublic ? null : input.organizationId,
+          status: MarketStatus.OPEN,
+          opensAt: now,
+          closesAt: input.closesAt,
+          createdById: input.createdById,
+          sources: { create: input.sources.map((s, position) => ({ ...s, position })) },
+        },
+      });
+      await createOpeningSnapshot(tx, market);
+      await recordAudit(
+        {
+          actorId: null,
+          organizationId: input.organizationId,
+          action: "market.createFromStudy",
+          entityType: "Market",
+          entityId: market.id,
+          data: { studyId: input.studyId, visibility: input.visibility, requestedBy: input.createdById },
+        },
+        tx,
+      );
+      return market;
+    });
+  } catch (error) {
+    // A concurrent call for the same study won the race.
+    if (isUniqueViolation(error, "slug")) return db.market.findUniqueOrThrow({ where: { slug } });
+    throw error;
+  }
+}
+
+/**
  * Closes every OPEN market whose deadline has passed. Intended for a cron job.
  * Forecast submission must still check `closesAt > now` itself.
  */
@@ -342,7 +440,7 @@ export async function resolveMarket(
       }
 
       const newStatus =
-        input.outcome === ResolutionOutcome.CANCELLED ? MarketStatus.CANCELLED : MarketStatus.RESOLVED;
+        input.outcome === ResolutionOutcome.VOID ? MarketStatus.CANCELLED : MarketStatus.RESOLVED;
       const { count } = await tx.market.updateMany({
         where: { id: marketId, status: market.status },
         data: { status: newStatus },
@@ -371,8 +469,8 @@ export async function resolveMarket(
             userId,
             type: NotificationType.MARKET_RESOLVED,
             title:
-              input.outcome === ResolutionOutcome.CANCELLED
-                ? `Market cancelled: ${market.question}`
+              input.outcome === ResolutionOutcome.VOID
+                ? `Market voided: ${market.question}`
                 : `Market resolved ${input.outcome}: ${market.question}`,
             link: `/markets/${market.slug}`,
             data: { marketId, resolutionId: resolution.id, outcome: input.outcome },
@@ -446,6 +544,8 @@ export async function getAdminMarket(actor: SessionUser, marketId: string) {
     include: {
       startup: { select: { id: true, name: true, slug: true } },
       organization: { select: { id: true, name: true, slug: true } },
+      sources: { orderBy: { position: "asc" } },
+      study: { select: { id: true, status: true } },
       resolution: { include: { resolvedBy: { select: { id: true, displayName: true } } } },
     },
   });

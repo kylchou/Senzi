@@ -16,7 +16,7 @@ export default defineConfig({
     projects: [
       {
         extends: true,
-        test: { name: "unit", include: ["tests/unit/**/*.test.ts"], environment: "node" },
+        test: { name: "unit", include: ["tests/unit/**/*.test.ts", "lib/**/*.test.ts"], environment: "node" },
       },
       {
         extends: true,
