@@ -35,7 +35,7 @@ const measures = [
 export default function HomePage() {
   return (
     <main id="main" className="flex-1">
-      <section className="relative overflow-hidden bg-ink-900 text-white">
+      <section className="relative overflow-hidden bg-night text-white">
         <div
           aria-hidden
           className="pointer-events-none absolute inset-0 opacity-[0.07] [background-image:linear-gradient(to_right,#fff_1px,transparent_1px),linear-gradient(to_bottom,#fff_1px,transparent_1px)] [background-size:48px_48px] [mask-image:radial-gradient(ellipse_at_top_right,black_20%,transparent_70%)]"
@@ -46,7 +46,7 @@ export default function HomePage() {
             <h1 className="text-4xl font-extrabold leading-[1.05] sm:text-6xl">
               Forecast what startups do <span className="text-red-500">next.</span>
             </h1>
-            <p className="mt-5 max-w-lg text-lg text-ink-300">
+            <p className="mt-5 max-w-lg text-lg text-mist-300">
               Allocate virtual credits on measurable startup milestones and see where the community stands.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
@@ -94,7 +94,7 @@ export default function HomePage() {
             <SectionHeading eyebrow="Reading the numbers" title="What each figure means" />
             <ul className="grid gap-3 sm:grid-cols-2">
               {measures.map((measure) => (
-                <li key={measure.name} className="rounded-[var(--radius-card)] border border-ink-200 bg-white p-5">
+                <li key={measure.name} className="rounded-[var(--radius-card)] border border-ink-200 bg-surface p-5">
                   <span aria-hidden className={`block w-8 ${measure.swatch}`} />
                   <h3 className="mt-3 font-display font-semibold text-ink-900">{measure.name}</h3>
                   <p className="mt-1 text-sm text-ink-600">{measure.body}</p>
@@ -121,10 +121,10 @@ export default function HomePage() {
       </Container>
 
       <Container>
-        <div className="relative overflow-hidden rounded-3xl bg-ink-900 px-6 py-12 text-center text-white sm:px-12">
+        <div className="relative overflow-hidden rounded-3xl bg-night px-6 py-12 text-center text-white sm:px-12">
           <div aria-hidden className="pointer-events-none absolute -bottom-24 left-1/2 h-48 w-2/3 -translate-x-1/2 rounded-full bg-red-500/25 blur-3xl" />
           <h2 className="relative text-3xl font-bold sm:text-4xl">Start forecasting</h2>
-          <p className="relative mx-auto mt-3 max-w-md text-ink-300">Every account starts with virtual credits.</p>
+          <p className="relative mx-auto mt-3 max-w-md text-mist-300">Every account starts with virtual credits.</p>
           <div className="relative mt-6">
             <SignInCta
               signedIn={
@@ -159,11 +159,11 @@ async function HeroStats() {
   return (
     <dl className="mt-10 flex gap-10">
       <div>
-        <dt className="text-xs text-ink-400">Open markets</dt>
+        <dt className="text-xs text-mist-400">Open markets</dt>
         <dd className="font-display text-2xl font-bold tabular-nums">{counts.data.openMarkets}</dd>
       </div>
       <div>
-        <dt className="text-xs text-ink-400">Startups tracked</dt>
+        <dt className="text-xs text-mist-400">Startups tracked</dt>
         <dd className="font-display text-2xl font-bold tabular-nums">{counts.data.startups}</dd>
       </div>
     </dl>
@@ -182,22 +182,22 @@ async function Spotlight() {
       className="group block rounded-2xl border border-white/10 bg-white/[0.04] p-6 backdrop-blur transition-colors hover:border-white/20 hover:bg-white/[0.07]"
     >
       <p className="text-xs font-semibold uppercase tracking-[0.14em] text-red-500">Most active</p>
-      <p className="mt-1 text-sm text-ink-300">{market.startup.name}</p>
+      <p className="mt-1 text-sm text-mist-300">{market.startup.name}</p>
       <p className="mt-3 font-display text-xl font-semibold leading-snug">{market.question}</p>
       <div className="mt-6 flex items-end justify-between">
         <div>
           <p className="font-display text-4xl font-bold tabular-nums">{formatShare(market.allocation.share)}</p>
-          <p className="text-xs text-ink-400">YES allocation</p>
+          <p className="text-xs text-mist-400">YES allocation</p>
         </div>
         {market.openingBaseline !== null && (
           <div className="text-right">
-            <p className="text-lg font-semibold tabular-nums text-ink-200">{formatShare(market.openingBaseline)}</p>
-            <p className="text-xs text-ink-400">Baseline</p>
+            <p className="text-lg font-semibold tabular-nums text-mist-200">{formatShare(market.openingBaseline)}</p>
+            <p className="text-xs text-mist-400">Baseline</p>
           </div>
         )}
       </div>
       <AllocationBar share={market.allocation.share} baseline={market.openingBaseline} tone="dark" className="mt-3" />
-      <p className="mt-4 text-xs text-ink-400">
+      <p className="mt-4 text-xs text-mist-400">
         {formatDeadline(market.closesAt)} · {market.allocation.forecastCount} forecasts
       </p>
     </Link>

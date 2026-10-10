@@ -7,7 +7,7 @@ import type { MarketDetail } from "@/lib/market-view/types";
 
 function Stat({ label, tip, value, note }: { label: string; tip: React.ReactNode; value: string; note: string }) {
   return (
-    <div className="bg-white p-5">
+    <div className="bg-surface p-5">
       <div className="flex items-center gap-1 text-xs font-medium text-ink-600">
         {label}
         <InfoTip label={`About ${label.toLowerCase()}`}>{tip}</InfoTip>
@@ -33,7 +33,7 @@ export function MarketBrief({ market }: { market: MarketDetail }) {
   return (
     <div className="space-y-6">
       {resolution && (
-        <div className="flex items-start gap-3 rounded-[var(--radius-card)] bg-ink-900 p-5 text-white">
+        <div className="flex items-start gap-3 rounded-[var(--radius-card)] bg-ink-900 p-5 text-surface">
           <CheckCircle2 className="mt-0.5 size-5 shrink-0 text-red-500" aria-hidden />
           <div className="min-w-0">
             <p className="font-display text-lg font-bold">
@@ -45,7 +45,7 @@ export function MarketBrief({ market }: { market: MarketDetail }) {
               <ul className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-sm">
                 {resolution.evidenceUrls.map((url) => (
                   <li key={url}>
-                    <ExternalLink href={url} className="text-white decoration-white/30">
+                    <ExternalLink href={url} className="text-surface decoration-surface/30">
                       {hostname(url)}
                     </ExternalLink>
                   </li>
@@ -56,7 +56,7 @@ export function MarketBrief({ market }: { market: MarketDetail }) {
         </div>
       )}
 
-      <div className="overflow-hidden rounded-[var(--radius-card)] border border-ink-200 bg-white">
+      <div className="overflow-hidden rounded-[var(--radius-card)] border border-ink-200 bg-surface">
         {/* 1px gaps over an ink background draw the dividers at every breakpoint. */}
         <div className="grid grid-cols-2 gap-px bg-ink-100 sm:grid-cols-4">
           <Stat

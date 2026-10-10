@@ -120,7 +120,7 @@ async function StartupView({ params }: Pick<PageProps<"/startups/[slug]">, "para
             <h2 id="details-heading" className="mb-4 font-display text-xl font-bold text-ink-900">
               Details
             </h2>
-            <dl className="divide-y divide-ink-100 rounded-[var(--radius-card)] border border-ink-200 bg-white">
+            <dl className="divide-y divide-ink-100 rounded-[var(--radius-card)] border border-ink-200 bg-surface">
               {details.map((detail) => (
                 <div key={detail.label} className="flex justify-between gap-4 px-5 py-3.5 text-sm">
                   <dt className="text-ink-600">{detail.label}</dt>
@@ -138,7 +138,7 @@ async function StartupView({ params }: Pick<PageProps<"/startups/[slug]">, "para
             {startup.facts.length === 0 ? (
               <EmptyState title="No sourced information yet" />
             ) : (
-              <dl className="divide-y divide-ink-100 rounded-[var(--radius-card)] border border-ink-200 bg-white">
+              <dl className="divide-y divide-ink-100 rounded-[var(--radius-card)] border border-ink-200 bg-surface">
                 {startup.facts.map((fact) => (
                   <div key={`${fact.label}-${fact.sourceUrl}`} className="px-5 py-4">
                     <dt className="flex items-center gap-1.5 text-xs font-medium text-ink-600">

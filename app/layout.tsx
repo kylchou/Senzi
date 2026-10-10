@@ -3,6 +3,7 @@ import { ClerkProvider } from "@clerk/nextjs";
 import { Geist_Mono, Inter, Montserrat } from "next/font/google";
 import { Navbar } from "@/components/Navbar";
 import { SiteFooter } from "@/components/ui/SiteFooter";
+import { ThemeScript } from "@/components/ui/ThemeScript";
 import "./globals.css";
 
 const inter = Inter({
@@ -31,7 +32,12 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     <html
       lang="en"
       className={`${inter.variable} ${montserrat.variable} ${geistMono.variable} h-full antialiased`}
+      // ThemeScript may add the dark class before hydration.
+      suppressHydrationWarning
     >
+      <head>
+        <ThemeScript />
+      </head>
       <body className="min-h-full flex flex-col">
         <ClerkProvider>
           <Navbar />

@@ -15,12 +15,12 @@ export function StartupMark({
   const dims = { sm: "size-7 text-xs rounded-md", md: "size-10 text-sm rounded-lg", lg: "size-16 text-xl rounded-xl" }[size];
   if (logoUrl) {
     // eslint-disable-next-line @next/next/no-img-element
-    return <img src={logoUrl} alt="" className={cn(dims, "shrink-0 border border-ink-200 bg-white object-contain", className)} />;
+    return <img src={logoUrl} alt="" className={cn(dims, "shrink-0 border border-ink-200 bg-surface object-contain", className)} />;
   }
   return (
     <span
       aria-hidden
-      className={cn(dims, "inline-flex shrink-0 items-center justify-center bg-ink-900 font-display font-bold text-white", className)}
+      className={cn(dims, "inline-flex shrink-0 items-center justify-center bg-ink-900 font-display font-bold text-surface", className)}
     >
       {name.trim().charAt(0).toUpperCase()}
     </span>

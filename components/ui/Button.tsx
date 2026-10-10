@@ -7,9 +7,9 @@ export const buttonStyles = cva(
   {
     variants: {
       variant: {
-        primary: "bg-ink-900 text-white hover:bg-ink-800",
+        primary: "bg-ink-900 text-surface hover:bg-ink-800",
         accent: "bg-red-600 text-white hover:bg-red-700",
-        outline: "border border-ink-200 bg-white text-ink-900 hover:border-ink-300 hover:bg-ink-50",
+        outline: "border border-ink-200 bg-surface text-ink-900 hover:border-ink-300 hover:bg-ink-50",
         inverse: "border border-white/25 text-white hover:bg-white/10",
         ghost: "text-ink-700 hover:bg-ink-100 hover:text-ink-900",
       },
