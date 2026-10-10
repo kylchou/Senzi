@@ -26,7 +26,7 @@ export function CompanyMetricsForm({ startupId, metrics, demo }: {startupId: str
     } catch(e) { setError(true); setMessage(e instanceof Error ? e.message : "Save failed"); }
     finally {setBusy(false);}
   }}>
-    <p className="text-sm text-slate-500">Sponsor-provided figures are visible only to your firm. Only the question?s own metric affects its baseline. Enter additional dates to build a history.</p>
+    <p className="text-sm text-slate-500">Sponsor-provided figures are visible only to your firm. Only the question&apos;s own metric affects its baseline. Enter additional dates to build a history.</p>
     <fieldset disabled={busy} className="grid gap-3 sm:grid-cols-2">
       <label className={labelClass}>Metric<select className={inputClass} value={metricId} onChange={e=>setMetric(e.target.value)}>{metrics.map(m=><option key={m.id} value={m.id}>{m.label} ({m.unit})</option>)}</select></label>
       <label className={labelClass}>Value<input required className={inputClass} type="number" min="0" max="1000000000000000" step="any" value={value} onChange={e=>setValue(e.target.value)} /></label>

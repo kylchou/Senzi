@@ -4,7 +4,6 @@ import { NoWorkspace } from "@/components/vc/NoWorkspace";
 import { Section } from "@/components/vc/Section";
 import { StudyTable } from "@/components/vc/StudyTable";
 import { ALLOCATION_SHARE_EXPLAINER } from "@/lib/vc/constants";
-import { formatPointChange, formatShare } from "@/lib/vc/estimates";
 import { STATUS_LABELS, formatDate, formatDateTime, formatRelative } from "@/lib/vc/format";
 import { getVcServices } from "@/lib/vc/server/container";
 import { requirePageContext } from "@/lib/vc/server/page";
@@ -138,43 +137,18 @@ export default async function VcDashboardPage({
           </EmptyState>
         ) : (
           <StudyTable
-            showChange
             rows={activeStudies.map((r) => ({
               study: r.study,
               estimate: r.estimate,
               startupName: r.startupName,
+              startupSlug: r.startupSlug,
               baselineValue: r.baseline.value,
-              change7d: r.change7d,
             }))}
           />
         )}
       </Section>
 
       <div className="grid gap-6 lg:grid-cols-2">
-        <Section
-          id="movements"
-          title="Meaningful movements (7 days)"
-          description="Changes in General LMSR price of 5+ points with at least 3 participants."
-        >
-          {d.movements.length === 0 ? (
-            <p className="text-sm text-slate-500 dark:text-slate-400">No significant movements this week.</p>
-          ) : (
-            <ul className="divide-y divide-slate-100 dark:divide-slate-800">
-              {d.movements.map((r) => (
-                <li key={r.study.id} className="flex items-start justify-between gap-3 py-2 text-sm">
-                  <Link href={`/vc/studies/${r.study.id}`} className="hover:underline">
-                    {r.study.question}
-                  </Link>
-                  <span className="whitespace-nowrap text-right tabular-nums">
-                    <span className="font-semibold">{formatPointChange(r.change7d)}</span>
-                    <span className="block text-xs text-slate-500">now {formatShare(r.estimate?.generalPrice)}</span>
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </Section>
-
         <Section id="deadlines" title="Upcoming deadlines (14 days)">
           {d.upcomingDeadlines.length === 0 ? (
             <p className="text-sm text-slate-500 dark:text-slate-400">No deadlines in the next two weeks.</p>

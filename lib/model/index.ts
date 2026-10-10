@@ -97,7 +97,7 @@ export function toMarketModelFields(result: BaselineResult): {
 }
 
 export { computeBaseline, METHOD_DESCRIPTION } from './baseline';
-export { getCompanyIndicators, type Indicator } from './indicators';
+export { getCompanyIndicators, getIndicatorHistory, type Indicator, type IndicatorHistory } from './indicators';
 export { crossCheckSponsor, sponsorPoint, sponsorLabel, type SponsorEntry } from './sponsor';
 export { makeQuestion, questionText, resolveQuestion, type Resolution } from './questions';
 export { COMPANIES, getCompany, metricIds, metricsFor } from './catalog';

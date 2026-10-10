@@ -9,24 +9,24 @@ import { Container } from "@/components/ui/Container";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { homePathFor, requireUserPage } from "@/lib/auth";
 import { latestVcVerification } from "@/lib/verification";
-import { chooseAccountTypeAction, switchToTraderAction } from "./actions";
+import { bypassVerificationAction, chooseAccountTypeAction, switchToTraderAction } from "./actions";
 
 export const metadata: Metadata = { title: "Set up your account", robots: { index: false } };
 
 /** Every sign-in lands here. Sends verified people on; otherwise finishes setup. */
-export default function OnboardingPage() {
+export default function OnboardingPage({ searchParams }: { searchParams: Promise<{ bypass?: string }> }) {
   return (
     <main id="main" className="flex-1">
       <Container className="py-12 sm:py-20">
         <Suspense fallback={<Skeleton className="mx-auto h-64 max-w-2xl rounded-[var(--radius-card)]" />}>
-          <Setup />
+          <Setup searchParams={searchParams} />
         </Suspense>
       </Container>
     </main>
   );
 }
 
-async function Setup() {
+async function Setup({ searchParams }: { searchParams: Promise<{ bypass?: string }> }) {
   const user = await requireUserPage("/onboarding");
   if (user.accountType && user.accountVerifiedAt) redirect(homePathFor(user));
 
@@ -44,6 +44,8 @@ async function Setup() {
 
   // Trader accounts are verified on choice, so only VCs reach this point.
   const latest = await latestVcVerification(user.id);
+  const bypassEnabled = !!process.env.DEMO_VC_BYPASS_CODE;
+  const bypassInvalid = (await searchParams).bypass === "invalid";
   return (
     <div className="mx-auto max-w-2xl space-y-6">
       {latest?.status === "PENDING" ? (
@@ -56,6 +58,31 @@ async function Setup() {
           <p className="mt-4 text-sm text-ink-500">
             Sent for {latest.firmName} as {latest.jobTitle} ({latest.workEmail}).
           </p>
+          {bypassEnabled && (
+            <form action={bypassVerificationAction} className="mt-6 flex flex-col items-center gap-2 border-t border-ink-200 pt-4">
+              <label htmlFor="bypass-code" className="text-sm text-ink-500">
+                Demo access code
+              </label>
+              <div className="flex gap-2">
+                <input
+                  id="bypass-code"
+                  name="code"
+                  type="password"
+                  autoComplete="off"
+                  required
+                  className="rounded-xl border border-ink-200 bg-transparent px-3 py-1.5 text-sm"
+                />
+                <Button type="submit" size="sm">
+                  Skip review
+                </Button>
+              </div>
+              {bypassInvalid && (
+                <p role="status" className="text-sm text-red-700">
+                  That code isn&apos;t right.
+                </p>
+              )}
+            </form>
+          )}
         </div>
       ) : (
         <div>
