@@ -156,7 +156,7 @@ The design is in [`AI_RESEARCH_ASSISTANT.md`](./AI_RESEARCH_ASSISTANT.md). The f
 
 ## Environment variables
 
-`SENZI_AI_ASSISTANT_API_KEY` (needed for Tyche): the Meta Model API key, in `.env.local` and the Vercel project settings. `SENZI_AI_ASSISTANT_MODEL` (optional) overrides the model. `VC_ASSISTANT_DATA_TIER` (optional): `standard` (default) or `extended`. Set it to `extended` only after the team approves sending restricted studies and private notes to an AI provider. Otherwise there are no new variables. `GET /api/vc/cron` uses the existing `CRON_SECRET`; without it the endpoint always returns `401`. The cron runs every 15 minutes (see `vercel.json`).
+`SENZI_AI_ASSISTANT_API_KEY` (needed for Tyche): the Meta Model API key, in `.env.local` and the Vercel project settings. `SENZI_AI_ASSISTANT_MODEL` (optional) overrides the model. `VC_ASSISTANT_DATA_TIER` (optional): `standard` (default) or `extended`. Set it to `extended` only after the team approves sending restricted studies and private notes to an AI provider. Otherwise there are no new variables. `GET /api/vc/cron` uses the existing `CRON_SECRET`; without it the endpoint always returns `401`. It runs every 15 minutes from `.github/workflows/cron.yml`, with a daily Vercel backup at 06:00 UTC (see `vercel.json`).
 
 ## Tests
 
