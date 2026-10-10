@@ -37,3 +37,22 @@ export function clientIp(req: Request): string | null {
   if (forwarded) return forwarded.split(",")[0]!.trim();
   return req.headers.get("x-real-ip");
 }
+
+/**
+ * Before/after values for the fields an update actually changed, for the
+ * audit log: { closesAt: { from, to } }. Fields passed as undefined are skipped.
+ */
+export function diffChanges(
+  before: Record<string, unknown>,
+  input: Record<string, unknown>,
+): Record<string, { from: unknown; to: unknown }> {
+  const normalize = (v: unknown) => (v instanceof Date ? v.toISOString() : v ?? null);
+  const changes: Record<string, { from: unknown; to: unknown }> = {};
+  for (const [key, value] of Object.entries(input)) {
+    if (value === undefined) continue;
+    const from = normalize(before[key]);
+    const to = normalize(value);
+    if (JSON.stringify(from) !== JSON.stringify(to)) changes[key] = { from, to };
+  }
+  return changes;
+}

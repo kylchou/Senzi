@@ -41,6 +41,12 @@ describe("api envelope", () => {
     await expect(parseJsonBody(req, z.object({}))).rejects.toMatchObject({ code: "VALIDATION_ERROR" });
   });
 
+  it("sends Retry-After with rate-limit errors", () => {
+    const res = errorResponse(new ApiError("RATE_LIMITED", "Slow down", { retryAfter: 42 }));
+    expect(res.status).toBe(429);
+    expect(res.headers.get("Retry-After")).toBe("42");
+  });
+
   it("passes ApiErrors through untouched", () => {
     const error = new ApiError("INSUFFICIENT_CREDITS", "Not enough");
     expect(toApiError(error)).toBe(error);

@@ -1,7 +1,8 @@
-import type { NewsVerification } from "@/generated/prisma/enums";
+import type { Prisma } from "@/generated/prisma/client";
+import { NewsVerification } from "@/generated/prisma/enums";
 import { notFound } from "@/lib/api-response";
-import { assertAdmin } from "@/lib/admin";
-import { recordAudit } from "@/lib/audit";
+import { assertAdmin } from "@/lib/admin-guard";
+import { diffChanges, recordAudit } from "@/lib/audit";
 import { db, type TxClient } from "@/lib/db";
 import type { RequestContext, SessionUser } from "@/lib/types";
 import type {
@@ -10,6 +11,11 @@ import type {
   UpdateNewsItemInput,
   UpdateStartupFactInput,
 } from "@/lib/validation";
+
+/** Who verified something and when; cleared when it stops being verified. */
+function verificationStamp(actor: SessionUser, verified: boolean) {
+  return verified ? { verifiedById: actor.id, verifiedAt: new Date() } : { verifiedById: null, verifiedAt: null };
+}
 
 /**
  * Admin management of public content: sourced startup facts and news.
@@ -36,7 +42,7 @@ export async function createStartupFact(
   return db.$transaction(async (tx) => {
     const startup = await tx.startup.findUnique({ where: { id: startupId }, select: { id: true } });
     if (!startup) throw notFound("Startup");
-    const fact = await tx.startupFact.create({ data: { ...input, startupId } });
+    const fact = await tx.startupFact.create({ data: { ...input, startupId, ...verificationStamp(actor, input.verified) } });
     await recordAudit(
       {
         actorId: actor.id,
@@ -62,14 +68,18 @@ export async function updateStartupFact(
   return db.$transaction(async (tx) => {
     const before = await tx.startupFact.findUnique({ where: { id: factId } });
     if (!before) throw notFound("Fact");
-    const fact = await tx.startupFact.update({ where: { id: factId }, data: input });
+    const verificationChanged = input.verified !== undefined && input.verified !== before.verified;
+    const fact = await tx.startupFact.update({
+      where: { id: factId },
+      data: { ...input, ...(verificationChanged ? verificationStamp(actor, input.verified!) : {}) },
+    });
     await recordAudit(
       {
         actorId: actor.id,
-        action: input.verified !== undefined && input.verified !== before.verified ? "startupFact.verify" : "startupFact.update",
+        action: verificationChanged ? "startupFact.verify" : "startupFact.update",
         entityType: "StartupFact",
         entityId: factId,
-        data: { changed: Object.keys(input), verified: { from: before.verified, to: fact.verified } },
+        data: { changes: diffChanges(before, input) } as Prisma.InputJsonValue,
         ipAddress: ctx.ip,
       },
       tx,
@@ -142,7 +152,9 @@ export async function createNewsItem(actor: SessionUser, input: NewsItemInput, c
   assertAdmin(actor);
   return db.$transaction(async (tx) => {
     await assertNewsReferences(tx, input);
-    const item = await tx.newsItem.create({ data: { ...input, createdById: actor.id } });
+    const item = await tx.newsItem.create({
+      data: { ...input, createdById: actor.id, ...verificationStamp(actor, input.verification === NewsVerification.VERIFIED) },
+    });
     await recordAudit(
       {
         actorId: actor.id,
@@ -169,15 +181,21 @@ export async function updateNewsItem(
     const before = await tx.newsItem.findUnique({ where: { id: newsId } });
     if (!before) throw notFound("News item");
     await assertNewsReferences(tx, input);
-    const item = await tx.newsItem.update({ where: { id: newsId }, data: input });
     const verificationChanged = input.verification !== undefined && input.verification !== before.verification;
+    const item = await tx.newsItem.update({
+      where: { id: newsId },
+      data: {
+        ...input,
+        ...(verificationChanged ? verificationStamp(actor, input.verification === NewsVerification.VERIFIED) : {}),
+      },
+    });
     await recordAudit(
       {
         actorId: actor.id,
         action: verificationChanged ? "news.verify" : "news.update",
         entityType: "NewsItem",
         entityId: newsId,
-        data: { changed: Object.keys(input), verification: { from: before.verification, to: item.verification } },
+        data: { changes: diffChanges(before, input) } as Prisma.InputJsonValue,
         ipAddress: ctx.ip,
       },
       tx,
