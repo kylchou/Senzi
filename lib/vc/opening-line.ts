@@ -32,7 +32,7 @@ export function criteriaFor(input: {
   startupName: string;
   metricLabel: string;
   unit: string;
-  kind: "snapshot" | "weekly_total";
+  kind: "snapshot" | "weekly_total" | "rank_average" | "count_on_day" | "event_by_date";
   threshold: number;
   targetDate: string;
   resolutionUrl: string | null;

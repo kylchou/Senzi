@@ -6,13 +6,15 @@ import { orNotFound, requirePageContext } from "@/lib/vc/server/page";
 export default async function EditStudyPage({ params }: { params: Promise<{ studyId: string }> }) {
   const { studyId } = await params;
   const ctx = await requirePageContext(`/vc/studies/${studyId}/edit`);
-  const detail = await orNotFound(getVcServices().studies.get(ctx, studyId));
+  const services = getVcServices();
+  const detail = await orNotFound(services.studies.get(ctx, studyId));
   if (!detail.permissions.canEdit) redirect(`/vc/studies/${studyId}`);
   const { study, startup, openingLine } = detail;
+  const catalog = await services.openingLine.questionCatalog();
 
   return (
     <div className="mx-auto max-w-3xl space-y-4">
-      <h1 className="text-2xl font-semibold">Edit draft study</h1>
+      <h1 className="text-2xl font-semibold">Edit draft question</h1>
       <div className="rounded-lg border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-950">
         <StudyForm
           initial={{
@@ -25,9 +27,12 @@ export default async function EditStudyPage({ params }: { params: Promise<{ stud
             context: study.context,
             openingLine: { link: openingLine?.link ?? null, metricLabel: openingLine?.metricLabel ?? null },
             deadline: study.deadline,
-            visibility: study.visibility,
+            openToPublic: study.openToPublic,
+            openToVerified: study.openToVerified,
+            prizePoolCredits: study.prizePoolCredits,
             sources: study.sources,
           }}
+          catalog={catalog}
         />
       </div>
     </div>

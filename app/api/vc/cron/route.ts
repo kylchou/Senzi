@@ -19,8 +19,9 @@ export async function GET(req: NextRequest) {
     const sync = await services.studies.syncWithMarkets();
     const modelLines = await services.openingLine.refreshOpenMarkets();
     const marketModels = await refreshMarketModels();
+    const prizes = await services.studies.payPrizePools();
     const alerts = await services.alerts.evaluate();
-    return ok({ sync, modelLines, marketModels, alerts });
+    return ok({ sync, modelLines, marketModels, prizes, alerts });
   } catch (err) {
     return errorResponse(err);
   }

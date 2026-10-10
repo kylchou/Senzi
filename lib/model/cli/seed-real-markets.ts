@@ -22,7 +22,17 @@
 // databases). Run Ky's `npm run db:seed` to get his demo data back.
 
 import type { Market, Prisma } from "@/generated/prisma/client";
-import { AccountType, OrgRole, ResolutionOutcome, SnapshotTrigger, StudyStatus, StudyVisibility, WatchlistItemType } from "@/generated/prisma/enums";
+import {
+  AccountType,
+  OrgRole,
+  ProductVerificationMethod,
+  ResolutionOutcome,
+  SnapshotTrigger,
+  StudyStatus,
+  StudyVisibility,
+  VerificationStatus,
+  WatchlistItemType,
+} from "@/generated/prisma/enums";
 import { createMarket } from "@/lib/admin";
 import { grantSignupCredits } from "@/lib/credits";
 import { db } from "@/lib/db";
@@ -193,9 +203,9 @@ interface DemoStudyEntry {
 
 /**
  * Creates the market as a draft through Ky's createMarket, then opens it at `opensAt` at the model baseline.
- * Pass `restrictedToOrgId` for a verified-users market (invited traders only) owned by that firm.
+ * Pass `verifiedOnly` for a verified-users market: listed publicly, but only verified users of the product can trade.
  */
-async function createQuestionMarket(admin: SessionUser, startupId: string, q: MarketQuestion, points: DataPoint[], opensAt: Date, restrictedToOrgId?: string) {
+async function createQuestionMarket(admin: SessionUser, startupId: string, q: MarketQuestion, points: DataPoint[], opensAt: Date, verifiedOnly = false) {
   const baseline = baselineFor(q, points, opensAt);
   if (baseline.status !== "ok" || baseline.probability === null) {
     console.warn(`  skip ${q.id}: ${baseline.missing.join(" ") || baseline.status}`);
@@ -211,8 +221,8 @@ async function createQuestionMarket(admin: SessionUser, startupId: string, q: Ma
     category: q.category,
     openingBaseline: opening,
     baselineMethodology: methodology(q, baseline),
-    visibility: restrictedToOrgId ? "RESTRICTED" : "PUBLIC",
-    ...(restrictedToOrgId ? { organizationId: restrictedToOrgId } : {}),
+    visibility: "PUBLIC",
+    verifiedUsersOnly: verifiedOnly,
     opensAt,
     closesAt: new Date(q.closesAt),
     resolvesBy: new Date(`${addDays(q.windowEnd, 3)}T00:00:00.000Z`),
@@ -385,7 +395,7 @@ async function createDemoFirm() {
 }
 
 /** One study per PostHog question, a PostHog watchlist, and the invite list for verified-users studies. */
-async function seedDemoStudies(ownerId: string, adminId: string, entries: DemoStudyEntry[], invitedIds: string[]) {
+async function seedDemoStudies(ownerId: string, adminId: string, entries: DemoStudyEntry[]) {
   const DAY = 86_400_000;
   const studyIds: string[] = [];
   for (const { market, q, startupId, verifiedOnly, outcome } of entries) {
@@ -417,7 +427,10 @@ async function seedDemoStudies(ownerId: string, adminId: string, entries: DemoSt
         baselineValue: market.openingBaseline,
         baselineMethodology: market.baselineMethodology,
         deadline: market.closesAt,
-        visibility: verifiedOnly ? StudyVisibility.RESTRICTED : StudyVisibility.PUBLIC,
+        // A verified-users-only question stays with the firm on the VC side; its market is public but gated.
+        visibility: verifiedOnly ? StudyVisibility.ORGANIZATION : StudyVisibility.PUBLIC,
+        openToPublic: !verifiedOnly,
+        openToVerified: verifiedOnly,
         status: resolved ? StudyStatus.RESOLVED : StudyStatus.OPEN,
         submittedAt: at(-2),
         approvedAt: at(-1),
@@ -426,7 +439,6 @@ async function seedDemoStudies(ownerId: string, adminId: string, entries: DemoSt
         version: steps.length,
         sources: { create: [{ url: q.resolutionUrl, title: q.resolutionTitle }] },
         events: { create: steps.map(([fromStatus, toStatus, action, actor, createdAt]) => ({ actorId: actor, action, fromStatus, toStatus, createdAt })) },
-        ...(verifiedOnly ? { participants: { create: invitedIds.map((userId) => ({ userId, addedById: ownerId })) } } : {}),
       },
       select: { id: true },
     });
@@ -489,6 +501,20 @@ async function main() {
         createdById: admin.id,
       },
     });
+    if (company.id === DEMO_COMPANY) {
+      // The demo's verified-users market needs verified traders: they've proven they use the product.
+      await db.productUserVerification.createMany({
+        data: invited.map((t) => ({
+          userId: t.id,
+          startupId: startup.id,
+          method: ProductVerificationMethod.SCREENSHOT,
+          status: VerificationStatus.APPROVED,
+          reviewedById: admin.id,
+          reviewedAt: NOW,
+          note: "Simulated verified user for the demo",
+        })),
+      });
+    }
 
     // Facts: scraped indicators only, each with its source link and as-of date.
     const facts = getCompanyIndicators(company.id, points, [], NOW).filter((r) => r.provenance === "scraped" && r.value !== null && r.sourceUrl && r.asOf);
@@ -555,7 +581,7 @@ async function main() {
     if (funding) planned.push({ q: funding, opensAt: OPEN_AT, refreshModel: false });
 
     for (const { q, opensAt, refreshModel, verifiedOnly = false } of planned) {
-      const made = await createQuestionMarket(admin, startup.id, q, points, opensAt, verifiedOnly ? DEMO_ORG_ID : undefined);
+      const made = await createQuestionMarket(admin, startup.id, q, points, opensAt, verifiedOnly);
       if (!made) continue;
       if (company.id === DEMO_COMPANY) demoEntries.push({ market: made.market, q, startupId: startup.id, verifiedOnly, outcome: null });
       const from = new Date(opensAt.getTime() + 15 * 60_000);
@@ -606,7 +632,7 @@ async function main() {
     summary.push(`${company.name} [past] ${pastQ.text} -> resolved ${resolution.outcome} (${fmt(resolution.observedTotal!)}), ${placed} trades, settlement ${settled.status}`);
   }
 
-  const demoStudies = await seedDemoStudies(demoOwnerId, admin.id, demoEntries, invited.map((t) => t.id));
+  const demoStudies = await seedDemoStudies(demoOwnerId, admin.id, demoEntries);
 
   const [startups, markets, forecasts, facts] = await Promise.all([db.startup.count(), db.market.count(), db.forecast.count(), db.startupFact.count()]);
   console.log(summary.join("\n"));

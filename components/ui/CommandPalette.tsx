@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useId, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { useIsVcAccount } from "./account-type";
 import { useFocusTrap } from "./a11y/useFocusTrap";
 import { ArrowRight, Building2, Clock, CornerDownLeft, LineChart, Search, X } from "lucide-react";
 import { formatShare } from "@/lib/market-view/format";
@@ -46,6 +47,9 @@ interface Item {
   href: string;
   query?: string;
 }
+
+/** Trading shortcuts; VC accounts don't trade, so they don't see these. */
+const TRADING_LINK_IDS = new Set(["q-markets", "q-closing", "q-active"]);
 
 const QUICK_LINKS: Item[] = [
   { id: "q-markets", group: "Go to", label: "All markets", href: "/markets" },
@@ -131,6 +135,7 @@ export function CommandPalette() {
   }, [query, open]);
 
   const trimmed = query.trim();
+  const isVc = useIsVcAccount();
   const items = useMemo<Item[]>(() => {
     if (trimmed.length < 2) {
       return [
@@ -141,7 +146,7 @@ export function CommandPalette() {
           href: `/search?q=${encodeURIComponent(value)}`,
           query: value,
         })),
-        ...QUICK_LINKS,
+        ...QUICK_LINKS.filter((link) => !(isVc && TRADING_LINK_IDS.has(link.id))),
       ];
     }
     if (!hits) return [];
@@ -167,7 +172,7 @@ export function CommandPalette() {
         href: `/search?q=${encodeURIComponent(trimmed)}`,
       },
     ];
-  }, [trimmed, hits, recent]);
+  }, [trimmed, hits, recent, isVc]);
 
   if (!open) return null;
 

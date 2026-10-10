@@ -8,6 +8,7 @@ import { Briefcase, Building2, Compass, Home, Pencil, Search, User } from "lucid
 import { cn } from "./cn";
 import { openCommandPalette } from "./CommandPalette";
 import { useRememberedHref } from "./remembered-filters";
+import { useIsVcAccount } from "./account-type";
 import { hasVcAccess, useVcWorkspace } from "./vc-workspace";
 
 const tabs = [
@@ -54,7 +55,11 @@ function RoutedTabs() {
 
 function Tabs({ pathname }: { pathname: string | null }) {
   const vc = hasVcAccess(useVcWorkspace());
-  const shown = vc ? tabs.map((tab) => (tab.href === "/how-it-works" ? intelligenceTab : tab)) : tabs;
+  // VC accounts don't trade, so they don't get the Markets tab.
+  const isVcAccount = useIsVcAccount();
+  const shown = (vc ? tabs.map((tab) => (tab.href === "/how-it-works" ? intelligenceTab : tab)) : tabs).filter(
+    (tab) => !(isVcAccount && tab.href === "/markets"),
+  );
   return shown.map((tab) => <Tab key={tab.href} tab={tab} pathname={pathname} />);
 }
 
