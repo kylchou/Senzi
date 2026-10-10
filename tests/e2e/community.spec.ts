@@ -98,6 +98,8 @@ test.describe("pages", () => {
     await expect(page).toHaveURL(/\/startups\/.+/);
     await expect(page.getByRole("heading", { name: "Details" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Public information" })).toBeVisible();
+    // Metadata streams in after client navigation; scan once the title lands.
+    await expect(page).toHaveTitle(/\S/);
     await expectAccessible(page);
   });
 
@@ -121,6 +123,37 @@ test.describe("pages", () => {
   test("unknown market shows not found", async ({ page }) => {
     await page.goto("/markets/does-not-exist-0000");
     await expect(page.getByText("Market not found")).toBeVisible();
+  });
+});
+
+test.describe("market replay", () => {
+  test("opens as a dialog, plays or explains missing history, and returns focus on Escape", async ({ page }) => {
+    await page.goto(await firstMarketHref(page));
+    const launcher = page.getByRole("button", { name: "Replay" });
+    await launcher.click();
+    const dialog = page.getByRole("dialog");
+    await expect(dialog).toBeVisible();
+    await expect(dialog.getByRole("heading", { level: 2 })).toBeVisible();
+
+    const slider = dialog.getByRole("slider", { name: "Replay position" });
+    const empty = dialog.getByText("Not enough history to replay yet.");
+    await expect(slider.or(empty)).toBeVisible();
+    await expect(dialog.getByText("NaN")).toHaveCount(0);
+
+    if (await slider.isVisible()) {
+      await expect(dialog.getByRole("button", { name: /^(Play|Replay from start)$/ })).toBeFocused();
+      await slider.focus();
+      await page.keyboard.press("Home");
+      const first = await slider.getAttribute("aria-valuetext");
+      await page.keyboard.press("End");
+      expect(await slider.getAttribute("aria-valuetext")).not.toBe(first);
+      await expect(dialog.getByRole("radio", { name: "1x" })).toHaveAttribute("aria-checked", "true");
+    }
+    await expectAccessible(page);
+
+    await page.keyboard.press("Escape");
+    await expect(dialog).toBeHidden();
+    await expect(launcher).toBeFocused();
   });
 });
 
@@ -179,6 +212,20 @@ test.describe("public API", () => {
       expect(market).not.toHaveProperty("organizationId");
     }
     expect(body.meta).toHaveProperty("nextCursor");
+  });
+
+  test("replay history is normalized and carries no user data", async ({ request }) => {
+    const listing = await (await request.get("/api/markets?limit=1")).json();
+    const response = await request.get(`/api/markets/${listing.data[0].slug}/replay`);
+    expect(response.ok()).toBe(true);
+    const { data } = await response.json();
+    expect(["real", "demo"]).toContain(data.source);
+    expect(data.end).toBeGreaterThanOrEqual(data.start);
+    for (const point of data.points) {
+      expect(Object.keys(point).sort()).toEqual(["at", "credits", "forecasts", "general", "model", "verified"]);
+    }
+    expect(JSON.stringify(data)).not.toMatch(/userId|clerkId|email/);
+    expect((await request.get("/api/markets/does-not-exist-0000/replay")).status()).toBe(404);
   });
 
   test("invalid filters are rejected with the shared error envelope", async ({ request }) => {

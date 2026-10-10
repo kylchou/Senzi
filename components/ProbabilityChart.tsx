@@ -317,7 +317,7 @@ export function ProbabilityChart({
               <span className="block size-3 rounded-full border-2 border-red-500 bg-surface transition-transform duration-200 group-hover:scale-125 group-focus-visible:scale-125" />
               <span
                 role="tooltip"
-                className={`pointer-events-none invisible absolute bottom-full mb-1 w-64 rounded-xl bg-ink-900 p-3 text-left text-xs text-surface opacity-0 shadow-[var(--shadow-lift)] transition-opacity duration-150 group-hover:visible group-hover:opacity-100 group-focus-visible:visible group-focus-visible:opacity-100 ${align}`}
+                className={`pointer-events-none absolute hidden animate-[vt-fade_150ms_ease-out] bottom-full mb-1 w-64 rounded-xl bg-ink-900 p-3 text-left text-xs text-surface shadow-[var(--shadow-lift)] group-hover:block group-focus-visible:block ${align}`}
               >
                 <span className="block text-ink-300">
                   {event.publisher} · {formatDate(event.publishedAt)}
