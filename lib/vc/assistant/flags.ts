@@ -58,7 +58,7 @@ function flag(input: FlagInput, key: string, label: string, value: string, relat
     numeric: null,
     asOf: input.now.toISOString(),
     sourceUrl: null,
-    caveat: "Computed by VentureCast from the evidence listed; not an independent source.",
+    caveat: "Computed by Senzi from the evidence listed; not an independent source.",
     href: input.href,
     relatedIds: [...new Set(relatedIds.filter((id): id is string => !!id))],
   };
@@ -125,7 +125,7 @@ export function computeConflictFlags(input: FlagInput): EvidenceItem[] {
         input,
         "disputed-news",
         "Disputed reports",
-        `${disputed.length} news report${disputed.length === 1 ? " has" : "s have"} been marked disputed by VentureCast.`,
+        `${disputed.length} news report${disputed.length === 1 ? " has" : "s have"} been marked disputed by Senzi.`,
         disputed.map((n) => n.id),
       ),
     );

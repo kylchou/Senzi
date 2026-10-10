@@ -4,7 +4,7 @@ Private research workspace for venture capital firms: research studies, watchlis
 
 Owned paths: `app/vc/**`, `components/vc/**`, `lib/vc/**`, `app/api/studies/**`, `app/api/vc/**`.
 
-VentureCast estimates are research signals from virtual-credit forecasts. They are not guaranteed predictions or investment advice. No real money is involved.
+Senzi estimates are research signals from virtual-credit forecasts. They are not guaranteed predictions or investment advice. No real money is involved.
 
 ## Architecture
 

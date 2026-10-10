@@ -330,7 +330,7 @@ export function createStudyService(deps: VcDeps) {
     const foundEmails = new Set(byEmail.map((u) => u.email?.toLowerCase()));
     const unknownEmails = input.emails.filter((e) => !foundEmails.has(e));
     if (unknownEmails.length > 0) {
-      throw new VcError("VALIDATION_ERROR", "Some emails do not belong to VentureCast users", { unknownEmails });
+      throw new VcError("VALIDATION_ERROR", "Some emails do not belong to Senzi users", { unknownEmails });
     }
     const byId = input.userIds.length > 0 ? await platform.getUsers(input.userIds) : [];
     if (byId.length !== new Set(input.userIds).size) {
