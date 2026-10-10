@@ -32,6 +32,19 @@ enum PlatformRole {
   ADMIN
 }
 
+/// Which side of the product someone signed up for. Chosen once; only an
+/// admin can change it. NULL means signed in but not chosen yet (/onboarding).
+enum AccountType {
+  VC // sponsors: open questions, read the VC dashboard
+  TRADER // forecasters: trade on public markets
+}
+
+enum VerificationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 /// Role inside a VC organization. Ordered from most to least privileged.
 enum OrgRole {
   OWNER
@@ -229,49 +242,80 @@ enum NotificationType {
 // ---------------------------------------------------------------------------
 
 model User {
-  id            String       @id @default(cuid())
+  id                String       @id @default(cuid())
   /// Subject ID from the auth provider (Clerk user id).
-  authId        String       @unique
-  email         String       @unique
-  username      String?      @unique
-  displayName   String
-  avatarUrl     String?
-  bio           String?
-  platformRole  PlatformRole @default(USER)
+  authId            String       @unique
+  email             String       @unique
+  username          String?      @unique
+  displayName       String
+  avatarUrl         String?
+  bio               String?
+  platformRole      PlatformRole @default(USER)
+  accountType       AccountType?
+  /// When the account type was verified. Traders: verified email at signup.
+  /// VCs: an admin approved their firm details, or a firm invited them.
+  accountVerifiedAt DateTime?
   /// Cached balance. The CreditTransaction ledger is authoritative; this
   /// column is only ever changed together with a ledger row (lib/credits.ts).
   /// CHECK (creditBalance >= 0).
-  creditBalance Int          @default(0)
-  createdAt     DateTime     @default(now())
-  updatedAt     DateTime     @updatedAt
+  creditBalance     Int          @default(0)
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
 
-  memberships            OrganizationMembership[]
-  invitedMembers         OrganizationMembership[] @relation("MembershipInvitedBy")
-  forecasts              Forecast[]
-  creditTransactions     CreditTransaction[]      @relation("CreditTransactionUser")
-  creditActions          CreditTransaction[]      @relation("CreditTransactionActor")
-  notifications          Notification[]
-  achievements           UserAchievement[]
-  createdStartups        Startup[]
-  createdMarkets         Market[]                 @relation("MarketCreatedBy")
-  resolutions            Resolution[]
-  resolutionsApproved    Resolution[]             @relation("ResolutionApprovedBy")
-  proposalsMade          ResolutionProposal[]     @relation("ProposalProposedBy")
-  proposalsReviewed      ResolutionProposal[]     @relation("ProposalReviewedBy")
-  evidenceSubmitted      ResolutionEvidence[]
-  factsVerified          StartupFact[]            @relation("FactVerifiedBy")
-  newsVerified           NewsItem[]               @relation("NewsVerifiedBy")
-  createdNews            NewsItem[]
-  createdStudies         ResearchStudy[]          @relation("StudyCreatedBy")
-  studyParticipations    StudyParticipant[]       @relation("StudyParticipantUser")
-  addedParticipants      StudyParticipant[]       @relation("StudyParticipantAddedBy")
-  studyEvents            StudyEvent[]
-  studyNotes             StudyNote[]
-  createdWatchlists      Watchlist[]
-  watchlistItemsAdded    WatchlistItem[]
-  alertReceipts          VcAlertReceipt[]
-  createdReports         VcReport[]
-  modelDataPointsEntered ModelDataPoint[]
+  memberships             OrganizationMembership[]
+  invitedMembers          OrganizationMembership[] @relation("MembershipInvitedBy")
+  forecasts               Forecast[]
+  creditTransactions      CreditTransaction[]      @relation("CreditTransactionUser")
+  creditActions           CreditTransaction[]      @relation("CreditTransactionActor")
+  notifications           Notification[]
+  achievements            UserAchievement[]
+  createdStartups         Startup[]
+  createdMarkets          Market[]                 @relation("MarketCreatedBy")
+  resolutions             Resolution[]
+  resolutionsApproved     Resolution[]             @relation("ResolutionApprovedBy")
+  proposalsMade           ResolutionProposal[]     @relation("ProposalProposedBy")
+  proposalsReviewed       ResolutionProposal[]     @relation("ProposalReviewedBy")
+  evidenceSubmitted       ResolutionEvidence[]
+  factsVerified           StartupFact[]            @relation("FactVerifiedBy")
+  newsVerified            NewsItem[]               @relation("NewsVerifiedBy")
+  createdNews             NewsItem[]
+  createdStudies          ResearchStudy[]          @relation("StudyCreatedBy")
+  studyParticipations     StudyParticipant[]       @relation("StudyParticipantUser")
+  addedParticipants       StudyParticipant[]       @relation("StudyParticipantAddedBy")
+  studyEvents             StudyEvent[]
+  studyNotes              StudyNote[]
+  createdWatchlists       Watchlist[]
+  watchlistItemsAdded     WatchlistItem[]
+  alertReceipts           VcAlertReceipt[]
+  createdReports          VcReport[]
+  modelDataPointsEntered  ModelDataPoint[]
+  vcVerifications         VcVerificationRequest[]  @relation("VcVerificationUser")
+  vcVerificationsReviewed VcVerificationRequest[]  @relation("VcVerificationReviewer")
+}
+
+/// A VC's firm details, checked by a platform admin before they get VC access.
+/// Never edited after review; a resubmission is a new row.
+model VcVerificationRequest {
+  id           String             @id @default(cuid())
+  userId       String
+  firmName     String
+  firmWebsite  String
+  jobTitle     String
+  workEmail    String
+  linkedinUrl  String?
+  note         String?
+  status       VerificationStatus @default(PENDING)
+  reviewedById String?
+  reviewedAt   DateTime?
+  /// Shown to the applicant. Required when rejecting.
+  reviewNote   String?
+  createdAt    DateTime           @default(now())
+
+  user       User  @relation("VcVerificationUser", fields: [userId], references: [id], onDelete: Cascade)
+  reviewedBy User? @relation("VcVerificationReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+
+  @@index([status, createdAt])
+  @@index([userId, createdAt])
 }
 
 model Organization {

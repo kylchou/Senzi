@@ -1,4 +1,4 @@
-import { NotificationType, OrgRole } from "@/generated/prisma/enums";
+import { AccountType, NotificationType, OrgRole, PlatformRole } from "@/generated/prisma/enums";
 import { conflict, forbidden, invalidState, notFound } from "@/lib/api-response";
 import { recordAudit } from "@/lib/audit";
 import { db, isUniqueViolation, type TxClient } from "@/lib/db";
@@ -33,6 +33,10 @@ export async function listMyOrganizations(user: SessionUser): Promise<Membership
 }
 
 export async function createOrganization(user: SessionUser, input: CreateOrganizationInput, ctx: RequestContext = {}) {
+  const verifiedVc = user.accountType === AccountType.VC && user.accountVerifiedAt !== null;
+  if (!verifiedVc && user.platformRole !== PlatformRole.ADMIN) {
+    throw forbidden("Only verified VC accounts can create an organization");
+  }
   try {
     return await db.$transaction(async (tx) => {
       const org = await tx.organization.create({
@@ -142,15 +146,27 @@ export async function addMember(
   try {
     return await db.$transaction(async (tx) => {
       const org = await tx.organization.findUniqueOrThrow({ where: { id: organizationId }, select: { name: true } });
+      const existing = await tx.user.findUnique({ where: { email: input.email }, select: { id: true, accountType: true } });
+      // A trader in a VC org could trade on the org's own questions.
+      if (existing?.accountType === AccountType.TRADER) {
+        throw invalidState("That person has a trader account. A Senzi admin has to switch it to VC before they can join.");
+      }
+      // Being added by a firm that's already on Senzi verifies a VC.
+      if (existing) {
+        await tx.user.updateMany({ where: { id: existing.id, accountType: null }, data: { accountType: AccountType.VC } });
+        await tx.user.updateMany({ where: { id: existing.id, accountVerifiedAt: null }, data: { accountVerifiedAt: new Date() } });
+      }
       const target =
-        (await tx.user.findUnique({ where: { email: input.email }, select: { id: true } })) ??
+        existing ??
         (await tx.user.create({
           data: {
             authId: `${PENDING_AUTH_PREFIX}${input.email}`,
             email: input.email,
             displayName: input.email.split("@")[0]!,
+            accountType: AccountType.VC,
+            accountVerifiedAt: new Date(),
           },
-          select: { id: true },
+          select: { id: true, accountType: true },
         }));
 
       const membership = await tx.organizationMembership.create({
