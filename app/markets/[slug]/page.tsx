@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { Suspense } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { io } from "next/cache";
@@ -17,6 +16,7 @@ import { StartupMark } from "@/components/ui/StartupMark";
 import { shareMovement } from "@/lib/market-view/chart";
 import { formatDate, formatDateTime, formatDeadline, isPastDeadline, requestTime } from "@/lib/market-view/format";
 import { getMarket, getMarketHistory } from "@/lib/market-view/queries";
+import { PageTransition, StreamIn } from "@/components/ui/Transitions";
 
 export async function generateMetadata({ params }: PageProps<"/markets/[slug]">): Promise<Metadata> {
   const market = await getMarket((await params).slug).catch(() => null);
@@ -25,13 +25,15 @@ export async function generateMetadata({ params }: PageProps<"/markets/[slug]">)
 
 export default function MarketPage({ params }: PageProps<"/markets/[slug]">) {
   return (
-    <main id="main" className="flex-1">
-      <Container className="py-8 sm:py-10">
-        <Suspense fallback={<MarketSkeleton />}>
-          <MarketView params={params} />
-        </Suspense>
-      </Container>
-    </main>
+    <PageTransition>
+      <main id="main" className="flex-1">
+        <Container className="py-8 sm:py-10">
+          <StreamIn fallback={<MarketSkeleton />}>
+            <MarketView params={params} />
+          </StreamIn>
+        </Container>
+      </main>
+    </PageTransition>
   );
 }
 
@@ -93,7 +95,10 @@ async function MarketView({ params }: Pick<PageProps<"/markets/[slug]">, "params
         </aside>
 
         <div className="min-w-0 space-y-8 lg:col-start-1 lg:row-start-2">
-          <section aria-labelledby="history-heading" className="rounded-[var(--radius-card)] border border-ink-200 bg-surface p-5">
+          <section
+            aria-labelledby="history-heading"
+            className="rounded-[var(--radius-card)] border border-ink-200 bg-surface p-5"
+          >
             <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
               <h2 id="history-heading" className="font-display text-lg font-bold text-ink-900">
                 Community allocation over time
@@ -112,10 +117,15 @@ async function MarketView({ params }: Pick<PageProps<"/markets/[slug]">, "params
             ) : (
               <ul className="divide-y divide-ink-100 rounded-[var(--radius-card)] border border-ink-200">
                 {market.sources.map((source) => (
-                  <li key={source.url} className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 px-5 py-3.5 text-sm">
+                  <li
+                    key={source.url}
+                    className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 px-5 py-3.5 text-sm"
+                  >
                     <ExternalLink href={source.url}>{source.title}</ExternalLink>
                     <span className="text-xs text-ink-500">
-                      {[source.publisher, source.publishedAt && formatDate(source.publishedAt)].filter(Boolean).join(" · ")}
+                      {[source.publisher, source.publishedAt && formatDate(source.publishedAt)]
+                        .filter(Boolean)
+                        .join(" · ")}
                     </span>
                   </li>
                 ))}

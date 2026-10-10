@@ -3,6 +3,7 @@ import { Clock, Users } from "lucide-react";
 import { AllocationBar } from "@/components/ui/AllocationBar";
 import { MarketStatusBadge } from "@/components/ui/MarketStatusBadge";
 import { StartupMark } from "@/components/ui/StartupMark";
+import { Morph } from "@/components/ui/Transitions";
 import { formatDate, formatDeadline, formatShare } from "@/lib/market-view/format";
 import type { MarketSummary } from "@/lib/market-view/types";
 
@@ -23,11 +24,13 @@ export function MarketCard({ market }: { market: MarketSummary }) {
         <MarketStatusBadge status={market.status} outcome={market.outcome} closesAt={market.closesAt} />
       </div>
 
-      <h3 className="mt-4 line-clamp-3 font-display text-[17px] font-semibold leading-snug text-ink-900">
-        <Link href={`/markets/${market.slug}`} className="after:absolute after:inset-0 after:rounded-[var(--radius-card)]">
-          {market.question}
-        </Link>
-      </h3>
+      <Morph name={`market-title-${market.id}`}>
+        <h3 className="mt-4 line-clamp-3 font-display text-[17px] font-semibold leading-snug text-ink-900">
+          <Link href={`/markets/${market.slug}`} className="after:absolute after:inset-0 after:rounded-[var(--radius-card)]">
+            {market.question}
+          </Link>
+        </h3>
+      </Morph>
 
       <div className="mt-auto pt-5">
         <div className="mb-2.5 flex items-end justify-between gap-2">

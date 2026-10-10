@@ -1,4 +1,3 @@
-import { Suspense } from "react";
 import Link from "next/link";
 import { io } from "next/cache";
 import { ArrowRight } from "lucide-react";
@@ -12,143 +11,157 @@ import { Container } from "@/components/ui/Container";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { SectionHeading } from "@/components/ui/SectionHeading";
-import { Skeleton } from "@/components/ui/Skeleton";
+import { CardGridSkeleton, Skeleton } from "@/components/ui/Skeleton";
 import { listFeaturedStartups } from "@/lib/discovery/queries";
 import { formatDeadline, formatShare } from "@/lib/market-view/format";
 import { getPublicCounts, listFeaturedMarkets } from "@/lib/market-view/queries";
 import { safe } from "@/lib/market-view/safe";
 import { listNews } from "@/lib/news/queries";
+import { PageTransition, StreamIn } from "@/components/ui/Transitions";
 
 const steps = [
   { title: "Pick a question", body: "Every market asks a measurable YES or NO question about a startup milestone." },
   { title: "Allocate credits", body: "Place virtual credits on the outcome you expect. No real money involved." },
-  { title: "Track the outcome", body: "Follow community movement and see results once verified evidence settles each market." },
+  {
+    title: "Track the outcome",
+    body: "Follow community movement and see results once verified evidence settles each market.",
+  },
 ];
 
 const measures = [
-  { name: "Opening baseline", body: "The starting estimate set when a market opens, with its method.", swatch: "border-t-2 border-dashed border-ink-500" },
-  { name: "YES allocation", body: "Share of credits on YES. Not a probability.", swatch: "h-1.5 rounded-full bg-red-500" },
-  { name: "Calibrated probability", body: "Model estimate from forecasting accuracy, when available.", swatch: "h-0.5 rounded-full bg-ink-900" },
+  {
+    name: "Opening baseline",
+    body: "The starting estimate set when a market opens, with its method.",
+    swatch: "border-t-2 border-dashed border-ink-500",
+  },
+  {
+    name: "YES allocation",
+    body: "Share of credits on YES. Not a probability.",
+    swatch: "h-1.5 rounded-full bg-red-500",
+  },
+  {
+    name: "Calibrated probability",
+    body: "Model estimate from forecasting accuracy, when available.",
+    swatch: "h-0.5 rounded-full bg-ink-900",
+  },
   { name: "Outcome", body: "The verified result, recorded with evidence.", swatch: "h-1.5 rounded-full bg-ink-300" },
 ];
 
 export default function HomePage() {
   return (
-    <main id="main" className="flex-1">
-      <section className="relative overflow-hidden bg-night text-white">
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-0 opacity-[0.07] [background-image:linear-gradient(to_right,#fff_1px,transparent_1px),linear-gradient(to_bottom,#fff_1px,transparent_1px)] [background-size:48px_48px] [mask-image:radial-gradient(ellipse_at_top_right,black_20%,transparent_70%)]"
-        />
-        <div aria-hidden className="pointer-events-none absolute -right-32 -top-32 size-96 rounded-full bg-red-500/20 blur-3xl" />
-        <Container className="relative grid items-center gap-12 py-20 sm:py-24 lg:grid-cols-[1.1fr_1fr]">
-          <div>
-            <h1 className="text-4xl font-extrabold leading-[1.05] sm:text-6xl">
-              Forecast what startups do <span className="text-red-500">next.</span>
-            </h1>
-            <p className="mt-5 max-w-lg text-lg text-mist-300">
-              Allocate virtual credits on measurable startup milestones and see where the community stands.
-            </p>
-            <div className="mt-8 flex flex-wrap gap-3">
-              <ButtonLink href="/markets" variant="accent" size="lg">
-                Explore markets <ArrowRight className="size-4" aria-hidden />
-              </ButtonLink>
-              <SignInCta variant="inverse">Sign in</SignInCta>
-            </div>
-            <Suspense fallback={<div className="mt-10 h-14" />}>
-              <HeroStats />
-            </Suspense>
-          </div>
-          <Suspense fallback={<Skeleton className="hidden h-64 rounded-2xl bg-white/5 lg:block" />}>
-            <Spotlight />
-          </Suspense>
-        </Container>
-      </section>
-
-      <Container className="py-16 sm:py-20">
-        <SectionHeading eyebrow="Live" title="Open markets" href="/markets" />
-        <Suspense fallback={<CardGridSkeleton count={6} />}>
-          <OpenMarkets />
-        </Suspense>
-      </Container>
-
-      <section className="border-y border-ink-200 bg-ink-50">
-        <Container className="grid gap-12 py-16 sm:py-20 lg:grid-cols-2">
-          <div>
-            <SectionHeading eyebrow="How it works" title="Three steps" />
-            <ol className="space-y-6">
-              {steps.map((step, index) => (
-                <li key={step.title} className="flex gap-4">
-                  <span className="font-display text-3xl font-extrabold leading-none text-red-500 tabular-nums">
-                    {String(index + 1).padStart(2, "0")}
-                  </span>
-                  <div>
-                    <h3 className="font-display font-semibold text-ink-900">{step.title}</h3>
-                    <p className="mt-1 text-sm text-ink-600">{step.body}</p>
-                  </div>
-                </li>
-              ))}
-            </ol>
-          </div>
-          <div>
-            <SectionHeading eyebrow="Reading the numbers" title="What each figure means" />
-            <ul className="grid gap-3 sm:grid-cols-2">
-              {measures.map((measure) => (
-                <li key={measure.name} className="rounded-[var(--radius-card)] border border-ink-200 bg-surface p-5">
-                  <span aria-hidden className={`block w-8 ${measure.swatch}`} />
-                  <h3 className="mt-3 font-display font-semibold text-ink-900">{measure.name}</h3>
-                  <p className="mt-1 text-sm text-ink-600">{measure.body}</p>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </Container>
-      </section>
-
-      <Container className="grid gap-16 py-16 sm:py-20 lg:grid-cols-[1.4fr_1fr]">
-        <div>
-          <SectionHeading title="Startups" href="/startups" />
-          <Suspense fallback={<CardGridSkeleton count={4} className="sm:grid-cols-2 lg:grid-cols-2" />}>
-            <FeaturedStartups />
-          </Suspense>
-        </div>
-        <div>
-          <SectionHeading title="News" />
-          <Suspense fallback={<Skeleton className="h-96 rounded-[var(--radius-card)]" />}>
-            <LatestNews />
-          </Suspense>
-        </div>
-      </Container>
-
-      <Container>
-        <div className="relative overflow-hidden rounded-3xl bg-night px-6 py-12 text-center text-white sm:px-12">
-          <div aria-hidden className="pointer-events-none absolute -bottom-24 left-1/2 h-48 w-2/3 -translate-x-1/2 rounded-full bg-red-500/25 blur-3xl" />
-          <h2 className="relative text-3xl font-bold sm:text-4xl">Start forecasting</h2>
-          <p className="relative mx-auto mt-3 max-w-md text-mist-300">Every account starts with virtual credits.</p>
-          <div className="relative mt-6">
-            <SignInCta
-              signedIn={
+    <PageTransition>
+      <main id="main" className="flex-1">
+        <section className="relative overflow-hidden bg-night text-white">
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-0 opacity-[0.07] [background-image:linear-gradient(to_right,#fff_1px,transparent_1px),linear-gradient(to_bottom,#fff_1px,transparent_1px)] [background-size:48px_48px] [mask-image:radial-gradient(ellipse_at_top_right,black_20%,transparent_70%)]"
+          />
+          <div
+            aria-hidden
+            className="pointer-events-none absolute -right-32 -top-32 size-96 rounded-full bg-red-500/20 blur-3xl"
+          />
+          <Container className="relative grid items-center gap-12 py-20 sm:py-24 lg:grid-cols-[1.1fr_1fr]">
+            <div>
+              <h1 className="text-4xl font-extrabold leading-[1.05] sm:text-6xl">
+                Forecast what startups do <span className="text-red-500">next.</span>
+              </h1>
+              <p className="mt-5 max-w-lg text-lg text-mist-300">
+                Allocate virtual credits on measurable startup milestones and see where the community stands.
+              </p>
+              <div className="mt-8 flex flex-wrap gap-3">
                 <ButtonLink href="/markets" variant="accent" size="lg">
-                  Explore markets
+                  Explore markets <ArrowRight className="size-4" aria-hidden />
                 </ButtonLink>
-              }
-            >
-              Sign in
-            </SignInCta>
-          </div>
-        </div>
-      </Container>
-    </main>
-  );
-}
+                <SignInCta variant="inverse">Sign in</SignInCta>
+              </div>
+              <StreamIn fallback={<div className="mt-10 h-14" />}>
+                <HeroStats />
+              </StreamIn>
+            </div>
+            <StreamIn fallback={<Skeleton className="hidden h-64 rounded-2xl bg-white/5 lg:block" />}>
+              <Spotlight />
+            </StreamIn>
+          </Container>
+        </section>
 
-function CardGridSkeleton({ count, className }: { count: number; className?: string }) {
-  return (
-    <div role="status" aria-label="Loading" className={`grid gap-4 sm:grid-cols-2 lg:grid-cols-3 ${className ?? ""}`}>
-      {Array.from({ length: count }, (_, index) => (
-        <Skeleton key={index} className="h-56 rounded-[var(--radius-card)]" />
-      ))}
-    </div>
+        <Container className="py-16 sm:py-20">
+          <SectionHeading eyebrow="Live" title="Open markets" href="/markets" />
+          <StreamIn fallback={<CardGridSkeleton count={6} />}>
+            <OpenMarkets />
+          </StreamIn>
+        </Container>
+
+        <section className="border-y border-ink-200 bg-ink-50">
+          <Container className="grid gap-12 py-16 sm:py-20 lg:grid-cols-2">
+            <div>
+              <SectionHeading eyebrow="How it works" title="Three steps" />
+              <ol className="space-y-6">
+                {steps.map((step, index) => (
+                  <li key={step.title} className="flex gap-4">
+                    <span className="font-display text-3xl font-extrabold leading-none text-red-500 tabular-nums">
+                      {String(index + 1).padStart(2, "0")}
+                    </span>
+                    <div>
+                      <h3 className="font-display font-semibold text-ink-900">{step.title}</h3>
+                      <p className="mt-1 text-sm text-ink-600">{step.body}</p>
+                    </div>
+                  </li>
+                ))}
+              </ol>
+            </div>
+            <div>
+              <SectionHeading eyebrow="Reading the numbers" title="What each figure means" />
+              <ul className="grid gap-3 sm:grid-cols-2">
+                {measures.map((measure) => (
+                  <li key={measure.name} className="rounded-[var(--radius-card)] border border-ink-200 bg-surface p-5">
+                    <span aria-hidden className={`block w-8 ${measure.swatch}`} />
+                    <h3 className="mt-3 font-display font-semibold text-ink-900">{measure.name}</h3>
+                    <p className="mt-1 text-sm text-ink-600">{measure.body}</p>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </Container>
+        </section>
+
+        <Container className="grid gap-16 py-16 sm:py-20 lg:grid-cols-[1.4fr_1fr]">
+          <div>
+            <SectionHeading title="Startups" href="/startups" />
+            <StreamIn fallback={<CardGridSkeleton count={4} variant="startup" className="lg:grid-cols-2" />}>
+              <FeaturedStartups />
+            </StreamIn>
+          </div>
+          <div>
+            <SectionHeading title="News" />
+            <StreamIn fallback={<Skeleton className="h-96 rounded-[var(--radius-card)]" />}>
+              <LatestNews />
+            </StreamIn>
+          </div>
+        </Container>
+
+        <Container>
+          <div className="relative overflow-hidden rounded-3xl bg-night px-6 py-12 text-center text-white sm:px-12">
+            <div
+              aria-hidden
+              className="pointer-events-none absolute -bottom-24 left-1/2 h-48 w-2/3 -translate-x-1/2 rounded-full bg-red-500/25 blur-3xl"
+            />
+            <h2 className="relative text-3xl font-bold sm:text-4xl">Start forecasting</h2>
+            <p className="relative mx-auto mt-3 max-w-md text-mist-300">Every account starts with virtual credits.</p>
+            <div className="relative mt-6">
+              <SignInCta
+                signedIn={
+                  <ButtonLink href="/markets" variant="accent" size="lg">
+                    Explore markets
+                  </ButtonLink>
+                }
+              >
+                Sign in
+              </SignInCta>
+            </div>
+          </div>
+        </Container>
+      </main>
+    </PageTransition>
   );
 }
 

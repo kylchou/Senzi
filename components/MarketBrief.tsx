@@ -1,11 +1,12 @@
 import { CheckCircle2, CircleSlash, Scale } from "lucide-react";
 import { AllocationBar } from "@/components/ui/AllocationBar";
+import { AnimatedNumber } from "@/components/ui/AnimatedNumber";
 import { ExternalLink } from "@/components/ui/ExternalLink";
 import { InfoTip } from "@/components/ui/InfoTip";
 import { formatCredits, formatDate, formatRelative, formatShare } from "@/lib/market-view/format";
 import type { MarketDetail } from "@/lib/market-view/types";
 
-function Stat({ label, tip, value, note }: { label: string; tip: React.ReactNode; value: string; note: string }) {
+function Stat({ label, tip, value, note }: { label: string; tip: React.ReactNode; value: React.ReactNode; note: string }) {
   return (
     <div className="bg-surface p-5">
       <div className="flex items-center gap-1 text-xs font-medium text-ink-600">
@@ -61,7 +62,7 @@ export function MarketBrief({ market }: { market: MarketDetail }) {
         <div className="grid grid-cols-2 gap-px bg-ink-100 sm:grid-cols-4">
           <Stat
             label="YES allocation"
-            value={formatShare(allocation.share)}
+            value={<AnimatedNumber value={allocation.share} kind="share" />}
             note={market.updatedAt ? `Updated ${formatRelative(market.updatedAt)}` : "No forecasts yet"}
             tip="Share of virtual credits placed on YES. Shows where forecasters put credits. Not a probability."
           />
@@ -82,7 +83,7 @@ export function MarketBrief({ market }: { market: MarketDetail }) {
           />
           <Stat
             label="Forecasts"
-            value={formatCredits(allocation.forecastCount)}
+            value={<AnimatedNumber value={allocation.forecastCount} />}
             note={
               market.forecasterCount !== null
                 ? `${formatCredits(market.forecasterCount)} ${market.forecasterCount === 1 ? "forecaster" : "forecasters"}`
@@ -95,10 +96,10 @@ export function MarketBrief({ market }: { market: MarketDetail }) {
           <AllocationBar share={allocation.share} baseline={market.openingBaseline} />
           <div className="mt-2 flex justify-between text-xs tabular-nums text-ink-600">
             <span>
-              <span className="font-semibold text-ink-900">YES</span> {formatCredits(allocation.yesCredits)} credits
+              <span className="font-semibold text-ink-900">YES</span> <AnimatedNumber value={allocation.yesCredits} /> credits
             </span>
             <span>
-              {formatCredits(allocation.noCredits)} credits <span className="font-semibold text-ink-900">NO</span>
+              <AnimatedNumber value={allocation.noCredits} /> credits <span className="font-semibold text-ink-900">NO</span>
             </span>
           </div>
         </div>
