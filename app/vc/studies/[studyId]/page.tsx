@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { EstimateSummary } from "@/components/vc/EstimateSummary";
-import { EvidenceList } from "@/components/vc/EvidenceList";
+import { FactList } from "@/components/vc/EvidenceList";
 import { FollowButton } from "@/components/vc/FollowButton";
+import { MarketGaps } from "@/components/vc/MarketGaps";
+import { ModelEvidencePanel } from "@/components/vc/ModelEvidencePanel";
 import { NotesPanel } from "@/components/vc/NotesPanel";
 import { ParticipantsEditor } from "@/components/vc/ParticipantsEditor";
 import { Section } from "@/components/vc/Section";
@@ -10,6 +12,7 @@ import { TransitionControls } from "@/components/vc/TransitionControls";
 import { ThreeLineChart } from "@/components/vc/ThreeLineChart";
 import { describeFreshness, describeUncertainty, resolveBaseline } from "@/lib/vc/estimates";
 import { STATUS_LABELS, VISIBILITY_LABELS, formatDate, formatDateTime } from "@/lib/vc/format";
+import { studyModelEvidence } from "@/lib/vc/server/company-model";
 import { getVcDeps, getVcServices } from "@/lib/vc/server/container";
 import { orNotFound, requirePageContext } from "@/lib/vc/server/page";
 import type { StudyVisibility } from "@/lib/vc/types";
@@ -35,9 +38,10 @@ export default async function StudyPage({ params }: { params: Promise<{ studyId:
   const freshness = describeFreshness(estimate, study.status, now);
   const uncertainty = describeUncertainty(estimate, history, freshness);
 
-  const [notes, watchlists] = await Promise.all([
+  const [notes, watchlists, modelEvidence] = await Promise.all([
     permissions.canViewPrivate ? services.studies.listNotes(ctx, studyId) : Promise.resolve([]),
     services.watchlists.listForPicker(ctx),
+    studyModelEvidence(ctx, study.startupId, study.marketId),
   ]);
   const authorIds = [...new Set([...notes.map((n) => n.authorId), ...events.map((e) => e.actorId).filter(Boolean)])];
   const authors = Object.fromEntries(
@@ -116,8 +120,23 @@ export default async function StudyPage({ params }: { params: Promise<{ studyId:
         )}
       </Section>
 
-      <Section id="trend" title="Historical trend">
+      <Section
+        id="trend"
+        title="Model, crowd and verified-user prices"
+        description="Three lines from one market. The gaps between them are the signal."
+      >
         <ThreeLineChart marketId={study.marketId ?? study.id} points={history} baseline={baseline.value} />
+        <div className="mt-5 border-t border-slate-100 pt-4 dark:border-slate-800">
+          <MarketGaps estimate={estimate} history={history} now={now} />
+        </div>
+      </Section>
+
+      <Section
+        id="model-evidence"
+        title="Evidence behind the model"
+        description="What the model is built from, with sources and fetch times. Scraped and sponsor-provided data are labelled separately."
+      >
+        <ModelEvidencePanel evidence={modelEvidence} news={evidence.news} />
       </Section>
 
       <div className="grid gap-6 lg:grid-cols-2">
@@ -164,13 +183,15 @@ export default async function StudyPage({ params }: { params: Promise<{ studyId:
         </Section>
       </div>
 
-      <Section
-        id="evidence"
-        title="Startup evidence"
-        description={`Public facts and news about ${startup?.name ?? "this startup"}. Verification status is shown on each item; none of it is an estimate or a forecast.`}
-      >
-        <EvidenceList facts={evidence.facts} news={evidence.news} />
-      </Section>
+      {evidence.facts.length > 0 && (
+        <Section
+          id="facts"
+          title="Company facts"
+          description={`Public facts about ${startup?.name ?? "this startup"}. Verification status is shown on each item; none of it is an estimate or a forecast.`}
+        >
+          <FactList facts={evidence.facts} />
+        </Section>
+      )}
 
       {full && participants && (
         <Section
