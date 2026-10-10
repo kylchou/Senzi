@@ -12,6 +12,14 @@ import {
   updateMarket,
   updateStartup,
 } from "@/lib/admin";
+import {
+  createNewsItem,
+  createStartupFact,
+  deleteNewsItem,
+  deleteStartupFact,
+  updateNewsItem,
+  updateStartupFact,
+} from "@/lib/admin-content";
 import { toApiError } from "@/lib/api-response";
 import { requirePlatformAdmin } from "@/lib/auth";
 import type { SessionUser, ValidationIssue } from "@/lib/types";
@@ -20,9 +28,13 @@ import {
   createMarketSchema,
   createStartupSchema,
   marketStatusChangeSchema,
+  newsItemSchema,
   resolveMarketSchema,
+  startupFactSchema,
   setPlatformRoleSchema,
   updateMarketSchema,
+  updateNewsItemSchema,
+  updateStartupFactSchema,
   updateStartupSchema,
 } from "@/lib/validation";
 
@@ -224,4 +236,71 @@ export async function setPlatformRoleAction(userId: string, _: ActionState, fd: 
       setPlatformRole(admin, userId, setPlatformRoleSchema.parse({ platformRole: text(fd, "platformRole") }).platformRole),
     "Role updated",
   );
+}
+
+// --- Startup facts --------------------------------------------------------------
+
+export async function createFactAction(startupId: string, _: ActionState, fd: FormData): Promise<ActionState> {
+  return run(
+    (admin) =>
+      createStartupFact(
+        admin,
+        startupId,
+        startupFactSchema.parse({
+          label: text(fd, "label"),
+          value: text(fd, "value"),
+          sourceName: text(fd, "sourceName"),
+          sourceUrl: text(fd, "sourceUrl"),
+          asOf: utcDate(fd, "asOf"),
+          verified: checkbox(fd, "verified"),
+        }),
+      ),
+    "Fact added",
+  );
+}
+
+export async function setFactVerifiedAction(factId: string, _: ActionState, fd: FormData): Promise<ActionState> {
+  const verified = text(fd, "verified") === "true";
+  return run(
+    (admin) => updateStartupFact(admin, factId, updateStartupFactSchema.parse({ verified })),
+    verified ? "Marked verified" : "Marked unverified",
+  );
+}
+
+export async function deleteFactAction(factId: string): Promise<ActionState> {
+  return run((admin) => deleteStartupFact(admin, factId), "Fact deleted");
+}
+
+// --- News -----------------------------------------------------------------------
+
+function newsFields(fd: FormData) {
+  return {
+    startupId: text(fd, "startupId") || null,
+    title: text(fd, "title"),
+    summary: text(fd, "summary"),
+    publisher: text(fd, "publisher"),
+    url: text(fd, "url"),
+    publishedAt: utcDate(fd, "publishedAt"),
+    verification: text(fd, "verification"),
+  };
+}
+
+export async function createNewsAction(_: ActionState, fd: FormData): Promise<ActionState> {
+  return run((admin) => createNewsItem(admin, newsItemSchema.parse(newsFields(fd))), "News item added");
+}
+
+export async function updateNewsAction(newsId: string, _: ActionState, fd: FormData): Promise<ActionState> {
+  return run((admin) => updateNewsItem(admin, newsId, updateNewsItemSchema.parse(newsFields(fd))), "News item saved");
+}
+
+export async function setNewsVerificationAction(newsId: string, _: ActionState, fd: FormData): Promise<ActionState> {
+  return run(
+    (admin) =>
+      updateNewsItem(admin, newsId, updateNewsItemSchema.parse({ verification: text(fd, "verification") })),
+    "Verification updated",
+  );
+}
+
+export async function deleteNewsAction(newsId: string): Promise<ActionState> {
+  return run((admin) => deleteNewsItem(admin, newsId), "News item deleted");
 }

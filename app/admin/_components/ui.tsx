@@ -87,6 +87,9 @@ const badgeTone: Record<string, string> = {
   IN_PROGRESS: "bg-sky-100 text-sky-800",
   COMPLETED: "bg-emerald-100 text-emerald-800",
   FAILED: "bg-rose-100 text-rose-800",
+  VERIFIED: "bg-emerald-100 text-emerald-800",
+  UNVERIFIED: "bg-zinc-100 text-zinc-700",
+  DISPUTED: "bg-rose-100 text-rose-800",
 };
 
 export function Badge({ children }: { children: string }) {

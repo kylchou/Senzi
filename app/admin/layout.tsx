@@ -6,6 +6,7 @@ const nav = [
   { href: "/admin", label: "Overview" },
   { href: "/admin/startups", label: "Startups" },
   { href: "/admin/markets", label: "Markets" },
+  { href: "/admin/news", label: "News" },
   { href: "/admin/users", label: "Users & credits" },
   { href: "/admin/audit", label: "Audit log" },
 ] as const;
