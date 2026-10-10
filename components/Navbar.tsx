@@ -41,7 +41,11 @@ function NavbarView({ pathname }: { pathname: string | null }) {
   const open = pathname !== null && openOn === pathname;
 
   return (
-    <header className="sticky top-0 z-40 border-b border-white/5 bg-night text-white">
+    <header
+      className="sticky top-0 z-40 border-b border-white/5 bg-night text-white"
+      // Stays still while page content transitions underneath.
+      style={{ viewTransitionName: "site-header" }}
+    >
       <a
         href="#main"
         className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-md focus:bg-surface focus:px-3 focus:py-2 focus:text-ink-900"

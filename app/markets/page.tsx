@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { Suspense } from "react";
 import { io } from "next/cache";
 import { Search } from "lucide-react";
 import { MarketCard } from "@/components/MarketCard";
@@ -10,10 +9,11 @@ import { Input, Label, Select } from "@/components/ui/Field";
 import { FilterForm } from "@/components/ui/FilterForm";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Pagination } from "@/components/ui/Pagination";
-import { Skeleton } from "@/components/ui/Skeleton";
+import { CardGridSkeleton, Skeleton } from "@/components/ui/Skeleton";
 import { parseMarketParams } from "@/lib/discovery/params";
 import { listIndustries } from "@/lib/discovery/queries";
 import { listMarkets } from "@/lib/market-view/queries";
+import { PageTransition, StreamIn } from "@/components/ui/Transitions";
 
 export const metadata: Metadata = { title: "Markets" };
 
@@ -33,18 +33,20 @@ const sortOptions = [
 
 export default function MarketsPage({ searchParams }: PageProps<"/markets">) {
   return (
-    <main id="main" className="flex-1">
-      <PageHeader title="Markets" subtitle="YES or NO questions on measurable startup milestones.">
-        <Suspense fallback={<Skeleton className="h-10 w-full" />}>
-          <Filters searchParams={searchParams} />
-        </Suspense>
-      </PageHeader>
-      <Container className="py-10">
-        <Suspense fallback={<ResultsSkeleton />}>
-          <Results searchParams={searchParams} />
-        </Suspense>
-      </Container>
-    </main>
+    <PageTransition>
+      <main id="main" className="flex-1">
+        <PageHeader title="Markets" subtitle="YES or NO questions on measurable startup milestones.">
+          <StreamIn fallback={<Skeleton className="h-10 w-full" />}>
+            <Filters searchParams={searchParams} />
+          </StreamIn>
+        </PageHeader>
+        <Container className="py-10">
+          <StreamIn fallback={<CardGridSkeleton count={6} />}>
+            <Results searchParams={searchParams} />
+          </StreamIn>
+        </Container>
+      </main>
+    </PageTransition>
   );
 }
 
@@ -58,8 +60,18 @@ async function Filters({ searchParams }: Pick<PageProps<"/markets">, "searchPara
         <Label htmlFor="q" className="sr-only">
           Search markets
         </Label>
-        <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-500" aria-hidden />
-        <Input id="q" name="q" type="search" placeholder="Search questions or startups" defaultValue={params.q} className="pl-9" />
+        <Search
+          className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-500"
+          aria-hidden
+        />
+        <Input
+          id="q"
+          name="q"
+          type="search"
+          placeholder="Search questions or startups"
+          defaultValue={params.q}
+          className="pl-9"
+        />
       </div>
       <div className="grid grid-cols-3 gap-3 sm:flex">
         <div className="flex flex-col gap-1">
@@ -143,15 +155,5 @@ async function Results({ searchParams }: Pick<PageProps<"/markets">, "searchPara
         nextCursor={result.nextCursor}
       />
     </>
-  );
-}
-
-function ResultsSkeleton() {
-  return (
-    <div role="status" aria-label="Loading" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-      {Array.from({ length: 6 }, (_, index) => (
-        <Skeleton key={index} className="h-60 rounded-[var(--radius-card)]" />
-      ))}
-    </div>
   );
 }

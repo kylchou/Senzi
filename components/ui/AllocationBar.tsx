@@ -32,7 +32,13 @@ export function AllocationBar({
           <div className={cn("h-full w-full rounded-full", tone === "dark" ? "bg-white/15" : "bg-ink-100")} />
         ) : (
           <>
-            {share > 0 && <div className="h-full rounded-full bg-red-500" style={{ width: `${share * 100}%` }} />}
+            {share > 0 && (
+              // Grows in on first paint, then eases to new widths when the page refreshes.
+              <div
+                className="h-full origin-left animate-[grow-x_700ms_var(--ease-out-soft)] rounded-full bg-red-500 transition-[width] duration-700 ease-[var(--ease-out-soft)]"
+                style={{ width: `${share * 100}%` }}
+              />
+            )}
             {share < 1 && <div className={cn("h-full flex-1 rounded-full", tone === "dark" ? "bg-white/15" : "bg-ink-200")} />}
           </>
         )}

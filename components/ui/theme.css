@@ -126,6 +126,122 @@
   }
 }
 
+@keyframes value-flash {
+  0% {
+    opacity: 0.9;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes grow-x {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes ring-pulse {
+  from {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-red-500) 35%, transparent);
+  }
+  to {
+    box-shadow: 0 0 0 8px transparent;
+  }
+}
+
+/*
+ * Page transitions (React <ViewTransition>). Pages fade and rise slightly on
+ * navigation, loading skeletons hand off to real content, and the navbar stays
+ * anchored. Browsers without the View Transitions API simply skip these.
+ */
+::view-transition {
+  pointer-events: none;
+}
+::view-transition-old(.page-exit) {
+  animation: 140ms ease-in both vt-fade reverse;
+}
+::view-transition-new(.page-enter) {
+  animation:
+    220ms ease-out 100ms both vt-fade,
+    320ms var(--ease-out-soft) both vt-rise;
+}
+::view-transition-old(.skeleton-exit) {
+  animation: 140ms ease-out both vt-fade reverse;
+}
+::view-transition-new(.content-enter) {
+  animation:
+    200ms ease-in 120ms both vt-fade,
+    360ms var(--ease-out-soft) both vt-rise;
+}
+::view-transition-group(.morph) {
+  animation-duration: 380ms;
+  animation-timing-function: var(--ease-out-soft);
+}
+::view-transition-group(site-header) {
+  animation: none;
+  z-index: 100;
+}
+::view-transition-old(site-header) {
+  display: none;
+}
+::view-transition-new(site-header) {
+  animation: none;
+}
+@keyframes vt-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes vt-rise {
+  from {
+    transform: translateY(8px);
+  }
+  to {
+    transform: none;
+  }
+}
+
 /* Smooth color change while switching themes (class added for 300ms by theme.ts). */
 .theme-switching,
 .theme-switching *,
@@ -143,5 +259,10 @@
   *, *::before, *::after {
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
+  }
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
   }
 }

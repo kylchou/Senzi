@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { Suspense } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { io } from "next/cache";
@@ -14,6 +13,7 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { StartupMark } from "@/components/ui/StartupMark";
 import { getStartupProfile } from "@/lib/discovery/queries";
 import { formatDate, formatStage } from "@/lib/market-view/format";
+import { PageTransition, StreamIn } from "@/components/ui/Transitions";
 
 export async function generateMetadata({ params }: PageProps<"/startups/[slug]">): Promise<Metadata> {
   const startup = await getStartupProfile((await params).slug).catch(() => null);
@@ -22,11 +22,13 @@ export async function generateMetadata({ params }: PageProps<"/startups/[slug]">
 
 export default function StartupPage({ params }: PageProps<"/startups/[slug]">) {
   return (
-    <main id="main" className="flex-1">
-      <Suspense fallback={<ProfileSkeleton />}>
-        <StartupView params={params} />
-      </Suspense>
-    </main>
+    <PageTransition>
+      <main id="main" className="flex-1">
+        <StreamIn fallback={<ProfileSkeleton />}>
+          <StartupView params={params} />
+        </StreamIn>
+      </main>
+    </PageTransition>
   );
 }
 

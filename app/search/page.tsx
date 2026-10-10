@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { Suspense } from "react";
 import { io } from "next/cache";
 import { Search } from "lucide-react";
 import { MarketCard } from "@/components/MarketCard";
@@ -10,26 +9,29 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { Input, Label } from "@/components/ui/Field";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { SectionHeading } from "@/components/ui/SectionHeading";
-import { Skeleton } from "@/components/ui/Skeleton";
+import { CardGridSkeleton } from "@/components/ui/Skeleton";
 import { parseSearchQuery } from "@/lib/discovery/params";
 import { searchAll } from "@/lib/discovery/queries";
+import { PageTransition, StreamIn } from "@/components/ui/Transitions";
 
 export const metadata: Metadata = { title: "Search" };
 
 export default function SearchPage({ searchParams }: PageProps<"/search">) {
   return (
-    <main id="main" className="flex-1">
-      <PageHeader title="Search">
-        <Suspense fallback={<SearchForm />}>
-          <RoutedSearchForm searchParams={searchParams} />
-        </Suspense>
-      </PageHeader>
-      <Container className="space-y-14 py-10">
-        <Suspense fallback={<Skeleton className="h-64 rounded-[var(--radius-card)]" />}>
-          <Results searchParams={searchParams} />
-        </Suspense>
-      </Container>
-    </main>
+    <PageTransition>
+      <main id="main" className="flex-1">
+        <PageHeader title="Search">
+          <StreamIn fallback={<SearchForm />}>
+            <RoutedSearchForm searchParams={searchParams} />
+          </StreamIn>
+        </PageHeader>
+        <Container className="space-y-14 py-10">
+          <StreamIn fallback={<CardGridSkeleton count={3} />}>
+            <Results searchParams={searchParams} />
+          </StreamIn>
+        </Container>
+      </main>
+    </PageTransition>
   );
 }
 
@@ -40,8 +42,18 @@ function SearchForm({ q }: { q?: string }) {
         <Label htmlFor="q" className="sr-only">
           Search markets and startups
         </Label>
-        <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-500" aria-hidden />
-        <Input id="q" name="q" type="search" placeholder="Markets and startups" defaultValue={q} className="h-12 pl-9 text-base" />
+        <Search
+          className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-500"
+          aria-hidden
+        />
+        <Input
+          id="q"
+          name="q"
+          type="search"
+          placeholder="Markets and startups"
+          defaultValue={q}
+          className="h-12 pl-9 text-base"
+        />
       </div>
       <Button type="submit" size="lg">
         Search
@@ -68,7 +80,11 @@ async function Results({ searchParams }: Pick<PageProps<"/search">, "searchParam
     <>
       {results.markets.length > 0 && (
         <section>
-          <SectionHeading title="Markets" href={`/markets?q=${encodeURIComponent(q)}`} linkLabel="All matching markets" />
+          <SectionHeading
+            title="Markets"
+            href={`/markets?q=${encodeURIComponent(q)}`}
+            linkLabel="All matching markets"
+          />
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {results.markets.map((market) => (
               <MarketCard key={market.id} market={market} />
@@ -78,7 +94,11 @@ async function Results({ searchParams }: Pick<PageProps<"/search">, "searchParam
       )}
       {results.startups.length > 0 && (
         <section>
-          <SectionHeading title="Startups" href={`/startups?q=${encodeURIComponent(q)}`} linkLabel="All matching startups" />
+          <SectionHeading
+            title="Startups"
+            href={`/startups?q=${encodeURIComponent(q)}`}
+            linkLabel="All matching startups"
+          />
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {results.startups.map((startup) => (
               <StartupCard key={startup.slug} startup={startup} />

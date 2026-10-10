@@ -4,6 +4,7 @@ import { Geist_Mono, Inter, Montserrat } from "next/font/google";
 import { Navbar } from "@/components/Navbar";
 import { SiteFooter } from "@/components/ui/SiteFooter";
 import { ThemeScript } from "@/components/ui/ThemeScript";
+import { Toaster } from "@/components/ui/Toaster";
 import "./globals.css";
 
 const inter = Inter({
@@ -43,6 +44,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           <Navbar />
           <div className="flex flex-1 flex-col">{children}</div>
           <SiteFooter />
+          <Toaster />
         </ClerkProvider>
       </body>
     </html>
