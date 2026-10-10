@@ -11,7 +11,7 @@ Every route returns one of these:
 { "error": { "code": "VALIDATION_ERROR", "message": "Invalid request", "details": [{ "path": "closesAt", "message": "..." }] } }
 ```
 
-Error codes and statuses: `UNAUTHENTICATED` 401, `FORBIDDEN` 403, `NOT_FOUND` 404, `VALIDATION_ERROR` 400, `CONFLICT` / `INSUFFICIENT_CREDITS` / `INVALID_STATE` 409, `INTERNAL_ERROR` 500.
+Error codes and statuses: `UNAUTHENTICATED` 401, `FORBIDDEN` 403, `NOT_FOUND` 404, `VALIDATION_ERROR` 400, `CONFLICT` / `INSUFFICIENT_CREDITS` / `INVALID_STATE` 409, `RATE_LIMITED` 429 (with a `Retry-After` header), `INTERNAL_ERROR` 500.
 
 Lists use cursor pagination. Pass `meta.nextCursor` back as `?cursor=`, and `limit` goes up to 100.
 
@@ -42,11 +42,13 @@ Admin (platform admins only)
 - `GET|POST /api/admin/news`, `GET|PATCH|DELETE /api/admin/news/:id`. `verification` is `UNVERIFIED` (the default), `VERIFIED`, or `DISPUTED`.
 - `GET|POST /api/admin/markets`, `GET|PATCH /api/admin/markets/:id`. A market needs `yesCriteria`, `noCriteria`, and at least one entry in `sources` (`{ title, url }`). `openingBaseline` is optional, but if you set it you also need `baselineMethodology`.
 - `POST /api/admin/markets/:id/status` with `{ status: "OPEN" | "CLOSED" | "CANCELLED" }`
-- `POST /api/admin/markets/:id/resolve` with `{ outcome: "YES" | "NO" | "VOID", evidenceSummary, evidenceUrls: [...] }`
+- `POST /api/admin/markets/:id/resolve` proposes an outcome: `{ outcome, voidReason?, evidenceSummary, evidence: [{ title, url, sourceType?, license?, publisher?, publishedAt? }] }`. A different admin then approves it.
+- `GET /api/admin/resolution-proposals?status=PROPOSED` is the review queue. `POST /api/admin/resolution-proposals/:id/approve` takes `{ note? }`, and `.../reject` takes `{ reason }`. The proposer can reject their own proposal to withdraw it.
+- `POST /api/admin/resolutions/:id/corrections` takes the same body as a proposal, plus `correctionReason`. `POST /api/admin/resolutions/:id/settle` runs or retries settlement.
 - `POST /api/admin/credits` with `{ userId, amount, type: "ADMIN_GRANT" | "ADMIN_ADJUSTMENT", memo, idempotencyKey }`
 - `GET /api/admin/users?q=`, `PATCH /api/admin/users/:id` with `{ platformRole }`, `GET /api/admin/users/:id/ledger`
 - `GET /api/admin/audit-logs`
-- `GET /api/admin/cron/close-markets` is for Vercel Cron and needs `Authorization: Bearer $CRON_SECRET`
+- `GET /api/admin/cron/close-markets` is for Vercel Cron and needs `Authorization: Bearer $CRON_SECRET`. It closes expired markets, retries settlements that are pending, failed, or stuck, and prunes old rate-limit counters.
 
 The `/admin` pages call the same functions in `lib/admin.ts`.
 
@@ -55,10 +57,60 @@ The `/admin` pages call the same functions in `lib/admin.ts`.
 `DRAFT → OPEN ⇄ CLOSED → RESOLVED`, and a market can be `CANCELLED` from any of those. Some rules:
 
 - Opening a market writes `MarketSnapshot` #1 with trigger `OPENING`.
-- Once a market has forecasts, its question, criteria, baseline, startup, visibility, and open time can't be changed.
+- Once a market opens, its terms are locked: question, criteria, baseline, startup, visibility, sources, slug, and credit limits. Only the description, category, deadline, and resolve-by date can change after that, and the audit log records the old and new value of every change.
 - You can only cancel a market with a status change if nobody has forecast on it. Otherwise resolve it as `VOID` so people get their stakes back.
-- Resolving needs a written summary plus at least one evidence link. It notifies the forecasters, writes to the audit log, and creates a `Resolution` with `settlementStatus: PENDING`. Each market can only be resolved once.
 - The cron moves OPEN markets to CLOSED after `closesAt`, but forecast submission should still check `closesAt > now` itself.
+
+### Resolving a market
+
+1. One admin proposes an outcome with evidence. Each piece of evidence records its source type, license, publisher, publish date, and retrieval time. The market closes to new forecasts while the proposal waits.
+2. A different admin approves it or rejects it. Proposing and approving your own resolution is refused, unless `SENZI_ALLOW_SELF_APPROVAL=true` is set outside production (local dev and tests only).
+3. Approval creates the `Resolution`, sets the market to `RESOLVED` (or `CANCELLED` for VOID), notifies forecasters, and starts settlement. Each market has one resolution.
+
+VOID covers every case where a market can't be fairly answered. It needs a `voidReason`, refunds every stake, and marks the market `CANCELLED`. The reasons:
+- `CANCELLED`: the question stopped applying, e.g. the company was acquired first.
+- `AMBIGUOUS`: the criteria can't decide the outcome as written.
+- `UNVERIFIABLE`: the evidence needed doesn't exist or isn't accessible.
+- `INVALID_MARKET`: the market was set up wrong.
+- `OTHER`.
+
+Corrections use the same propose and approve flow, and they need a reason. Evidence and wording can be corrected at any time. The outcome can only change while settlement is `PENDING` or `FAILED`. Once credits have moved, changing it would mean reversing payouts, which the forecasting engine doesn't support yet. Proposals and evidence can never be edited or deleted (the database enforces this), so a market's whole decision history stays readable, and `Resolution.currentProposalId` points to the version in effect.
+
+### Sources and provenance
+
+Market sources, startup facts, news, and resolution evidence all record:
+- **`license`**: what we may do with the content. It defaults to `LINK_ONLY` (link and cite, don't copy), because a public web page isn't automatically licensed for reuse.
+- **`retrievedAt`**: when we read the source.
+- **`sourceType`** (on everything except news): company announcement, filing, news report, and so on.
+
+Facts and news also record who verified them and when (`verifiedById`, `verifiedAt`). Seeded companies have `isDemo: true`, and none of their facts or news are marked verified.
+
+### Rate limits
+
+`rateLimit(key, rule)` in `lib/rate-limit.ts` is a fixed-window limiter stored in Postgres, so it holds across serverless instances. It already guards:
+- creating orgs: 5 an hour
+- invites: 30 an hour
+- profile edits: 30 an hour
+- credit adjustments: 60 an hour
+- resolution actions: 60 an hour
+
+`RATE_LIMITS.forecastSubmit` (60 a minute) is there for Felix's submit route, and `RATE_LIMITS.export` (30 an hour) is for Darsh's exports. Use `rateLimitByIp` for routes that don't require sign-in.
+
+## Who can do what
+
+Everything here is enforced on the server; hiding a button is never the access control.
+
+| | Read | Create / update | Export | Administer |
+|---|---|---|---|---|
+| Signed out | Public markets, published startups, facts, news | Nothing | Nothing | Nothing |
+| Signed-in user | The above, plus their own profile, credits, notifications | Their profile; forecasts (Felix's route) | Their own ledger | Nothing |
+| Org VIEWER | Their org's markets, org-wide studies, watchlists, alerts | Nothing in the org | Nothing | Nothing |
+| Org ANALYST | Same as viewer | Studies (as author), notes, watchlists, reports | Reports for studies they can see | Nothing |
+| Org ADMIN | Everything in the org, including restricted studies | Same as analyst | Org reports | Add, remove, and change analysts and viewers |
+| Org OWNER | Everything in the org | Same as admin | Org reports | All members, including admins and owners; delete the org. There's always at least one owner. |
+| Platform ADMIN | Admin tools; never another firm's private org data | Startups, markets, facts, news, credit adjustments, user roles | Audit log | Propose, approve, and correct resolutions (never approving their own); review studies |
+
+Restricted studies (and their markets) are visible to the org's owners and admins, the author, and invited participants, even when those participants are outside the org. Darsh's `lib/vc/permissions.ts` has the exact study rules. Non-members get `404`, never `403`, so private things don't reveal that they exist.
 
 Visibility is `PUBLIC`, `ORGANIZATION` (members of `Market.organization`), or `RESTRICTED` (that org's owners and admins, plus the study author and the people invited to the study). Non-public markets come from research studies.
 
@@ -98,13 +150,13 @@ Model tables: done, as proposed in `docs/model-schema-proposal.md`. `ModelDataPo
 
 The data point unique key is `NULLS NOT DISTINCT`, so scraped rows dedupe even with no org. Kept `resolutionSourceUrl` on the spec, because the machine-checkable source should stay locked separately from the market's display sources. Read sponsor data with `visibleModelDataPointsWhere(userId)` from `lib/permissions.ts`. `SEC_USER_AGENT`, `GITHUB_TOKEN`, and the `scrape` / `model:*` npm scripts are added. Before anyone runs the SEC collector, the team still needs to pick a real contact email for `SEC_USER_AGENT`.
 
-Settlement. Implement `SettlementService.settleResolution(resolutionId)` from `lib/types.ts`:
+Settlement. `lib/settlement.ts` already runs the state machine: claiming a resolution, completing it or marking it failed, retrying, and recovering attempts that got stuck after 10 minutes. It runs right after a resolution is approved, from the admin "Run settlement now" button, and from the cron. You provide one function:
 
-1. Call `claimResolutionForSettlement(id)`. If it returns false, someone else already has it, so stop.
-2. Pay out with the keys above. Because of them, re-running settlement after a crash never pays anyone twice.
-3. Mark the forecasts `SETTLED` or `REFUNDED`, then call `completeResolutionSettlement(id)`. If something fails, call `failResolutionSettlement(id, message)`. Failed resolutions can be claimed again.
+```ts
+type SettleFn = (input: { resolutionId; marketId; outcome: "YES" | "NO" | "VOID"; resolvedAt }) => Promise<{ settlementModelId?: string } | void>;
+```
 
-Once your service exists, Kyler will call it from the resolve route. The seed includes two resolved markets and one void one, all still `PENDING`, for you to test against. `SettlementAuthorizer` is the resolve route itself, which only platform admins can reach. Nothing exists for `TraderDirectory` (verified users of a product) yet, so leave `verifiedAtEntry` false for now.
+It should pay out every forecast through `createCreditLedger()` with your `settlement:<marketId>:<forecastId>` keys, mark forecasts `SETTLED` or `REFUNDED`, and throw on failure. Those keys make retries safe. When it's ready, set `forecastingSettle` at the top of `lib/settlement.ts` to your function; that's a one-line PR. The seed includes two resolved markets and one void one, all still `PENDING`, to test against. `SettlementAuthorizer` is the resolve route itself, which only platform admins can reach. Nothing exists for `TraderDirectory` (verified users of a product) yet, so leave `verifiedAtEntry` false for now.
 
 ## Darsh: VC intelligence
 
@@ -137,7 +189,8 @@ The schema now uses your names where we overlapped: `Startup.industry`, `Startup
 
 - Import `db` from `@/lib/db` (there's no `prisma` export), and delete your `prisma/schema.prisma` and `lib/db.ts`.
 - `MarketSnapshot.recordedAt`, `allocationShare`, and `forecasterCount` match yours. There's also a `sequence` you can order by.
-- Market resolution lives in the `Resolution` relation (`market.resolution.outcome`, `evidenceSummary`, `evidenceUrls`, `resolvedAt`), not in columns on `Market`.
+- Market resolution lives in the `Resolution` relation (`market.resolution.outcome`, `voidReason`, `evidenceSummary`, `evidenceUrls`, `resolvedAt`), not in columns on `Market`. It only exists once a second admin has approved it.
+- `Startup.isDemo` marks fictional demo companies. Please show a visible "Demo" label wherever they appear.
 - `Market.baselineMethodology` is the same thing as your `baselineMethod`.
 - `NewsItem.verification` is `VERIFIED`, `UNVERIFIED`, or `DISPUTED`, and `StartupFact.verified` is true only once an admin has checked the source. Label them that way. Admins manage both at `/admin/news` and on each startup's admin page, and every verification change is audit-logged.
 
@@ -152,4 +205,4 @@ Show these as separate, labelled numbers:
 
 ## Environment variables
 
-See `.env.example`. The required ones are `DATABASE_URL`, `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`, and `CLERK_SECRET_KEY`. Optional ones: `TEST_DATABASE_URL`, `CLERK_WEBHOOK_SIGNING_SECRET`, `SENZI_ADMIN_EMAILS`, `SEED_DEMO_EMAIL`, and `CRON_SECRET`.
+See `.env.example`. The required ones are `DATABASE_URL`, `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`, and `CLERK_SECRET_KEY`. Optional ones: `TEST_DATABASE_URL`, `CLERK_WEBHOOK_SIGNING_SECRET`, `SENZI_ADMIN_EMAILS`, `SEED_DEMO_EMAIL`, `CRON_SECRET`, `SEC_USER_AGENT`, `GITHUB_TOKEN`, and `SENZI_ALLOW_SELF_APPROVAL` (dev only).

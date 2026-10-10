@@ -105,6 +105,7 @@ export type ApiErrorCode =
   | "CONFLICT"
   | "INSUFFICIENT_CREDITS"
   | "INVALID_STATE"
+  | "RATE_LIMITED"
   | "INTERNAL_ERROR";
 
 export interface ApiSuccess<T> {
@@ -261,21 +262,7 @@ export interface AdminStartupSummary {
 // Settlement contract (implemented by Engineer 2)
 // ---------------------------------------------------------------------------
 
-export interface SettlementResult {
-  resolutionId: string;
-  status: SettlementStatus;
-  forecastsSettled: number;
-  creditsPaidOut: number;
-}
-
-/**
- * Engineer 2's settlement service. Called after an admin records a
- * Resolution (which starts with settlementStatus = PENDING). Must be
- * idempotent: use lib/admin.ts claimResolutionForSettlement() to take the
- * PENDING -> IN_PROGRESS lock, lib/credits.ts applyCreditTransaction() with
- * settlement:<marketId>:<forecastId> keys (MARKET_REFUND for VOID outcomes),
- * then completeResolutionSettlement() or failResolutionSettlement().
- */
-export interface SettlementService {
-  settleResolution(resolutionId: string): Promise<SettlementResult>;
-}
+// The settlement hook is SettleFn in lib/settlement.ts: that module runs the
+// PENDING -> IN_PROGRESS -> COMPLETED/FAILED state machine and calls the
+// forecasting engine's function to compute and pay out credits.
+export type { SettleFn, SettleInput, SettlementRun } from "@/lib/settlement";

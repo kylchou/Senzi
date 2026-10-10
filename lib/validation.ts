@@ -8,8 +8,11 @@ import {
   OrgRole,
   PlatformRole,
   ResolutionOutcome,
+  SourceLicense,
+  SourceType,
   StartupStage,
   StudyVisibility,
+  VoidReason,
 } from "@/generated/prisma/enums";
 import { MAX_CREDIT_TRANSACTION, RESERVED_USERNAMES } from "@/lib/types";
 
@@ -168,6 +171,15 @@ const questionSchema = z
 const criteriaSchema = (side: "YES" | "NO") =>
   z.string().trim().min(20, `Describe exactly what makes this resolve ${side}`).max(5000);
 
+/** Provenance shared by sources, facts, news, and evidence. */
+const provenanceFields = {
+  sourceType: z.enum(SourceType).default(SourceType.OTHER),
+  /** A public page isn't automatically licensed for reuse, so default to link-only. */
+  license: z.enum(SourceLicense).default(SourceLicense.LINK_ONLY),
+  /** When we read the source. Defaults to now. */
+  retrievedAt: dateInputSchema.optional(),
+};
+
 /** Where the resolver will look for evidence. */
 export const marketSourceSchema = z
   .object({
@@ -175,6 +187,7 @@ export const marketSourceSchema = z
     url: httpUrlSchema,
     publisher: optionalText(120),
     publishedAt: dateInputSchema.nullish(),
+    ...provenanceFields,
   })
   .strict();
 
@@ -270,13 +283,69 @@ export const marketStatusChangeSchema = z
   })
   .strict();
 
+function checkVoidReason(value: { outcome?: ResolutionOutcome; voidReason?: VoidReason | null }, ctx: z.RefinementCtx) {
+  if (value.outcome === ResolutionOutcome.VOID && !value.voidReason) {
+    ctx.addIssue({ code: "custom", path: ["voidReason"], message: "Say why the market is void" });
+  }
+  if (value.outcome !== ResolutionOutcome.VOID && value.voidReason) {
+    ctx.addIssue({ code: "custom", path: ["voidReason"], message: "Only VOID outcomes have a void reason" });
+  }
+}
+
+const evidenceSummarySchema = z.string().trim().min(20, "Explain how the evidence meets the criteria").max(5000);
+
+/** One piece of resolution evidence, with where it came from. */
+export const evidenceItemSchema = z
+  .object({
+    title: z.string().trim().min(1).max(200),
+    url: httpUrlSchema,
+    publisher: optionalText(120),
+    publishedAt: dateInputSchema.nullish(),
+    note: optionalText(1000),
+    ...provenanceFields,
+  })
+  .strict();
+
+const proposalFields = {
+  outcome: z.enum(ResolutionOutcome),
+  voidReason: z.enum(VoidReason).nullish(),
+  evidenceSummary: evidenceSummarySchema,
+  evidence: z.array(evidenceItemSchema).min(1, "Cite at least one source").max(10),
+};
+
+/** An admin proposes an outcome; a different admin approves it. */
+export const proposeResolutionSchema = z.object(proposalFields).strict().superRefine(checkVoidReason);
+
+/** A proposed change to an approved resolution. Needs its own approval. */
+export const proposeCorrectionSchema = z
+  .object({ ...proposalFields, correctionReason: z.string().trim().min(10, "Explain what was wrong").max(2000) })
+  .strict()
+  .superRefine(checkVoidReason);
+
+export const approveProposalSchema = z.object({ note: optionalText(1000) }).strict();
+
+export const rejectProposalSchema = z
+  .object({ reason: z.string().trim().min(3, "Say why it's rejected").max(1000) })
+  .strict();
+
+export const proposalQuerySchema = z.object({
+  status: z.enum(["PROPOSED", "APPROVED", "REJECTED"]).optional(),
+  marketId: idSchema.optional(),
+});
+
+/**
+ * Shortcut used by tests and scripts: propose and approve in one call with
+ * plain evidence links. Approval still follows the two-admin rule.
+ */
 export const resolveMarketSchema = z
   .object({
     outcome: z.enum(ResolutionOutcome),
-    evidenceSummary: z.string().trim().min(20, "Explain how the evidence meets the criteria").max(5000),
+    voidReason: z.enum(VoidReason).nullish(),
+    evidenceSummary: evidenceSummarySchema,
     evidenceUrls: z.array(httpUrlSchema).min(1, "Cite at least one source").max(10),
   })
-  .strict();
+  .strict()
+  .superRefine(checkVoidReason);
 
 export { checkMarketInvariants };
 
@@ -293,6 +362,7 @@ export const startupFactSchema = z
     sourceUrl: httpUrlSchema,
     asOf: dateInputSchema,
     verified: z.boolean().default(false),
+    ...provenanceFields,
   })
   .strict();
 
@@ -312,6 +382,8 @@ export const newsItemSchema = z
     url: httpUrlSchema,
     publishedAt: dateInputSchema,
     verification: z.enum(NewsVerification).default(NewsVerification.UNVERIFIED),
+    license: provenanceFields.license,
+    retrievedAt: provenanceFields.retrievedAt,
   })
   .strict();
 
@@ -380,6 +452,9 @@ export type CreateMarketInput = z.output<typeof createMarketSchema>;
 export type UpdateMarketInput = z.output<typeof updateMarketSchema>;
 export type MarketStatusChangeInput = z.output<typeof marketStatusChangeSchema>;
 export type ResolveMarketInput = z.output<typeof resolveMarketSchema>;
+export type ProposeResolutionInput = z.output<typeof proposeResolutionSchema>;
+export type ProposeCorrectionInput = z.output<typeof proposeCorrectionSchema>;
+export type EvidenceItemInput = z.output<typeof evidenceItemSchema>;
 export type AdminCreditAdjustmentInput = z.output<typeof adminCreditAdjustmentSchema>;
 export type ForecastSubmissionInput = z.output<typeof forecastSubmissionSchema>;
 export type CreateMarketForStudyInput = z.input<typeof createMarketForStudySchema>;

@@ -3,6 +3,7 @@ import { adjustUserCredits } from "@/lib/admin";
 import { clientIp } from "@/lib/audit";
 import { requirePlatformAdmin } from "@/lib/auth";
 import { toCreditTransactionDTO } from "@/lib/credits";
+import { rateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 import { adminCreditAdjustmentSchema } from "@/lib/validation";
 
 /**
@@ -11,6 +12,7 @@ import { adminCreditAdjustmentSchema } from "@/lib/validation";
  */
 export const POST = withApiHandler(async (req) => {
   const admin = await requirePlatformAdmin();
+  await rateLimit(`credit-adjust:${admin.id}`, RATE_LIMITS.creditAdjust);
   const input = await parseJsonBody(req, adminCreditAdjustmentSchema);
   const result = await adjustUserCredits(admin, input, { ip: clientIp(req) });
   const body = { transaction: toCreditTransactionDTO(result.transaction), replayed: result.replayed };

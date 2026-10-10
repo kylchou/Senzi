@@ -80,7 +80,7 @@ export async function makeMarket(
     opensAt: new Date(now - DAY),
     closesAt: new Date(now + 30 * DAY),
     resolvesBy: null,
-    sources: [{ title: "Test source", url: "https://example.com/source" }],
+    sources: [{ title: "Test source", url: "https://example.com/source", sourceType: "OTHER", license: "LINK_ONLY" }],
     openImmediately: opts.open ?? true,
   });
 }

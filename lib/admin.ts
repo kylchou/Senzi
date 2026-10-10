@@ -4,14 +4,14 @@ import {
   MarketStatus,
   NotificationType,
   PlatformRole,
-  ResolutionOutcome,
   SettlementStatus,
   SnapshotTrigger,
   StudyStatus,
   StudyVisibility,
 } from "@/generated/prisma/enums";
-import { conflict, forbidden, invalidState, notFound } from "@/lib/api-response";
-import { recordAudit } from "@/lib/audit";
+import { assertAdmin } from "@/lib/admin-guard";
+import { conflict, invalidState, notFound } from "@/lib/api-response";
+import { diffChanges, recordAudit } from "@/lib/audit";
 import { applyCreditTransaction, type AppliedCreditTransaction } from "@/lib/credits";
 import { db, isUniqueViolation, type TxClient } from "@/lib/db";
 import type { AdminMarketSummary, AdminStartupSummary, RequestContext, SessionUser } from "@/lib/types";
@@ -25,7 +25,6 @@ import {
   type CreateStartupInput,
   type MarketSourceInput,
   type MarketStatusChangeInput,
-  type ResolveMarketInput,
   type UpdateMarketInput,
   type UpdateStartupInput,
 } from "@/lib/validation";
@@ -42,9 +41,7 @@ import {
  * settlement status helpers at the bottom.
  */
 
-export function assertAdmin(actor: SessionUser) {
-  if (actor.platformRole !== PlatformRole.ADMIN) throw forbidden("Administrator access required");
-}
+export { assertAdmin };
 
 // ---------------------------------------------------------------------------
 // Startups
@@ -70,11 +67,18 @@ export async function updateStartup(
 ) {
   assertAdmin(actor);
   return db.$transaction(async (tx) => {
-    const existing = await tx.startup.findUnique({ where: { id: startupId }, select: { id: true } });
+    const existing = await tx.startup.findUnique({ where: { id: startupId } });
     if (!existing) throw notFound("Startup");
     const startup = await tx.startup.update({ where: { id: startupId }, data: input });
     await recordAudit(
-      { actorId: actor.id, action: "startup.update", entityType: "Startup", entityId: startupId, data: { changed: Object.keys(input) }, ipAddress: ctx.ip },
+      {
+        actorId: actor.id,
+        action: "startup.update",
+        entityType: "Startup",
+        entityId: startupId,
+        data: { changes: diffChanges(existing, input) } as Prisma.InputJsonValue,
+        ipAddress: ctx.ip,
+      },
       tx,
     );
     return startup;
@@ -126,29 +130,20 @@ export function canTransitionMarket(from: MarketStatus, to: MarketStatus): boole
   return MARKET_STATUS_TRANSITIONS[from].includes(to);
 }
 
-/** Fields that define what forecasters are betting on; frozen once anyone forecasts. */
-const TERMS_FIELDS = [
-  "startupId",
-  "question",
-  "yesCriteria",
-  "noCriteria",
-  "openingBaseline",
-  "baselineMethodology",
-  "visibility",
-  "organizationId",
-  "opensAt",
-] as const satisfies readonly (keyof UpdateMarketInput & keyof Market)[];
+/**
+ * Once a market opens, its terms (question, criteria, baseline, sources,
+ * visibility, limits...) are frozen. Only these can still change, and every
+ * change is audit-logged with before/after values.
+ */
+export const EDITABLE_AFTER_OPEN = ["description", "category", "closesAt", "resolvesBy"] as const;
 
 function sameValue(a: unknown, b: unknown) {
   if (a instanceof Date && b instanceof Date) return a.getTime() === b.getTime();
   return (a ?? null) === (b ?? null);
 }
 
-export function termsAreEditable(market: Pick<Market, "status" | "forecastCount">): boolean {
-  return (
-    market.status === MarketStatus.DRAFT ||
-    (market.status === MarketStatus.OPEN && market.forecastCount === 0)
-  );
+export function termsAreEditable(market: Pick<Market, "status">): boolean {
+  return market.status === MarketStatus.DRAFT;
 }
 
 async function assertMarketReferences(
@@ -241,16 +236,24 @@ export async function updateMarket(
     }
 
     // Resubmitting an unchanged value is fine; only real changes count.
-    const touchedTerms = TERMS_FIELDS.filter(
-      (field) => input[field] !== undefined && !sameValue(input[field], market[field]),
+    const { sources: sourceInput, ...fieldInput } = input;
+    const changed = (Object.keys(fieldInput) as (keyof typeof fieldInput)[]).filter(
+      (field) => fieldInput[field] !== undefined && !sameValue(fieldInput[field], market[field as keyof Market]),
     );
-    if (touchedTerms.length > 0 && !termsAreEditable(market)) {
-      throw invalidState(
-        `Cannot change ${touchedTerms.join(", ")} after forecasts have been placed`,
-      );
+    const currentSources = await tx.marketSource.findMany({ where: { marketId }, orderBy: { position: "asc" } });
+    const sourcesChanged =
+      sourceInput !== undefined &&
+      JSON.stringify(sourceInput.map((x) => [x.title, x.url])) !== JSON.stringify(currentSources.map((x) => [x.title, x.url]));
+
+    if (!termsAreEditable(market)) {
+      const locked = changed.filter((f) => !(EDITABLE_AFTER_OPEN as readonly string[]).includes(f));
+      if (sourcesChanged) locked.push("sources" as never);
+      if (locked.length > 0) {
+        throw invalidState(`Cannot change ${locked.join(", ")} after the market has opened`);
+      }
     }
     const linkedStudy = await tx.researchStudy.findUnique({ where: { marketId }, select: { id: true } });
-    if (linkedStudy && (touchedTerms as string[]).some((f) => f === "visibility" || f === "organizationId")) {
+    if (linkedStudy && changed.some((f) => f === "visibility" || f === "organizationId")) {
       throw invalidState("This market belongs to a research study; change visibility through the study");
     }
 
@@ -262,13 +265,12 @@ export async function updateMarket(
     }
     await assertMarketReferences(tx, input);
 
-    const { sources, ...fields } = input;
     const updated = await tx.market.update({
       where: { id: marketId },
       data: {
-        ...fields,
-        ...(touchedTerms.includes("openingBaseline") ? { baselineSetAt: new Date() } : {}),
-        ...(sources ? { sources: { deleteMany: {}, create: sourceRows(sources) } } : {}),
+        ...fieldInput,
+        ...(changed.includes("openingBaseline") ? { baselineSetAt: new Date() } : {}),
+        ...(sourcesChanged && sourceInput ? { sources: { deleteMany: {}, create: sourceRows(sourceInput) } } : {}),
       },
     });
     await recordAudit(
@@ -278,7 +280,10 @@ export async function updateMarket(
         action: "market.update",
         entityType: "Market",
         entityId: marketId,
-        data: { changed: Object.keys(input) },
+        data: {
+          changes: diffChanges(market, fieldInput),
+          ...(sourcesChanged ? { sources: { from: currentSources.map((x) => x.url), to: sourceInput!.map((x) => x.url) } } : {}),
+        } as Prisma.InputJsonValue,
         ipAddress: ctx.ip,
       },
       tx,
@@ -302,7 +307,7 @@ export async function changeMarketStatus(
       throw invalidState(`Cannot move a ${market.status} market to ${to}`);
     }
     if (to === MarketStatus.CANCELLED && market.forecastCount > 0) {
-      throw invalidState("This market has forecasts; resolve it as CANCELLED so stakes are refunded");
+      throw invalidState("This market has forecasts; propose a VOID resolution so stakes are refunded");
     }
 
     const now = new Date();
@@ -458,91 +463,6 @@ export async function closeExpiredMarkets(now = new Date()) {
   return count;
 }
 
-/**
- * Records the outcome of a market with its supporting evidence. The market
- * becomes RESOLVED (or CANCELLED) and the Resolution starts with
- * settlementStatus = PENDING for the forecasting engine to settle.
- * A market can only be resolved once.
- */
-export async function resolveMarket(
-  actor: SessionUser,
-  marketId: string,
-  input: ResolveMarketInput,
-  ctx: RequestContext = {},
-) {
-  assertAdmin(actor);
-  try {
-    return await db.$transaction(async (tx) => {
-      const market = await tx.market.findUnique({ where: { id: marketId } });
-      if (!market) throw notFound("Market");
-      if (market.status !== MarketStatus.OPEN && market.status !== MarketStatus.CLOSED) {
-        throw invalidState(`Only open or closed markets can be resolved (this one is ${market.status})`);
-      }
-
-      const newStatus =
-        input.outcome === ResolutionOutcome.VOID ? MarketStatus.CANCELLED : MarketStatus.RESOLVED;
-      const { count } = await tx.market.updateMany({
-        where: { id: marketId, status: market.status },
-        data: { status: newStatus },
-      });
-      if (count === 0) throw conflict("Market status changed concurrently; reload and try again");
-
-      const resolution = await tx.resolution.create({
-        data: {
-          marketId,
-          outcome: input.outcome,
-          evidenceSummary: input.evidenceSummary,
-          evidenceUrls: input.evidenceUrls,
-          resolvedById: actor.id,
-          settlementStatus: SettlementStatus.PENDING,
-        },
-      });
-
-      const forecasters = await tx.forecast.findMany({
-        where: { marketId },
-        distinct: ["userId"],
-        select: { userId: true },
-      });
-      if (forecasters.length > 0) {
-        await tx.notification.createMany({
-          data: forecasters.map(({ userId }) => ({
-            userId,
-            type: NotificationType.MARKET_RESOLVED,
-            title:
-              input.outcome === ResolutionOutcome.VOID
-                ? `Market voided: ${market.question}`
-                : `Market resolved ${input.outcome}: ${market.question}`,
-            link: `/markets/${market.slug}`,
-            data: { marketId, resolutionId: resolution.id, outcome: input.outcome },
-          })),
-        });
-      }
-
-      await recordAudit(
-        {
-          actorId: actor.id,
-          organizationId: market.organizationId,
-          action: "market.resolve",
-          entityType: "Market",
-          entityId: marketId,
-          data: {
-            resolutionId: resolution.id,
-            outcome: input.outcome,
-            evidenceUrls: input.evidenceUrls,
-            previousStatus: market.status,
-          },
-          ipAddress: ctx.ip,
-        },
-        tx,
-      );
-      return resolution;
-    });
-  } catch (error) {
-    if (isUniqueViolation(error, "marketId")) throw conflict("This market has already been resolved");
-    throw error;
-  }
-}
-
 export async function listAdminMarkets(
   actor: SessionUser,
   opts: { status?: MarketStatus; startupId?: string; q?: string } = {},
@@ -591,41 +511,6 @@ export async function getAdminMarket(actor: SessionUser, marketId: string) {
   });
   if (!market) throw notFound("Market");
   return market;
-}
-
-// ---------------------------------------------------------------------------
-// Settlement status (used by the forecasting engine's settlement service)
-// ---------------------------------------------------------------------------
-
-/**
- * Atomically moves a resolution from PENDING (or FAILED, for retries) to
- * IN_PROGRESS. Returns false if another worker already claimed it or it is
- * done, in which case the caller must not settle.
- */
-export async function claimResolutionForSettlement(resolutionId: string): Promise<boolean> {
-  const { count } = await db.resolution.updateMany({
-    where: {
-      id: resolutionId,
-      settlementStatus: { in: [SettlementStatus.PENDING, SettlementStatus.FAILED] },
-    },
-    data: { settlementStatus: SettlementStatus.IN_PROGRESS, settlementError: null },
-  });
-  return count === 1;
-}
-
-export async function completeResolutionSettlement(resolutionId: string, client: TxClient | typeof db = db) {
-  const { count } = await client.resolution.updateMany({
-    where: { id: resolutionId, settlementStatus: SettlementStatus.IN_PROGRESS },
-    data: { settlementStatus: SettlementStatus.COMPLETED, settledAt: new Date() },
-  });
-  if (count === 0) throw invalidState("Resolution is not being settled");
-}
-
-export async function failResolutionSettlement(resolutionId: string, message: string) {
-  await db.resolution.updateMany({
-    where: { id: resolutionId, settlementStatus: SettlementStatus.IN_PROGRESS },
-    data: { settlementStatus: SettlementStatus.FAILED, settlementError: message.slice(0, 2000) },
-  });
 }
 
 // ---------------------------------------------------------------------------
@@ -765,18 +650,19 @@ export async function listAuditLogs(
 
 export async function getAdminOverview(actor: SessionUser) {
   assertAdmin(actor);
-  const [byStatus, pendingSettlements, users, startups] = await Promise.all([
+  const [byStatus, pendingSettlements, users, startups, awaitingApproval] = await Promise.all([
     db.market.groupBy({ by: ["status"], _count: { _all: true } }),
     db.resolution.count({
       where: { settlementStatus: { in: [SettlementStatus.PENDING, SettlementStatus.FAILED] } },
     }),
     db.user.count(),
     db.startup.count(),
+    db.resolutionProposal.count({ where: { status: "PROPOSED" } }),
   ]);
   const marketsByStatus = Object.fromEntries(
     Object.values(MarketStatus).map((s) => [s, byStatus.find((row) => row.status === s)?._count._all ?? 0]),
   ) as Record<MarketStatus, number>;
-  return { marketsByStatus, pendingSettlements, users, startups };
+  return { marketsByStatus, pendingSettlements, users, startups, awaitingApproval };
 }
 
 /** Org names for picking the owner of a private market. Nothing else about the org. */
@@ -784,3 +670,21 @@ export async function listOrganizationNames(actor: SessionUser) {
   assertAdmin(actor);
   return db.organization.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true } });
 }
+
+// Re-exported so existing imports from "@/lib/admin" keep working.
+export {
+  approveProposal,
+  listResolutionProposals,
+  proposeCorrection,
+  proposeResolution,
+  rejectProposal,
+  resolveMarket,
+  retrySettlement,
+} from "@/lib/resolutions";
+export {
+  claimResolutionForSettlement,
+  completeResolutionSettlement,
+  failResolutionSettlement,
+  runPendingSettlements,
+  runSettlement,
+} from "@/lib/settlement";

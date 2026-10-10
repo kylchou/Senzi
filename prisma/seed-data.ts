@@ -102,6 +102,7 @@ export const markets: SeedMarket[] = [
 
 export const users = [
   { handle: "avery", displayName: "Avery Admin", role: "ADMIN" as const },
+  { handle: "jordan", displayName: "Jordan Reviewer", role: "ADMIN" as const },
   { handle: "maya", displayName: "Maya Okafor" },
   { handle: "theo", displayName: "Theo Lindqvist" },
   { handle: "priya", displayName: "Priya Raman" },
@@ -116,18 +117,18 @@ export const users = [
 ];
 
 export const news = [
-  { startup: "lumen-grid", title: "Lumen Grid opens pilot plant in Massachusetts", sourceName: "Senzi demo wire", days: -20, verified: true },
-  { startup: "tessellate-bio", title: "Tessellate Bio presents preclinical enzyme data", sourceName: "Senzi demo wire", days: -14, verified: true },
-  { startup: "ledgerline", title: "Report: Ledgerline interviewing IPO banks", sourceName: "Demo Business Daily", days: -9, verified: false },
-  { startup: "cobalt-health", title: "Cobalt Health raises Series C", sourceName: "Senzi demo wire", days: -12, verified: true },
-  { startup: "stackwise", title: "Stackwise adds per-team GPU budgets", sourceName: "Demo Tech Journal", days: -6, verified: true },
-  { startup: "meridian-pay", title: "Meridian Pay contractor growth slows, sources say", sourceName: "Demo Business Daily", days: -15, verified: false },
-  { startup: "quayside", title: "Quayside teases North Sea sailings", sourceName: "Demo Logistics Weekly", days: -25, verified: false },
-  { startup: "northwind-robotics", title: "Northwind Robotics deploys at second cold-chain customer", sourceName: "Senzi demo wire", days: -30, verified: true },
-  { startup: "brightside-foods", title: "Brightside Foods in talks with national grocers", sourceName: "Demo Food Business", days: -4, verified: false },
-  { startup: "harborview-energy", title: "Harborview pauses Norway plans after permit delay", sourceName: "Demo Energy Monitor", days: -22, verified: true },
-  { startup: "orbital-loom", title: "Orbital Loom's first satellite returns fiber samples", sourceName: "Senzi demo wire", days: -40, verified: true },
-  { startup: "sentinel-ops", title: "Sentinel Ops launches free tier for startups", sourceName: "Demo Tech Journal", days: -3, verified: true },
+  { startup: "lumen-grid", title: "Lumen Grid opens pilot plant in Massachusetts", sourceName: "Senzi demo wire", days: -20 },
+  { startup: "tessellate-bio", title: "Tessellate Bio presents preclinical enzyme data", sourceName: "Senzi demo wire", days: -14 },
+  { startup: "ledgerline", title: "Report: Ledgerline interviewing IPO banks", sourceName: "Demo Business Daily", days: -9 },
+  { startup: "cobalt-health", title: "Cobalt Health raises Series C", sourceName: "Senzi demo wire", days: -12 },
+  { startup: "stackwise", title: "Stackwise adds per-team GPU budgets", sourceName: "Demo Tech Journal", days: -6 },
+  { startup: "meridian-pay", title: "Meridian Pay contractor growth slows, sources say", sourceName: "Demo Business Daily", days: -15 },
+  { startup: "quayside", title: "Quayside teases North Sea sailings", sourceName: "Demo Logistics Weekly", days: -25 },
+  { startup: "northwind-robotics", title: "Northwind Robotics deploys at second cold-chain customer", sourceName: "Senzi demo wire", days: -30 },
+  { startup: "brightside-foods", title: "Brightside Foods in talks with national grocers", sourceName: "Demo Food Business", days: -4 },
+  { startup: "harborview-energy", title: "Harborview pauses Norway plans after permit delay", sourceName: "Demo Energy Monitor", days: -22 },
+  { startup: "orbital-loom", title: "Orbital Loom's first satellite returns fiber samples", sourceName: "Senzi demo wire", days: -40 },
+  { startup: "sentinel-ops", title: "Sentinel Ops launches free tier for startups", sourceName: "Demo Tech Journal", days: -3 },
 ];
 
 export const achievements = [
@@ -138,14 +139,17 @@ export const achievements = [
   { key: "well-calibrated", name: "Well calibrated", description: "Strong calibration across 20 resolved forecasts.", creditReward: 250 },
 ];
 
-/** Sourced facts shown on startup pages. `verified` = an admin checked the source. */
+/**
+ * Sourced facts shown on startup pages. These companies are fictional, so
+ * nothing here is ever marked verified.
+ */
 export const facts = [
-  { startup: "lumen-grid", label: "Total funding", value: "$212M", sourceName: "Company press release", days: -60, verified: true },
-  { startup: "lumen-grid", label: "Employees", value: "~180", sourceName: "Careers page", days: -15, verified: false },
-  { startup: "ledgerline", label: "Customers", value: "4,000+", sourceName: "Company website", days: -30, verified: false },
-  { startup: "ledgerline", label: "Last round", value: "Series C, $140M", sourceName: "Company press release", days: -400, verified: true },
-  { startup: "cobalt-health", label: "Last round", value: "Series C", sourceName: "Company press release", days: -12, verified: true },
-  { startup: "stackwise", label: "Open-source stars", value: "11.2k", sourceName: "GitHub", days: -2, verified: true },
-  { startup: "meridian-pay", label: "Countries supported", value: "60", sourceName: "Company website", days: -20, verified: false },
-  { startup: "northwind-robotics", label: "Deployed units", value: "~350", sourceName: "CEO interview", days: -45, verified: false },
+  { startup: "lumen-grid", label: "Total funding", value: "$212M", sourceName: "Company press release", days: -60 },
+  { startup: "lumen-grid", label: "Employees", value: "~180", sourceName: "Careers page", days: -15 },
+  { startup: "ledgerline", label: "Customers", value: "4,000+", sourceName: "Company website", days: -30 },
+  { startup: "ledgerline", label: "Last round", value: "Series C, $140M", sourceName: "Company press release", days: -400 },
+  { startup: "cobalt-health", label: "Last round", value: "Series C", sourceName: "Company press release", days: -12 },
+  { startup: "stackwise", label: "Open-source stars", value: "11.2k", sourceName: "GitHub", days: -2 },
+  { startup: "meridian-pay", label: "Countries supported", value: "60", sourceName: "Company website", days: -20 },
+  { startup: "northwind-robotics", label: "Deployed units", value: "~350", sourceName: "CEO interview", days: -45 },
 ];
