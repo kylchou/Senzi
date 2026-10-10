@@ -91,7 +91,7 @@ export function TrendChart({ points, baseline }: { points: TrendPoint[]; baselin
             <svg width="16" height="4" aria-hidden>
               <line x1="0" y1="2" x2="16" y2="2" className="stroke-[#2a78d6] dark:stroke-[#3987e5]" strokeWidth="2" />
             </svg>
-            Allocation share
+            Crowd price
           </span>
           {baseline != null && (
             <span className="flex items-center gap-1.5">

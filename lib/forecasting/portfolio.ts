@@ -162,8 +162,9 @@ export async function getPortfolio(deps: EngineDeps, auth: AuthContext, userId: 
   const cancelled = byStatus('cancelled');
 
   const forecastById = new Map(forecasts.map((f) => [f.id, f]));
-  // Newest first. The ledger lists transactions in the order applied, so ties on
-  // timestamp fall back to that order (reversed).
+  // Newest first, in the order the ledger applied them (reversed). Timestamps can
+  // disagree with that order (backdated or seeded rows), and the running
+  // balanceAfter only chains in applied order.
   const history: PortfolioHistoryItem[] = transactions
     .map((t, index) => {
       const f = forecastById.get(t.reference);
@@ -181,7 +182,7 @@ export async function getPortfolio(deps: EngineDeps, auth: AuthContext, userId: 
         },
       };
     })
-    .sort((a, b) => b.item.at.getTime() - a.item.at.getTime() || b.index - a.index)
+    .sort((a, b) => b.index - a.index)
     .map((x) => x.item);
 
   return {

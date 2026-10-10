@@ -267,9 +267,9 @@ export function buildStudyContext(input: StudyContextInput): ContextPackage {
     const weekAgo = pointAtOrBefore(sorted, now.getTime() - DASHBOARD_MOVEMENT_WINDOW_MS);
     const first = sorted[0] ?? null;
     const picked = new Map<string, { p: EstimatePoint; label: string }>();
-    if (first) picked.set(first.id!, { p: first, label: "Earliest recorded allocation share" });
-    if (weekAgo) picked.set(weekAgo.id!, { p: weekAgo, label: "Allocation share 7 days ago" });
-    if (latest) picked.set(latest.id!, { p: latest, label: "Latest recorded allocation share" });
+    if (first) picked.set(first.id!, { p: first, label: "Earliest recorded crowd price" });
+    if (weekAgo) picked.set(weekAgo.id!, { p: weekAgo, label: "Crowd price 7 days ago" });
+    if (latest) picked.set(latest.id!, { p: latest, label: "Latest recorded crowd price" });
     for (const { p, label } of picked.values()) {
       items.push({
         id: `snapshot:${p.id}`,
