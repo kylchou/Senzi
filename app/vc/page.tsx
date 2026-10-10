@@ -1,23 +1,64 @@
 import Link from "next/link";
-import { AlertList } from "@/components/vc/AlertList";
 import { EmptyState } from "@/components/vc/EmptyState";
 import { NoWorkspace } from "@/components/vc/NoWorkspace";
 import { Section } from "@/components/vc/Section";
-import { StatusBadge } from "@/components/vc/StatusBadge";
 import { StudyTable } from "@/components/vc/StudyTable";
 import { ALLOCATION_SHARE_EXPLAINER } from "@/lib/vc/constants";
-import { formatPointChange, formatShare } from "@/lib/vc/estimates";
-import { ALERT_TYPE_LABELS, STATUS_LABELS, formatDate, formatDateTime, formatRelative } from "@/lib/vc/format";
+import { STATUS_LABELS, formatDate, formatDateTime, formatRelative } from "@/lib/vc/format";
 import { getVcServices } from "@/lib/vc/server/container";
 import { requirePageContext } from "@/lib/vc/server/page";
-import { ALERT_TYPES, type StudyStatus } from "@/lib/vc/types";
+import type { StudyStatus, StudyVisibility } from "@/lib/vc/types";
 
-const COUNT_ORDER: StudyStatus[] = ["OPEN", "SUBMITTED", "APPROVED", "DRAFT", "CLOSED", "RESOLVED"];
+const COUNT_ORDER: StudyStatus[] = ["OPEN", "SUBMITTED", "RESOLVED"];
 
-export default async function VcDashboardPage() {
+/** Active-studies filter. "Verified users" means invited participants only; "Public" means anyone can trade. */
+const AUDIENCES = [
+  { key: "public", label: "Public", visibility: "PUBLIC" },
+  { key: "verified", label: "Verified users", visibility: "RESTRICTED" },
+] as const satisfies readonly { key: string; label: string; visibility: StudyVisibility }[];
+const MIN_PARTICIPANT_OPTIONS = [3, 5, 10] as const;
+
+type Audience = (typeof AUDIENCES)[number]["key"];
+
+function parseFilters(raw: Record<string, string | string[] | undefined>) {
+  const pick = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
+  const audience = AUDIENCES.find((a) => a.key === pick(raw.audience))?.key;
+  const min = MIN_PARTICIPANT_OPTIONS.find((n) => String(n) === pick(raw.min));
+  return { audience, min };
+}
+
+const chipClass = (active: boolean) =>
+  `rounded-full px-2.5 py-1 ring-1 ring-inset ${
+    active
+      ? "bg-slate-900 text-white ring-slate-900 dark:bg-slate-100 dark:text-slate-900"
+      : "ring-slate-300 hover:bg-slate-50 dark:ring-slate-700 dark:hover:bg-slate-900"
+  }`;
+
+export default async function VcDashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const ctx = await requirePageContext("/vc");
   if (!ctx.activeOrg) return <NoWorkspace />;
+  const filters = parseFilters(await searchParams);
   const d = await getVcServices().dashboard.get(ctx);
+
+  const href = (next: { audience?: Audience; min?: number }) => {
+    const params = new URLSearchParams();
+    if (next.audience) params.set("audience", next.audience);
+    if (next.min) params.set("min", String(next.min));
+    const qs = params.toString();
+    return `/vc${qs ? `?${qs}` : ""}#active`;
+  };
+
+  const visibility = AUDIENCES.find((a) => a.key === filters.audience)?.visibility;
+  const activeStudies = d.activeStudies.filter(
+    (r) =>
+      (!visibility || r.study.visibility === visibility) &&
+      (!filters.min || (r.estimate?.participantCount ?? 0) >= filters.min),
+  );
+  const filtered = !!filters.audience || !!filters.min;
 
   return (
     <div className="space-y-6">
@@ -34,7 +75,7 @@ export default async function VcDashboardPage() {
         </Link>
       </header>
 
-      <dl className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+      <dl className="grid grid-cols-3 gap-3">
         {COUNT_ORDER.map((s) => (
           <div key={s} className="rounded-lg border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-950">
             <dt className="text-xs text-slate-500 dark:text-slate-400">{STATUS_LABELS[s]}</dt>
@@ -44,79 +85,70 @@ export default async function VcDashboardPage() {
       </dl>
 
       <Section
-        id="alerts"
-        title="Alerts"
-        description="Unread alerts on studies and startups your firm follows."
-        actions={
-          <Link href="/vc/alerts" className="text-sm underline">
-            All alerts
-          </Link>
-        }
-      >
-        <div className="mb-3 flex flex-wrap gap-1.5 text-xs">
-          {ALERT_TYPES.map((t) => (
-            <Link
-              key={t}
-              href={`/vc/alerts?type=${t}&unread=true`}
-              className="rounded-full px-2.5 py-1 ring-1 ring-inset ring-slate-300 hover:bg-slate-50 dark:ring-slate-700 dark:hover:bg-slate-900"
-            >
-              {ALERT_TYPE_LABELS[t].label}{" "}
-              <span className="font-semibold tabular-nums">{d.alertSummary.unreadByType[t]}</span>
-            </Link>
-          ))}
-        </div>
-        <AlertList compact initialAlerts={d.alertSummary.recent} emptyText="You're all caught up." />
-      </Section>
-
-      <Section
         id="active"
         title="Active studies"
         description={`Open for forecasting. ${ALLOCATION_SHARE_EXPLAINER}`}
         actions={<Link href="/vc/studies" className="text-sm underline">All studies</Link>}
       >
+        <div className="mb-3 flex flex-wrap items-center gap-x-6 gap-y-2 text-xs">
+          <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Filter by who can trade">
+            <span className="mr-1 text-slate-500 dark:text-slate-400">Traders</span>
+            <Link href={href({ min: filters.min })} className={chipClass(!filters.audience)} scroll={false}>
+              All
+            </Link>
+            {AUDIENCES.map((a) => (
+              <Link
+                key={a.key}
+                href={href({ audience: a.key, min: filters.min })}
+                className={chipClass(filters.audience === a.key)}
+                aria-current={filters.audience === a.key ? "true" : undefined}
+                scroll={false}
+              >
+                {a.label}
+              </Link>
+            ))}
+          </div>
+          <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Filter by number of participants">
+            <span className="mr-1 text-slate-500 dark:text-slate-400">Participants</span>
+            <Link href={href({ audience: filters.audience })} className={chipClass(!filters.min)} scroll={false}>
+              Any
+            </Link>
+            {MIN_PARTICIPANT_OPTIONS.map((n) => (
+              <Link
+                key={n}
+                href={href({ audience: filters.audience, min: n })}
+                className={chipClass(filters.min === n)}
+                aria-current={filters.min === n ? "true" : undefined}
+                scroll={false}
+              >
+                {n}+
+              </Link>
+            ))}
+          </div>
+        </div>
+
         {d.activeStudies.length === 0 ? (
           <EmptyState title="No open studies" action={{ href: "/vc/studies/new", label: "Propose a study" }}>
             Studies open for forecasting after platform review.
           </EmptyState>
+        ) : activeStudies.length === 0 && filtered ? (
+          <EmptyState title="No studies match these filters" action={{ href: href({}), label: "Clear filters" }}>
+            Try a lower participant count or a different trader group.
+          </EmptyState>
         ) : (
           <StudyTable
-            showChange
-            rows={d.activeStudies.map((r) => ({
+            rows={activeStudies.map((r) => ({
               study: r.study,
               estimate: r.estimate,
               startupName: r.startupName,
+              startupSlug: r.startupSlug,
               baselineValue: r.baseline.value,
-              change7d: r.change7d,
             }))}
           />
         )}
       </Section>
 
       <div className="grid gap-6 lg:grid-cols-2">
-        <Section
-          id="movements"
-          title="Meaningful movements (7 days)"
-          description="Changes in General LMSR price of 5+ points with at least 3 participants."
-        >
-          {d.movements.length === 0 ? (
-            <p className="text-sm text-slate-500 dark:text-slate-400">No significant movements this week.</p>
-          ) : (
-            <ul className="divide-y divide-slate-100 dark:divide-slate-800">
-              {d.movements.map((r) => (
-                <li key={r.study.id} className="flex items-start justify-between gap-3 py-2 text-sm">
-                  <Link href={`/vc/studies/${r.study.id}`} className="hover:underline">
-                    {r.study.question}
-                  </Link>
-                  <span className="whitespace-nowrap text-right tabular-nums">
-                    <span className="font-semibold">{formatPointChange(r.change7d)}</span>
-                    <span className="block text-xs text-slate-500">now {formatShare(r.estimate?.generalPrice)}</span>
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </Section>
-
         <Section id="deadlines" title="Upcoming deadlines (14 days)">
           {d.upcomingDeadlines.length === 0 ? (
             <p className="text-sm text-slate-500 dark:text-slate-400">No deadlines in the next two weeks.</p>
@@ -137,23 +169,6 @@ export default async function VcDashboardPage() {
           )}
         </Section>
 
-        <Section id="pipeline" title="Pipeline" description="Drafts and studies awaiting review.">
-          {d.pipeline.length === 0 ? (
-            <p className="text-sm text-slate-500 dark:text-slate-400">Nothing in the pipeline.</p>
-          ) : (
-            <ul className="divide-y divide-slate-100 dark:divide-slate-800">
-              {d.pipeline.slice(0, 8).map((r) => (
-                <li key={r.study.id} className="flex items-start justify-between gap-3 py-2 text-sm">
-                  <Link href={`/vc/studies/${r.study.id}`} className="hover:underline">
-                    {r.study.question}
-                  </Link>
-                  <StatusBadge status={r.study.status} />
-                </li>
-              ))}
-            </ul>
-          )}
-        </Section>
-
         <Section
           id="watch"
           title="Watchlists"
@@ -167,32 +182,6 @@ export default async function VcDashboardPage() {
                 <li key={w.id} className="flex justify-between">
                   <span>{w.name}</span>
                   <span className="text-slate-500">{w.itemCount} followed</span>
-                </li>
-              ))}
-            </ul>
-          )}
-          <p className="mt-3 text-sm">
-            <Link href="/vc/alerts" className="underline">
-              {d.unreadAlerts} unread alert{d.unreadAlerts === 1 ? "" : "s"}
-            </Link>
-          </p>
-        </Section>
-
-        <Section
-          id="reports"
-          title="Recent reports"
-          actions={<Link href="/vc/reports" className="text-sm underline">All reports</Link>}
-        >
-          {d.recentReports.length === 0 ? (
-            <p className="text-sm text-slate-500 dark:text-slate-400">No saved reports yet.</p>
-          ) : (
-            <ul className="divide-y divide-slate-100 dark:divide-slate-800">
-              {d.recentReports.map((r) => (
-                <li key={r.id} className="flex justify-between gap-3 py-2 text-sm">
-                  <Link href={`/vc/reports/${r.id}`} className="hover:underline">
-                    {r.title}
-                  </Link>
-                  <span className="whitespace-nowrap text-xs text-slate-500">{formatDate(r.createdAt)}</span>
                 </li>
               ))}
             </ul>
