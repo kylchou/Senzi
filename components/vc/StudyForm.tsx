@@ -2,10 +2,11 @@
 
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
-import { BASELINE_EXPLAINER, MAX_SOURCES } from "@/lib/vc/constants";
+import { MAX_SOURCES } from "@/lib/vc/constants";
 import { VcApiError, fieldErrors, vcFetch } from "@/lib/vc/client";
 import { VISIBILITY_LABELS } from "@/lib/vc/format";
-import { STUDY_VISIBILITIES, type StudyVisibility } from "@/lib/vc/types";
+import { STUDY_VISIBILITIES, type FirmObservation, type MetricLink, type StudyVisibility } from "@/lib/vc/types";
+import { OpeningLinePanel, type OpeningLineValue, type PricedWording } from "./OpeningLinePanel";
 import { StartupPicker } from "./StartupPicker";
 import { buttonPrimary, buttonSecondary, errorClass, hintClass, inputClass, labelClass } from "./styles";
 
@@ -17,8 +18,8 @@ export interface StudyFormInitial {
   yesCriteria: string;
   noCriteria: string;
   context: string | null;
-  baselineValue: number | null;
-  baselineMethodology: string | null;
+  /** The saved link to the model, with the firm's figures and the metric's label. */
+  openingLine: { link: MetricLink | null; observations: FirmObservation[]; metricLabel: string | null };
   deadline: Date | string;
   visibility: StudyVisibility;
   sources: { url: string; title: string; publisher: string | null; publishedAt: Date | string | null }[];
@@ -39,11 +40,6 @@ function toLocalInput(d: Date | string | null | undefined): string {
   return new Date(date.getTime() - off).toISOString().slice(0, 16);
 }
 
-/** 0.355 → "35.5", without floating-point noise like "35.49999999". */
-function toPercentText(fraction: number): string {
-  return String(Number((fraction * 100).toPrecision(10)));
-}
-
 export function StudyForm({ initial }: { initial?: StudyFormInitial }) {
   const router = useRouter();
   const [startup, setStartup] = useState(initial?.startup ?? null);
@@ -51,9 +47,11 @@ export function StudyForm({ initial }: { initial?: StudyFormInitial }) {
   const [yesCriteria, setYes] = useState(initial?.yesCriteria ?? "");
   const [noCriteria, setNo] = useState(initial?.noCriteria ?? "");
   const [context, setContext] = useState(initial?.context ?? "");
-  const initialBaseline = initial?.baselineValue != null ? toPercentText(initial.baselineValue) : "";
-  const [baseline, setBaseline] = useState(initialBaseline);
-  const [methodology, setMethodology] = useState(initial?.baselineMethodology ?? "");
+  const [openingLine, setOpeningLine] = useState<OpeningLineValue>({
+    link: initial?.openingLine.link ?? null,
+    observations: initial?.openingLine.observations ?? [],
+  });
+  const linked = !!openingLine.link;
   const [deadline, setDeadline] = useState(toLocalInput(initial?.deadline));
   const [visibility, setVisibility] = useState<StudyVisibility>(initial?.visibility ?? "ORGANIZATION");
   const [sources, setSources] = useState<SourceDraft[]>(
@@ -76,17 +74,14 @@ export function StudyForm({ initial }: { initial?: StudyFormInitial }) {
       setErrors({ startupId: "Choose a startup" });
       return;
     }
-    const baselineNum = baseline.trim() === "" ? null : Number(baseline) / 100;
-    // When editing, leave the stored baseline untouched unless the field was changed.
-    const baselineChanged = !initial || baseline.trim() !== initialBaseline;
     const payload = {
       startupId: startup.id,
       question,
       yesCriteria,
       noCriteria,
       context: context.trim() || null,
-      ...(baselineChanged && { baselineValue: baselineNum }),
-      baselineMethodology: methodology.trim() || null,
+      // The server prices the link again on save; it never accepts a typed baseline.
+      modelLink: openingLine.link ? { ...openingLine.link, observations: openingLine.observations } : null,
       deadline: deadline ? new Date(deadline).toISOString() : "",
       visibility,
       sources: sources
@@ -150,12 +145,17 @@ export function StudyForm({ initial }: { initial?: StudyFormInitial }) {
             className={`${inputClass} mt-1`}
             value={question}
             onChange={(e) => setQuestion(e.target.value)}
-            placeholder="Will Acme announce a Series B of at least $20M by June 30, 2027?"
+            placeholder="Will Acme's npm downloads pass 40M a week by December 2026?"
             maxLength={300}
             required
+            readOnly={linked}
             {...aria("question")}
           />
-          <p className={hintClass}>Make it measurable from public information, with a clear date.</p>
+          <p className={hintClass}>
+            {linked
+              ? "Worded exactly as the model priced it. Remove the link below to edit it freely."
+              : "Ask anything with a clear date. The model sets the opening line if it has data that measures it."}
+          </p>
           {err("question")}
         </div>
         <div className="grid gap-4 sm:grid-cols-2">
@@ -163,14 +163,14 @@ export function StudyForm({ initial }: { initial?: StudyFormInitial }) {
             <label htmlFor="yes" className={labelClass}>
               Resolves YES if…
             </label>
-            <textarea id="yes" rows={3} className={`${inputClass} mt-1`} value={yesCriteria} onChange={(e) => setYes(e.target.value)} {...aria("yesCriteria")} />
+            <textarea id="yes" rows={3} className={`${inputClass} mt-1`} value={yesCriteria} onChange={(e) => setYes(e.target.value)} readOnly={linked} {...aria("yesCriteria")} />
             {err("yesCriteria")}
           </div>
           <div>
             <label htmlFor="no" className={labelClass}>
               Resolves NO if…
             </label>
-            <textarea id="no" rows={3} className={`${inputClass} mt-1`} value={noCriteria} onChange={(e) => setNo(e.target.value)} {...aria("noCriteria")} />
+            <textarea id="no" rows={3} className={`${inputClass} mt-1`} value={noCriteria} onChange={(e) => setNo(e.target.value)} readOnly={linked} {...aria("noCriteria")} />
             {err("noCriteria")}
           </div>
         </div>
@@ -199,44 +199,24 @@ export function StudyForm({ initial }: { initial?: StudyFormInitial }) {
         </div>
       </fieldset>
 
-      <fieldset className="space-y-4">
-        <legend className="text-sm font-semibold text-slate-900 dark:text-slate-100">Opening baseline</legend>
-        <p className={hintClass}>{BASELINE_EXPLAINER} Required before submitting for review.</p>
-        <div className="grid gap-4 sm:grid-cols-[10rem_1fr]">
-          <div>
-            <label htmlFor="baseline" className={labelClass}>
-              Baseline (%)
-            </label>
-            <input
-              id="baseline"
-              type="number"
-              inputMode="decimal"
-              step="any"
-              min={1}
-              max={99}
-              className={`${inputClass} mt-1`}
-              value={baseline}
-              onChange={(e) => setBaseline(e.target.value)}
-              {...aria("baselineValue")}
-            />
-            {err("baselineValue")}
-          </div>
-          <div>
-            <label htmlFor="method" className={labelClass}>
-              Methodology
-            </label>
-            <textarea
-              id="method"
-              rows={3}
-              className={`${inputClass} mt-1`}
-              value={methodology}
-              onChange={(e) => setMethodology(e.target.value)}
-              placeholder="e.g. Base rate of Series B within 18 months of Series A for comparable SaaS companies (source: …)"
-              {...aria("baselineMethodology")}
-            />
-            {err("baselineMethodology")}
-          </div>
-        </div>
+      <fieldset className="space-y-3">
+        <legend className="text-sm font-semibold text-slate-900 dark:text-slate-100">Opening line</legend>
+        <OpeningLinePanel
+          startupId={startup?.id ?? null}
+          question={question}
+          deadline={deadline}
+          value={openingLine}
+          savedMetricLabel={initial?.openingLine.metricLabel ?? null}
+          error={Object.entries(errors).find(([k]) => k.startsWith("modelLink"))?.[1]}
+          onChange={(value: OpeningLineValue, wording: PricedWording | null) => {
+            setOpeningLine(value);
+            if (wording) {
+              setQuestion(wording.question);
+              setYes(wording.yesCriteria);
+              setNo(wording.noCriteria);
+            }
+          }}
+        />
       </fieldset>
 
       <fieldset className="space-y-2">

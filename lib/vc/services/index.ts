@@ -6,6 +6,7 @@ import { createAssistantContextService } from "./assistant-context";
 import { createAlertService } from "./alerts";
 import { createCompareService } from "./compare";
 import { createDashboardService } from "./dashboard";
+import { createOpeningLineService } from "./opening-line";
 import { createReportService } from "./reports";
 import { createStudyService } from "./studies";
 import { createWatchlistService } from "./watchlists";
@@ -22,7 +23,9 @@ export function createVcServices(
   const compare = createCompareService(deps);
   const assistantContext = createAssistantContextService(deps, { studies, compare }, { tier: options.assistantTier ?? "standard" });
   const assistant = createAssistantService({ assistantContext }, options.assistantModel ?? null);
-  return { studies, watchlists, alerts, reports, dashboard, compare, assistantContext, assistant };
+  // The AI only proposes how to measure a question; the model sets the price.
+  const openingLine = createOpeningLineService(deps, options.assistantModel ?? null);
+  return { studies, watchlists, alerts, reports, dashboard, compare, assistantContext, assistant, openingLine };
 }
 
 export type VcServices = ReturnType<typeof createVcServices>;

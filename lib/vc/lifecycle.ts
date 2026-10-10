@@ -63,10 +63,9 @@ export const isEditable = (status: StudyStatus) => status === "DRAFT";
  */
 export function getTransitionIssues(action: StudyAction, study: Study, now: Date): string[] {
   const issues: string[] = [];
+  // The opening line isn't checked here: the model sets it when forecasting
+  // opens, and the study service blocks opening when it has too little data.
   if (action === "submit" || action === "approve" || action === "open") {
-    if (study.baselineValue == null || !study.baselineMethodology) {
-      issues.push("An opening baseline and its methodology are required.");
-    }
     if (study.visibility === "RESTRICTED" && study.participantIds.length === 0) {
       issues.push("Restricted studies need at least one invited participant.");
     }

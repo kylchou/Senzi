@@ -1,6 +1,7 @@
-// Demo content for `npm run db:seed`. Every company, person, and article here
-// is fictional. Dates are offsets in days from SEED_ANCHOR so the data is
-// identical on every run.
+// Demo content for `npm run db:seed`. Every person and article here is
+// fictional, and so is every company except `modelStartups`: the six real
+// companies the baseline model (lib/model) has public data for. Dates are
+// offsets in days from SEED_ANCHOR so the data is identical on every run.
 
 import type { StartupStage } from "../generated/prisma/enums";
 
@@ -16,6 +17,20 @@ export interface SeedStartup {
   foundedYear: number;
   headquarters: string;
 }
+
+/**
+ * Real companies the baseline model tracks (lib/model/catalog.ts; slugs match
+ * its ids). Their public npm/PyPI downloads feed comparisons and model-set
+ * opening lines. Descriptions are factual and brief; no figures are claimed.
+ */
+export const modelStartups: (SeedStartup & { domain: string })[] = [
+  { slug: "supabase", name: "Supabase", domain: "supabase.com", tagline: "Open-source Postgres development platform", description: "Hosted Postgres with auth, storage and realtime APIs.", industry: "Developer tools", stage: "GROWTH", foundedYear: 2020, headquarters: "San Francisco, CA" },
+  { slug: "vercel", name: "Vercel", domain: "vercel.com", tagline: "Frontend cloud", description: "Hosting and deployment platform for web frameworks such as Next.js.", industry: "Developer tools", stage: "GROWTH", foundedYear: 2015, headquarters: "San Francisco, CA" },
+  { slug: "stripe", name: "Stripe", domain: "stripe.com", tagline: "Payments infrastructure", description: "APIs for online payments, billing and financial services.", industry: "Fintech", stage: "GROWTH", foundedYear: 2010, headquarters: "San Francisco, CA" },
+  { slug: "resend", name: "Resend", domain: "resend.com", tagline: "Email API for developers", description: "Transactional email sending with a developer-first API.", industry: "Developer tools", stage: "SERIES_A", foundedYear: 2022, headquarters: "San Francisco, CA" },
+  { slug: "convex", name: "Convex", domain: "convex.dev", tagline: "Reactive backend platform", description: "A database and backend functions that keep app state in sync.", industry: "Developer tools", stage: "SERIES_A", foundedYear: 2021, headquarters: "San Francisco, CA" },
+  { slug: "posthog", name: "PostHog", domain: "posthog.com", tagline: "Open-source product analytics", description: "Product analytics, session replay and feature flags.", industry: "Developer tools", stage: "GROWTH", foundedYear: 2020, headquarters: "San Francisco, CA" },
+];
 
 export const startups: SeedStartup[] = [
   { slug: "lumen-grid", name: "Lumen Grid", tagline: "Grid-scale iron-air storage", description: "Builds 100-hour iron-air batteries for utilities.", industry: "Climate", stage: "SERIES_B", foundedYear: 2020, headquarters: "Boston, MA" },
