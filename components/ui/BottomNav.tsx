@@ -8,7 +8,7 @@ import { Briefcase, Building2, Compass, Home, Pencil, Search, User } from "lucid
 import { cn } from "./cn";
 import { openCommandPalette } from "./CommandPalette";
 import { useRememberedHref } from "./remembered-filters";
-import { useIsVcAccount } from "./account-type";
+import { useShowTradingUi } from "./account-type";
 import { hasVcAccess, useVcWorkspace } from "./vc-workspace";
 
 const tabs = [
@@ -17,6 +17,8 @@ const tabs = [
   { href: "/startups", label: "Startups", Icon: Building2, exact: false },
   { href: "/how-it-works", label: "Learn", Icon: Pencil, exact: false },
 ];
+
+const TRADING_TABS = new Set(["/markets", "/how-it-works"]);
 
 /** For firm members the Learn slot opens their Intelligence workspace instead, keeping the bar at six items. */
 const intelligenceTab = { href: "/vc", label: "Intelligence", Icon: Briefcase, exact: false };
@@ -55,10 +57,10 @@ function RoutedTabs() {
 
 function Tabs({ pathname }: { pathname: string | null }) {
   const vc = hasVcAccess(useVcWorkspace());
-  // VC accounts don't trade, so they don't get the Markets tab.
-  const isVcAccount = useIsVcAccount();
+  // VC accounts don't trade, so they don't get the Markets or Learn tabs.
+  const showTrading = useShowTradingUi();
   const shown = (vc ? tabs.map((tab) => (tab.href === "/how-it-works" ? intelligenceTab : tab)) : tabs).filter(
-    (tab) => !(isVcAccount && tab.href === "/markets"),
+    (tab) => showTrading || !TRADING_TABS.has(tab.href),
   );
   return shown.map((tab) => <Tab key={tab.href} tab={tab} pathname={pathname} />);
 }
@@ -86,7 +88,10 @@ function Tab({ tab: { href, label, Icon, exact }, pathname }: { tab: (typeof tab
 
 function AccountTab() {
   const { isLoaded, isSignedIn } = useAuth();
+  // Profile is a trader portfolio; VC accounts reach their workspace via Intelligence.
+  const showTrading = useShowTradingUi();
   if (isLoaded && isSignedIn) {
+    if (!showTrading) return null;
     return (
       <Link href="/profile" className={cn(itemClass, "hover:text-ink-900")}>
         <User className="size-5" aria-hidden />

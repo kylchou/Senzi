@@ -265,6 +265,33 @@ test.describe("mobile", () => {
   });
 });
 
+test.describe("market discussion", () => {
+  test("shows the thread to readers and asks them to sign in to post", async ({ page }) => {
+    await page.goto(await firstMarketHref(page));
+    const discussion = page.locator("section", { has: page.getByRole("heading", { name: "Discussion" }) });
+    await discussion.scrollIntoViewIfNeeded();
+    await expect(discussion.getByText("Sign in to join the discussion.")).toBeVisible();
+    await expect(discussion.getByLabel("Add a comment")).toHaveCount(0);
+    await expectAccessible(page);
+  });
+
+  test("the API returns names and pictures only, and refuses signed-out posts", async ({ request }) => {
+    const listing = await (await request.get("/api/markets?limit=1")).json();
+    const slug = listing.data[0].slug;
+    const response = await request.get(`/api/markets/${slug}/comments`);
+    expect(response.ok()).toBe(true);
+    const { data } = await response.json();
+    expect(data.posting).toBe("signed-out");
+    for (const comment of data.comments) {
+      if (comment.author) expect(Object.keys(comment.author).sort()).toEqual(["avatarUrl", "id", "name", "username", "verified"]);
+    }
+    expect(JSON.stringify(data)).not.toMatch(/email|@[a-z]+\.senzi\.invalid/);
+    const post = await request.post(`/api/markets/${slug}/comments`, { data: { body: "Hello" } });
+    expect(post.status()).toBe(401);
+    expect((await request.get("/api/markets/does-not-exist-0000/comments")).status()).toBe(404);
+  });
+});
+
 test.describe("public API", () => {
   test("market listing never includes drafts or VC markets", async ({ request }) => {
     const response = await request.get("/api/markets?limit=100");

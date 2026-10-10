@@ -17,9 +17,15 @@
 //   the real forecasting engine, so prices, snapshots and fills are genuine.
 //   They read the same public data as the model, so the crowd stays near the
 //   model line and follows it, with a lag, when new data moves the model.
+// - A cohort of simulated traders per company verified as users of its product.
+//   Their trades on public markets make up the verified line, and each company
+//   also gets verified-users-only questions that only its cohort can trade.
+//   Simulated product users hold their own (also simulated) view, so the
+//   verified line can drift from the general one.
 //
-// It TRUNCATES every table first (local development only; refuses non-local
-// databases). Run Ky's `npm run db:seed` to get his demo data back.
+// It TRUNCATES every table first. Local databases only, unless
+// `--allow-remote=<host>` names the database host; `--keep-users` keeps real
+// accounts. Run Ky's `npm run db:seed` to get his demo data back.
 
 import type { Market, Prisma } from "@/generated/prisma/client";
 import {
@@ -69,16 +75,18 @@ const TRAFFIC_MULTIPLE = 0.95;
 const HIRING_DAY = "2026-11-08";
 const HIRING_MULTIPLE = 1.05;
 const FUNDING_BY = "2026-12-31";
-const TRADERS = 80;
+const TRADERS = 120;
 
 /**
- * Starter data for the shared demo VC firm (Demo Ventures): every PostHog question, plus
- * two extra "verified users" questions that only invited traders can trade on. The firm
- * is created here; verified VC accounts join it on their first visit (lib/vc/server/demo-org.ts).
+ * Starter data for the shared demo VC firm (Demo Ventures): every PostHog question, plus every
+ * company's verified-users questions. The firm is created here; verified VC accounts join it on
+ * their first visit (lib/vc/server/demo-org.ts).
  */
 const DEMO_COMPANY = "posthog";
-/** Traders invited to the verified-users questions. */
-const INVITED_TRADERS = 8;
+/** Simulated traders verified as users of each company's product (a different slice of the pool per company). */
+const VERIFIED_PER_COMPANY = 20;
+/** Share of trades on public markets placed by verified users, so every public market has a verified line. */
+const VERIFIED_TRADE_SHARE = 0.4;
 /** Extra download thresholds, as multiples of the last observed week, for the verified-users questions. */
 const VERIFIED_DOWNLOAD_QUESTIONS = [
   { windowEnd: "2026-10-25", multiple: 0.9 },
@@ -133,12 +141,38 @@ function methodology(q: MarketQuestion, b: BaselineResult): string {
   ).slice(0, 1000);
 }
 
-async function resetDatabase() {
-  const url = process.env.DATABASE_URL ?? "";
-  if (!/@(localhost|127\.0\.0\.1)[:/]/.test(url)) throw new Error("Refusing to reset a non-local database");
+/** `--name=value` from the command line, or null. */
+function flag(name: string): string | null {
+  const hit = process.argv.find((a) => a.startsWith(`--${name}=`));
+  return hit ? hit.slice(name.length + 3) : null;
+}
+
+/**
+ * Local databases only, unless `--allow-remote=<host>` names the exact host in DATABASE_URL.
+ * With `--keep-users`, real accounts (anything that isn't a seed or simulated address) survive
+ * the wipe and get a fresh signup grant, since their old ledger rows go with everything else.
+ */
+async function resetDatabase(keepUsers: boolean) {
+  const url = new URL(process.env.DATABASE_URL ?? "postgres://invalid");
+  const local = ["localhost", "127.0.0.1"].includes(url.hostname);
+  if (!local && flag("allow-remote") !== url.hostname) {
+    throw new Error(`Refusing to reset ${url.hostname}. To reset this remote database on purpose, pass --allow-remote=${url.hostname}`);
+  }
+  const keep = ["_prisma_migrations", ...(keepUsers ? ["User"] : [])];
   const tables = await db.$queryRaw<{ tablename: string }[]>`
-    SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tablename <> '_prisma_migrations'`;
-  await db.$executeRawUnsafe(`TRUNCATE TABLE ${tables.map((t) => `"public"."${t.tablename}"`).join(", ")} RESTART IDENTITY CASCADE`);
+    SELECT tablename FROM pg_tables WHERE schemaname = 'public'`;
+  const reset = tables.map((t) => t.tablename).filter((t) => !keep.includes(t));
+  await db.$executeRawUnsafe(`TRUNCATE TABLE ${reset.map((t) => `"public"."${t}"`).join(", ")} RESTART IDENTITY CASCADE`);
+  if (!keepUsers) return;
+  // Seed and simulated accounts are recreated below; real accounts stay, with balances matching the empty ledger.
+  const removed = await db.user.deleteMany({
+    where: { OR: [{ email: { endsWith: "@demo.senzi.invalid" } }, { email: { endsWith: "@simulated.senzi.invalid" } }] },
+  });
+  const kept = await db.user.findMany({ select: { id: true, email: true } });
+  await db.user.updateMany({ data: { creditBalance: 0 } });
+  // Same welcome grant every account gets at signup (lib/auth.ts).
+  for (const u of kept) await db.$transaction((tx) => grantSignupCredits(tx, u.id));
+  console.log(`Kept ${kept.length} real account(s): ${kept.map((u) => u.email).join(", ") || "none"}. Removed ${removed.count} seed/simulated account(s).`);
 }
 
 async function makeUser(tag: string, displayName: string, admin = false): Promise<SessionUser> {
@@ -314,12 +348,26 @@ function modelValueAt(timeline: ModelStep[], at: number): number {
  * each trader anchors on the model value they last saw (they notice new data 0-24 hours after it is
  * published), plus a small market-wide lean and personal noise. Bets are sized by conviction: a trader
  * moves the price part of the way to their belief, so the crowd catches up after the model moves.
+ *
+ * Verified users of the product (`pool.verified`) add their own simulated lean on top: what people who
+ * use the product read differently from the public data. `verifiedShare` of trades come from them; on a
+ * verified-users-only market pass `general: []` and every trade is theirs.
  */
-async function simulateTrades(marketId: string, timeline: ModelStep[], traders: SessionUser[], from: Date, to: Date, count: number, rand: () => number) {
+async function simulateTrades(
+  marketId: string,
+  timeline: ModelStep[],
+  pool: { general: SessionUser[]; verified: SessionUser[]; verifiedShare: number },
+  from: Date,
+  to: Date,
+  count: number,
+  rand: () => number,
+) {
   const gauss = () => Math.sqrt(-2 * Math.log(Math.max(rand(), 1e-12))) * Math.cos(2 * Math.PI * rand());
   const clampP = (p: number) => Math.min(0.97, Math.max(0.03, p));
   // A market-specific lean keeps the crowd line near the model, not on top of it.
   const lean = 0.04 * gauss();
+  // Product users' extra lean, at least 4 points either way so their line visibly separates.
+  const userLean = (rand() < 0.5 ? -1 : 1) * (0.04 + 0.06 * rand());
   type Event = { at: Date; run: () => Promise<boolean> };
   const events: Event[] = timeline.slice(1).map((step) => ({
     at: step.at,
@@ -338,9 +386,12 @@ async function simulateTrades(marketId: string, timeline: ModelStep[], traders: 
   }));
   for (let i = 0; i < count; i++) {
     const at = new Date(from.getTime() + ((i + 0.5 + 0.4 * (rand() - 0.5)) / count) * (to.getTime() - from.getTime()));
-    const trader = traders[Math.floor(rand() * traders.length)]!;
+    // The first trade is always a verified user's, so even a short market has a verified line.
+    const byVerified = pool.general.length === 0 || (pool.verifiedShare > 0 && i === 0) || rand() < pool.verifiedShare;
+    const group = byVerified ? pool.verified : pool.general;
+    const trader = group[Math.floor(rand() * group.length)]!;
     const seen = modelValueAt(timeline, at.getTime() - rand() * 24 * 3_600_000);
-    const belief = clampP(seen + lean + 0.05 * gauss());
+    const belief = clampP(seen + lean + (byVerified ? userLean : 0) + 0.05 * gauss());
     const conviction = 0.35 + 0.5 * rand();
     events.push({
       at,
@@ -394,7 +445,7 @@ async function createDemoFirm() {
   return owner.id;
 }
 
-/** One study per PostHog question, a PostHog watchlist, and the invite list for verified-users studies. */
+/** One study per PostHog question and per verified-users question (every company), plus a PostHog watchlist. */
 async function seedDemoStudies(ownerId: string, adminId: string, entries: DemoStudyEntry[]) {
   const DAY = 86_400_000;
   const studyIds: string[] = [];
@@ -444,7 +495,8 @@ async function seedDemoStudies(ownerId: string, adminId: string, entries: DemoSt
     });
     studyIds.push(study.id);
   }
-  if (entries.length === 0) return 0;
+  const posthog = entries.flatMap((e, i) => (e.q.companyId === DEMO_COMPANY ? [{ startupId: e.startupId, studyId: studyIds[i]! }] : []));
+  if (posthog.length === 0) return studyIds.length;
 
   await db.watchlist.create({
     data: {
@@ -453,8 +505,8 @@ async function seedDemoStudies(ownerId: string, adminId: string, entries: DemoSt
       createdById: ownerId,
       items: {
         create: [
-          { type: WatchlistItemType.STARTUP, startupId: entries[0]!.startupId, addedById: ownerId },
-          ...studyIds.map((studyId) => ({ type: WatchlistItemType.STUDY, studyId, addedById: ownerId })),
+          { type: WatchlistItemType.STARTUP, startupId: posthog[0]!.startupId, addedById: ownerId },
+          ...posthog.map(({ studyId }) => ({ type: WatchlistItemType.STUDY, studyId, addedById: ownerId })),
         ],
       },
     },
@@ -470,8 +522,9 @@ async function main() {
   const store = new FileModelStore();
   const rand = seededRandom(20261010);
 
-  console.log("Resetting local database...");
-  await resetDatabase();
+  const keepUsers = process.argv.includes("--keep-users");
+  console.log(`Resetting ${new URL(process.env.DATABASE_URL ?? "postgres://invalid").hostname}${keepUsers ? " (keeping real accounts)" : ""}...`);
+  await resetDatabase(keepUsers);
 
   const admin = await makeUser("real-data-admin", "Senzi data desk", true);
   const traders: SessionUser[] = [];
@@ -480,7 +533,6 @@ async function main() {
     traders.push(await makeUser(`sim-trader-${n}`, `Simulated trader ${n}`));
   }
   const demoOwnerId = await createDemoFirm();
-  const invited = traders.slice(0, INVITED_TRADERS);
   const demoEntries: DemoStudyEntry[] = [];
 
   const summary: string[] = [];
@@ -501,20 +553,24 @@ async function main() {
         createdById: admin.id,
       },
     });
-    if (company.id === DEMO_COMPANY) {
-      // The demo's verified-users market needs verified traders: they've proven they use the product.
-      await db.productUserVerification.createMany({
-        data: invited.map((t) => ({
-          userId: t.id,
-          startupId: startup.id,
-          method: ProductVerificationMethod.SCREENSHOT,
-          status: VerificationStatus.APPROVED,
-          reviewedById: admin.id,
-          reviewedAt: NOW,
-          note: "Simulated verified user for the demo",
-        })),
-      });
-    }
+    // This company's verified product users: a different slice of the trader pool per company,
+    // approved before any market opens so every one of their trades counts toward the verified line.
+    const offset = (COMPANIES.indexOf(company) * VERIFIED_PER_COMPANY) % TRADERS;
+    const verified = Array.from({ length: VERIFIED_PER_COMPANY }, (_, i) => traders[(offset + i) % TRADERS]!);
+    const verifiedIds = new Set(verified.map((t) => t.id));
+    const pool = { general: traders.filter((t) => !verifiedIds.has(t.id)), verified, verifiedShare: VERIFIED_TRADE_SHARE };
+    const verifiedPool = { general: [], verified, verifiedShare: 1 };
+    await db.productUserVerification.createMany({
+      data: verified.map((t) => ({
+        userId: t.id,
+        startupId: startup.id,
+        method: ProductVerificationMethod.SCREENSHOT,
+        status: VerificationStatus.APPROVED,
+        reviewedById: admin.id,
+        reviewedAt: new Date(PAST_OPEN_AT.getTime() - 86_400_000),
+        note: "Simulated verified user for the demo",
+      })),
+    });
 
     // Facts: scraped indicators only, each with its source link and as-of date.
     const facts = getCompanyIndicators(company.id, points, [], NOW).filter((r) => r.provenance === "scraped" && r.value !== null && r.sourceUrl && r.asOf);
@@ -557,14 +613,12 @@ async function main() {
       for (const spec of DOWNLOAD_QUESTIONS) {
         planned.push({ q: downloadsQuestion(company.id, niceRound(lastWeek * spec.multiple), spec.windowEnd, OPEN_AT.toISOString()), opensAt: OPEN_AT, refreshModel: true });
       }
-      // Demo firm only: extra questions that invited (verified) traders alone can trade.
-      if (company.id === DEMO_COMPANY) {
-        const taken = new Set(planned.map(({ q }) => `${q.windowEnd}:${q.threshold}`));
-        for (const spec of VERIFIED_DOWNLOAD_QUESTIONS) {
-          const q = downloadsQuestion(company.id, niceRound(lastWeek * spec.multiple), spec.windowEnd, OPEN_AT.toISOString());
-          if (taken.has(`${q.windowEnd}:${q.threshold}`)) continue;
-          planned.push({ q, opensAt: OPEN_AT, refreshModel: true, verifiedOnly: true });
-        }
+      // Extra questions that only the company's verified product users can trade.
+      const taken = new Set(planned.map(({ q }) => `${q.windowEnd}:${q.threshold}`));
+      for (const spec of VERIFIED_DOWNLOAD_QUESTIONS) {
+        const q = downloadsQuestion(company.id, niceRound(lastWeek * spec.multiple), spec.windowEnd, OPEN_AT.toISOString());
+        if (taken.has(`${q.windowEnd}:${q.threshold}`)) continue;
+        planned.push({ q, opensAt: OPEN_AT, refreshModel: true, verifiedOnly: true });
       }
     }
     const rank = latestOf(metricIds.trancoRank);
@@ -583,14 +637,14 @@ async function main() {
     for (const { q, opensAt, refreshModel, verifiedOnly = false } of planned) {
       const made = await createQuestionMarket(admin, startup.id, q, points, opensAt, verifiedOnly);
       if (!made) continue;
-      if (company.id === DEMO_COMPANY) demoEntries.push({ market: made.market, q, startupId: startup.id, verifiedOnly, outcome: null });
+      if (company.id === DEMO_COMPANY || verifiedOnly) demoEntries.push({ market: made.market, q, startupId: startup.id, verifiedOnly, outcome: null });
       const from = new Date(opensAt.getTime() + 15 * 60_000);
       const until = new Date(Math.min(NOW.getTime() - 5 * 60_000, made.market.closesAt.getTime() - 3_600_000));
       const span = until.getTime() - from.getTime();
       const count = span < 30 * 60_000 ? 0 : span < 24 * 3_600_000 ? 4 : 9 + Math.floor(rand() * 6);
       // Download and traffic-rank markets: the model refreshes as new data is published (trades never feed it).
       const timeline = refreshModel ? modelTimeline(q, points, made.baseline, opensAt, NOW) : [{ at: opensAt, result: made.baseline }];
-      const placed = await simulateTrades(made.market.id, timeline, verifiedOnly ? invited : traders, from, until, count, rand);
+      const placed = await simulateTrades(made.market.id, timeline, verifiedOnly ? verifiedPool : pool, from, until, count, rand);
       summary.push(`${company.name} [${q.kind}] ${q.text} -> opened at ${pct(made.baseline.probability)}, ${placed} trades`);
     }
 
@@ -612,7 +666,7 @@ async function main() {
     const past = await createQuestionMarket(admin, startup.id, pastQ, points, PAST_OPEN_AT);
     if (!past) continue;
     const pastTimeline = modelTimeline(pastQ, points, past.baseline, PAST_OPEN_AT, past.market.closesAt);
-    const placed = await simulateTrades(past.market.id, pastTimeline, traders, new Date(PAST_OPEN_AT.getTime() + 3_600_000), new Date(past.market.closesAt.getTime() - 3_600_000), 8 + Math.floor(rand() * 5), rand);
+    const placed = await simulateTrades(past.market.id, pastTimeline, pool, new Date(PAST_OPEN_AT.getTime() + 3_600_000), new Date(past.market.closesAt.getTime() - 3_600_000), 8 + Math.floor(rand() * 5), rand);
     await db.market.update({ where: { id: past.market.id }, data: { status: "CLOSED" } });
     const r = await db.resolution.create({
       data: {
@@ -637,7 +691,7 @@ async function main() {
   const [startups, markets, forecasts, facts] = await Promise.all([db.startup.count(), db.market.count(), db.forecast.count(), db.startupFact.count()]);
   console.log(summary.join("\n"));
   console.log(`\nDone: ${startups} startups, ${facts} facts, ${markets} markets, ${forecasts} simulated forecasts.`);
-  console.log(`${DEMO_ORG_NAME}: ${demoStudies} PostHog studies. Verified VC accounts join it on their first /vc visit.`);
+  console.log(`${DEMO_ORG_NAME}: ${demoStudies} studies (PostHog, plus every verified-users question). Verified VC accounts join it on their first /vc visit.`);
   await db.$disconnect();
 }
 
