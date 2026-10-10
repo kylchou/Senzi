@@ -156,19 +156,25 @@ export default async function VcDashboardPage() {
 
         <Section
           id="watch"
-          title="Watchlists"
-          actions={<Link href="/vc/watchlists" className="text-sm underline">Manage</Link>}
+          title="Watchlist"
+          actions={<Link href="/vc/watchlists" className="text-sm underline">Open</Link>}
         >
-          {d.watchlistSummary.length === 0 ? (
-            <p className="text-sm text-slate-500 dark:text-slate-400">No watchlists yet.</p>
+          {d.following.startups.length === 0 && d.following.studyCount === 0 ? (
+            <p className="text-sm text-slate-500 dark:text-slate-400">Not following anything yet. Search for a startup to follow it.</p>
           ) : (
             <ul className="space-y-1 text-sm">
-              {d.watchlistSummary.map((w) => (
-                <li key={w.id} className="flex justify-between">
-                  <span>{w.name}</span>
-                  <span className="text-slate-500">{w.itemCount} followed</span>
+              {d.following.startups.map((s) => (
+                <li key={s.id}>
+                  <Link href={`/vc/watchlists?startup=${s.id}`} className="hover:underline">
+                    {s.name}
+                  </Link>
                 </li>
               ))}
+              {d.following.studyCount > 0 && (
+                <li className="text-slate-500">
+                  {d.following.studyCount} question{d.following.studyCount === 1 ? "" : "s"} followed
+                </li>
+              )}
             </ul>
           )}
           <p className="mt-3 text-sm">

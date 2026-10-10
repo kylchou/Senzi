@@ -104,10 +104,8 @@ Every response uses the shared envelope from `lib/api-response.ts` (`{ "data": â
 | `DELETE /api/studies/:id/notes/:noteId` | | author or manager |
 | `GET /api/studies/:id/report` | `?format=json\|markdown\|csv` | live report, owning firm only |
 | `GET /api/vc/dashboard` | | |
-| `GET/POST /api/vc/watchlists` | `{ name }` | |
-| `DELETE /api/vc/watchlists/:id` | | |
-| `POST /api/vc/watchlists/:id/items` | `{ type: "STARTUP", startupId }` or `{ type: "STUDY", studyId }` | idempotent |
-| `DELETE /api/vc/watchlists/:id/items/:itemId` | | |
+| `POST /api/vc/follows` | `{ type: "STARTUP", startupId }` or `{ type: "STUDY", studyId }` | follow; idempotent. Each firm has one watchlist, created on first follow |
+| `DELETE /api/vc/follows` | same body | unfollow |
 | `GET /api/vc/alerts` | `?unreadOnly=true&type=&limit=` | |
 | `PATCH /api/vc/alerts` | `{ alertIds }` | marks the alerts read for the current user, and clears the matching inbox notifications |
 | `GET /api/vc/compare` | `?startupIds=a,b[,c,d]` | side-by-side comparison of 2â€“4 published startups |
