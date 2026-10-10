@@ -14,15 +14,38 @@ import { MarketStatusBadge } from "@/components/ui/MarketStatusBadge";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { StartupMark } from "@/components/ui/StartupMark";
 import { shareMovement } from "@/lib/market-view/chart";
-import { formatDate, formatDateTime, formatDeadline, isPastDeadline, requestTime } from "@/lib/market-view/format";
+import {
+  formatDate,
+  formatDateTime,
+  formatDeadline,
+  formatShare,
+  isPastDeadline,
+  requestTime,
+} from "@/lib/market-view/format";
+import { timelineSteps } from "@/lib/market-view/insights";
+import { requestOrigin } from "@/lib/market-view/origin";
 import { getMarket, getMarketHistory } from "@/lib/market-view/queries";
+import { breadcrumbs, JsonLd } from "@/components/ui/JsonLd";
+import { MarketTimeline } from "@/components/ui/MarketTimeline";
 import { MarketTour } from "@/components/ui/MarketTour";
 import { ShareButton } from "@/components/ui/ShareButton";
 import { Morph, PageTransition, StreamIn } from "@/components/ui/Transitions";
 
 export async function generateMetadata({ params }: PageProps<"/markets/[slug]">): Promise<Metadata> {
   const market = await getMarket((await params).slug).catch(() => null);
-  return { title: market?.question ?? "Market" };
+  if (!market) return { title: "Market" };
+  const parts = [
+    `YES allocation ${formatShare(market.allocation.share)}`,
+    market.openingBaseline !== null ? `opening baseline ${formatShare(market.openingBaseline)}` : null,
+    market.resolution ? null : `deadline ${formatDate(market.closesAt)}`,
+  ].filter(Boolean);
+  const description = `${market.startup.name}: ${parts.join(", ")}. Community forecasts with virtual credits.`;
+  return {
+    title: market.question,
+    description,
+    openGraph: { title: market.question, description, type: "article" },
+    twitter: { card: "summary_large_image", title: market.question, description },
+  };
 }
 
 export default function MarketPage({ params }: PageProps<"/markets/[slug]">) {
@@ -49,6 +72,7 @@ async function MarketView({ params }: Pick<PageProps<"/markets/[slug]">, "params
   const now = requestTime();
   const isOpen = market.status === "OPEN" && !isPastDeadline(market.closesAt, new Date(now));
   // Closed markets stop the history line at close or resolution instead of today.
+  const origin = await requestOrigin();
   const chartEnd = isOpen ? now : Math.min(now, Date.parse(market.resolvedAt ?? market.closesAt));
 
   return (
@@ -99,20 +123,26 @@ async function MarketView({ params }: Pick<PageProps<"/markets/[slug]">, "params
           <p className="mt-3 px-1 text-xs leading-relaxed text-ink-500">
             Forecasts are research signals, not guarantees or investment advice.
           </p>
+          <div className="mt-6">
+            <MarketTimeline steps={timelineSteps(market, now)} />
+          </div>
         </aside>
 
         <div className="min-w-0 space-y-8 lg:col-start-1 lg:row-start-2">
-          <section
-            aria-labelledby="history-heading"
-            className="surface-card p-5"
-          >
+          <section aria-labelledby="history-heading" className="surface-card p-5">
             <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
               <h2 id="history-heading" className="font-display text-lg font-bold text-ink-900">
                 Community allocation over time
               </h2>
               <MarketMovement movement={shareMovement(history, 7, chartEnd)} />
             </div>
-            <ProbabilityChart history={history} openingBaseline={market.openingBaseline} now={chartEnd} live={isOpen} />
+            <ProbabilityChart
+              history={history}
+              openingBaseline={market.openingBaseline}
+              now={chartEnd}
+              live={isOpen}
+              events={market.coverage}
+            />
           </section>
 
           <section aria-labelledby="sources-heading">
@@ -165,6 +195,16 @@ async function MarketView({ params }: Pick<PageProps<"/markets/[slug]">, "params
         </div>
       </div>
       <MarketTour />
+      <JsonLd
+        data={breadcrumbs(
+          [
+            { name: "Markets", path: "/markets" },
+            { name: market.startup.name, path: `/startups/${market.startup.slug}` },
+            { name: market.question, path: `/markets/${market.slug}` },
+          ],
+          origin,
+        )}
+      />
     </>
   );
 }

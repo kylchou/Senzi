@@ -53,6 +53,7 @@ export const marketDetailSelect = {
   yesCriteria: true,
   noCriteria: true,
   baselineMethodology: true,
+  baselineSetAt: true,
   category: true,
   opensAt: true,
   resolvesBy: true,
@@ -61,7 +62,16 @@ export const marketDetailSelect = {
     orderBy: [{ position: "asc" }, { id: "asc" }],
     select: { title: true, url: true, publisher: true, publishedAt: true },
   },
-  resolution: { select: { outcome: true, resolvedAt: true, evidenceSummary: true, evidenceUrls: true } },
+  resolution: {
+    select: {
+      outcome: true,
+      resolvedAt: true,
+      evidenceSummary: true,
+      evidenceUrls: true,
+      settlementStatus: true,
+      settledAt: true,
+    },
+  },
   news: { orderBy: { publishedAt: "desc" }, take: 10, select: newsItemSelect },
 } satisfies Prisma.MarketSelect;
 
@@ -131,6 +141,7 @@ export function toMarketDetail(row: DetailRow): MarketDetail {
     yesCriteria: row.yesCriteria,
     noCriteria: row.noCriteria,
     baselineMethodology: row.baselineMethodology,
+    baselineSetAt: row.baselineSetAt?.toISOString() ?? null,
     category: row.category,
     opensAt: row.opensAt.toISOString(),
     resolvesBy: row.resolvesBy?.toISOString() ?? null,
@@ -146,6 +157,8 @@ export function toMarketDetail(row: DetailRow): MarketDetail {
           evidenceSummary: row.resolution.evidenceSummary,
           evidenceUrls: row.resolution.evidenceUrls,
           resolvedAt: row.resolution.resolvedAt.toISOString(),
+          settlementStatus: row.resolution.settlementStatus,
+          settledAt: row.resolution.settledAt?.toISOString() ?? null,
         }
       : null,
     coverage: row.news.map(toNewsItem),

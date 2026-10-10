@@ -14,7 +14,10 @@ import { parseStartupParams } from "@/lib/discovery/params";
 import { listIndustries, listStartups } from "@/lib/discovery/queries";
 import { PageTransition, StreamIn } from "@/components/ui/Transitions";
 
-export const metadata: Metadata = { title: "Startups" };
+export const metadata: Metadata = {
+  title: "Startups",
+  description: "Startups with public markets on Senzi, with sourced facts and coverage.",
+};
 
 export default function StartupsPage({ searchParams }: PageProps<"/startups">) {
   return (

@@ -14,7 +14,10 @@ import { parseSearchQuery } from "@/lib/discovery/params";
 import { searchAll } from "@/lib/discovery/queries";
 import { PageTransition, StreamIn } from "@/components/ui/Transitions";
 
-export const metadata: Metadata = { title: "Search" };
+export const metadata: Metadata = {
+  title: "Search",
+  description: "Search Senzi markets and startups.",
+};
 
 export default function SearchPage({ searchParams }: PageProps<"/search">) {
   return (

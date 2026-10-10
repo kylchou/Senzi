@@ -13,8 +13,9 @@ import {
   type ChartBox,
   type ChartRangeKey,
 } from "@/lib/market-view/chart";
-import { formatDate, formatDateTime, formatShare } from "@/lib/market-view/format";
-import type { HistoryPoint } from "@/lib/market-view/types";
+import { formatDate, formatDateTime, formatPointChange, formatShare } from "@/lib/market-view/format";
+import { eventImpact } from "@/lib/market-view/insights";
+import type { HistoryPoint, NewsItemView } from "@/lib/market-view/types";
 import { cn } from "@/components/ui/cn";
 
 /** Chart box in real pixels so labels stay readable at every width. */
@@ -33,9 +34,12 @@ export function ProbabilityChart({
   openingBaseline,
   now,
   live = false,
+  events = [],
 }: {
   history: HistoryPoint[];
   openingBaseline: number | null;
+  /** News linked to the market, drawn as markers so readers can see why the line moved. */
+  events?: NewsItemView[];
   /** End of the time axis, fixed on the server so server and client draw the same chart. */
   now: number;
   /** Pulse the latest point while the market is open. */
@@ -75,6 +79,10 @@ export function ProbabilityChart({
   }
 
   const { points, path, calibratedPath, start, end, xFor, yFor } = geometry;
+  const markers = events
+    .map((event) => ({ event, time: Date.parse(event.publishedAt) }))
+    .filter(({ time }) => time >= start && time <= end)
+    .map(({ event, time }) => ({ event, x: xFor(time), impact: eventImpact(history, event.publishedAt, now) }));
   const current = active !== null ? points[active] : null;
   const last = points[points.length - 1];
 
@@ -180,6 +188,19 @@ export function ProbabilityChart({
             </text>
           ))}
 
+          {markers.map(({ event, x }) => (
+            <line
+              key={event.id}
+              x1={x}
+              x2={x}
+              y1={box.padding.top}
+              y2={yFor(0)}
+              className="stroke-ink-300"
+              strokeWidth={1}
+              strokeDasharray="2 4"
+            />
+          ))}
+
           {/* Keyed by range so switching ranges redraws the lines. */}
           <g key={range}>
             <path
@@ -279,6 +300,39 @@ export function ProbabilityChart({
             <p className="tabular-nums text-ink-300">{current.point.forecasterCount} forecasters</p>
           </div>
         )}
+
+        {markers.map(({ event, x, impact }) => {
+          const left = (x / box.width) * 100;
+          const align = left < 25 ? "left-0" : left > 75 ? "right-0" : "left-1/2 -translate-x-1/2";
+          return (
+            <a
+              key={event.id}
+              href={event.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label={`News, ${formatDate(event.publishedAt)}: ${event.title}, ${event.publisher}`}
+              className="group absolute z-20 -translate-x-1/2 -translate-y-1/2 p-1.5"
+              style={{ left: `${left}%`, top: `${(yFor(0) / box.height) * 100}%` }}
+            >
+              <span className="block size-3 rounded-full border-2 border-red-500 bg-surface transition-transform duration-200 group-hover:scale-125 group-focus-visible:scale-125" />
+              <span
+                role="tooltip"
+                className={`pointer-events-none invisible absolute bottom-full mb-1 w-64 rounded-xl bg-ink-900 p-3 text-left text-xs text-surface opacity-0 shadow-[var(--shadow-lift)] transition-opacity duration-150 group-hover:visible group-hover:opacity-100 group-focus-visible:visible group-focus-visible:opacity-100 ${align}`}
+              >
+                <span className="block text-ink-300">
+                  {event.publisher} · {formatDate(event.publishedAt)}
+                </span>
+                <span className="mt-1 block font-semibold leading-snug">{event.title}</span>
+                {impact && (
+                  <span className="mt-2 block tabular-nums text-ink-300">
+                    YES allocation {formatShare(impact.before)} to {formatShare(impact.after)} over the next 3 days (
+                    {formatPointChange(impact.delta)})
+                  </span>
+                )}
+              </span>
+            </a>
+          );
+        })}
       </div>
 
       <figcaption className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-ink-600">
@@ -298,10 +352,18 @@ export function ProbabilityChart({
             Opening baseline
           </span>
         )}
+        {markers.length > 0 && (
+          <span className="inline-flex items-center gap-2">
+            <span aria-hidden className="size-2.5 rounded-full border-2 border-red-500 bg-surface" />
+            News
+          </span>
+        )}
       </figcaption>
 
       <details className="mt-3 text-sm">
-        <summary className="cursor-pointer text-xs font-medium text-ink-600 hover:text-ink-900">View data table</summary>
+        <summary className="cursor-pointer text-xs font-medium text-ink-600 hover:text-ink-900">
+          View data table
+        </summary>
         <div className="mt-2 max-h-64 overflow-auto rounded-lg border border-ink-200">
           <table className="w-full text-left text-xs">
             <thead className="sticky top-0 bg-ink-50 text-ink-600">

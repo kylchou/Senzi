@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useAuth } from "@clerk/nextjs";
 import { cn } from "./cn";
+import { getMe } from "./me-client";
 
 /**
  * Link to Darsh's VC workspace, shown only to signed-in members of at least
@@ -15,12 +16,11 @@ export function VcLink({ active, className }: { active: boolean; className?: str
 
   useEffect(() => {
     if (!isLoaded || !isSignedIn) return;
-    const controller = new AbortController();
-    fetch("/api/users/me", { credentials: "same-origin", signal: controller.signal })
-      .then((response) => (response.ok ? response.json() : null))
-      .then((body: { data?: { memberships?: unknown[] } } | null) => setMember((body?.data?.memberships?.length ?? 0) > 0))
-      .catch(() => undefined);
-    return () => controller.abort();
+    let current = true;
+    getMe().then((me) => current && setMember((me?.memberships.length ?? 0) > 0));
+    return () => {
+      current = false;
+    };
   }, [isLoaded, isSignedIn]);
 
   if (!isSignedIn || !member) return null;
