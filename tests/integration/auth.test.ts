@@ -2,7 +2,7 @@ import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@clerk/nextjs/server", () => ({ auth: vi.fn(), currentUser: vi.fn() }));
 
-import { provisionUser, type AuthIdentity } from "@/lib/auth";
+import { chooseAccountType, homePathFor, parseAccountType, provisionUser, type AuthIdentity } from "@/lib/auth";
 import { verifyLedgerIntegrity } from "@/lib/credits";
 import { db } from "@/lib/db";
 import { PENDING_AUTH_PREFIX, SIGNUP_GRANT_CREDITS } from "@/lib/types";
@@ -17,6 +17,7 @@ const identity = (overrides: Partial<AuthIdentity> = {}): AuthIdentity => ({
   emailVerified: true,
   displayName: "Founder",
   avatarUrl: null,
+  accountType: null,
   ...overrides,
 });
 
@@ -51,5 +52,40 @@ describe("user provisioning", () => {
     const user = await provisionUser(identity());
     expect(user.platformRole).toBe("ADMIN");
     vi.unstubAllEnvs();
+  });
+});
+
+describe("account types", () => {
+  it("takes the type chosen at signup", async () => {
+    const user = await provisionUser(identity({ accountType: "TRADER" }));
+    expect(user.accountType).toBe("TRADER");
+  });
+
+  it("keeps a pending invite's VC type, and fills it only when empty", async () => {
+    await db.user.create({
+      data: { authId: `${PENDING_AUTH_PREFIX}founder@example.com`, email: "founder@example.com", displayName: "founder", accountType: "VC" },
+    });
+    expect((await provisionUser(identity({ accountType: "TRADER" }))).accountType).toBe("VC");
+
+    await db.user.create({
+      data: { authId: `${PENDING_AUTH_PREFIX}other@example.com`, email: "other@example.com", displayName: "other" },
+    });
+    const other = await provisionUser(identity({ authId: "user_other", email: "other@example.com", accountType: "TRADER" }));
+    expect(other.accountType).toBe("TRADER");
+  });
+
+  it("lets people choose once", async () => {
+    const user = await provisionUser(identity());
+    expect(user.accountType).toBeNull();
+    expect((await chooseAccountType(user, "VC")).accountType).toBe("VC");
+    expect((await chooseAccountType(user, "TRADER")).accountType).toBe("VC");
+  });
+
+  it("ignores junk metadata and routes each type home", () => {
+    expect(parseAccountType("ADMIN")).toBeNull();
+    expect(parseAccountType(undefined)).toBeNull();
+    expect(homePathFor("VC")).toBe("/vc");
+    expect(homePathFor("TRADER")).toBe("/profile");
+    expect(homePathFor(null)).toBe("/onboarding");
   });
 });

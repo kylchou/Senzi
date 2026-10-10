@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { MarketStatus, OrgRole, PlatformRole, StartupStage } from "@/generated/prisma/enums";
+import { AccountType, MarketStatus, OrgRole, PlatformRole, StartupStage } from "@/generated/prisma/enums";
 import { createMarket } from "@/lib/admin";
 import { grantSignupCredits } from "@/lib/credits";
 import { db } from "@/lib/db";
@@ -17,7 +17,7 @@ export async function resetDatabase() {
 }
 
 export async function makeUser(
-  opts: { admin?: boolean; credits?: boolean; name?: string } = {},
+  opts: { admin?: boolean; credits?: boolean; name?: string; accountType?: AccountType | null } = {},
 ): Promise<SessionUser> {
   const tag = randomUUID().slice(0, 8);
   const user = await db.user.create({
@@ -26,8 +26,9 @@ export async function makeUser(
       email: `${tag}@test.senzi.invalid`,
       displayName: opts.name ?? `User ${tag}`,
       platformRole: opts.admin ? PlatformRole.ADMIN : PlatformRole.USER,
+      accountType: opts.accountType === undefined ? AccountType.TRADER : opts.accountType,
     },
-    select: { id: true, authId: true, email: true, username: true, displayName: true, avatarUrl: true, platformRole: true },
+    select: { id: true, authId: true, email: true, username: true, displayName: true, avatarUrl: true, platformRole: true, accountType: true },
   });
   if (opts.credits !== false) await db.$transaction((tx) => grantSignupCredits(tx, user.id));
   return user;

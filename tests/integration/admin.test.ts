@@ -7,6 +7,7 @@ import {
   closeExpiredMarkets,
   completeResolutionSettlement,
   resolveMarket,
+  setAccountType,
   setPlatformRole,
   updateMarket,
 } from "@/lib/admin";
@@ -141,6 +142,18 @@ describe("admin credits and roles", () => {
     expect(second.replayed).toBe(true);
     expect(second.transaction.id).toBe(first.transaction.id);
     expect(await db.auditLog.count({ where: { action: "credits.adjust" } })).toBe(1);
+  });
+
+  it("changes account types with a reason, but not while someone is in a VC org", async () => {
+    const admin = await makeAdmin();
+    const user = await makeUser({ accountType: "VC" });
+    const org = await makeOrg([[user, OrgRole.VIEWER]]);
+    await expect(setAccountType(admin, user.id, { accountType: "TRADER", reason: "Left the fund" })).rejects.toMatchObject({ code: "INVALID_STATE" });
+    await db.organizationMembership.deleteMany({ where: { organizationId: org.id } });
+    await setAccountType(admin, user.id, { accountType: "TRADER", reason: "Left the fund" });
+    const log = await db.auditLog.findFirstOrThrow({ where: { action: "user.accountType" } });
+    expect(log.data).toMatchObject({ from: "VC", to: "TRADER", reason: "Left the fund" });
+    await expect(setAccountType(admin, admin.id, { accountType: "VC", reason: "Myself" })).rejects.toMatchObject({ code: "INVALID_STATE" });
   });
 
   it("does not let admins change their own role", async () => {

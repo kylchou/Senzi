@@ -1,4 +1,4 @@
-import { NotificationType, OrgRole } from "@/generated/prisma/enums";
+import { AccountType, NotificationType, OrgRole } from "@/generated/prisma/enums";
 import { conflict, forbidden, invalidState, notFound } from "@/lib/api-response";
 import { recordAudit } from "@/lib/audit";
 import { db, isUniqueViolation, type TxClient } from "@/lib/db";
@@ -142,15 +142,24 @@ export async function addMember(
   try {
     return await db.$transaction(async (tx) => {
       const org = await tx.organization.findUniqueOrThrow({ where: { id: organizationId }, select: { name: true } });
+      const existing = await tx.user.findUnique({ where: { email: input.email }, select: { id: true, accountType: true } });
+      // A trader in a VC org could trade on the org's own questions.
+      if (existing?.accountType === AccountType.TRADER) {
+        throw invalidState("That person has a trader account. A Senzi admin has to switch it to VC before they can join.");
+      }
+      if (existing && !existing.accountType) {
+        await tx.user.update({ where: { id: existing.id }, data: { accountType: AccountType.VC } });
+      }
       const target =
-        (await tx.user.findUnique({ where: { email: input.email }, select: { id: true } })) ??
+        existing ??
         (await tx.user.create({
           data: {
             authId: `${PENDING_AUTH_PREFIX}${input.email}`,
             email: input.email,
             displayName: input.email.split("@")[0]!,
+            accountType: AccountType.VC,
           },
-          select: { id: true },
+          select: { id: true, accountType: true },
         }));
 
       const membership = await tx.organizationMembership.create({

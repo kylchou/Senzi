@@ -32,6 +32,13 @@ enum PlatformRole {
   ADMIN
 }
 
+/// Which side of the product someone signed up for. Chosen once; only an
+/// admin can change it. NULL means signed in but not chosen yet (/onboarding).
+enum AccountType {
+  VC // sponsors: open questions, read the VC dashboard
+  TRADER // forecasters: trade on public markets
+}
+
 /// Role inside a VC organization. Ordered from most to least privileged.
 enum OrgRole {
   OWNER
@@ -238,6 +245,7 @@ model User {
   avatarUrl     String?
   bio           String?
   platformRole  PlatformRole @default(USER)
+  accountType   AccountType?
   /// Cached balance. The CreditTransaction ledger is authoritative; this
   /// column is only ever changed together with a ledger row (lib/credits.ts).
   /// CHECK (creditBalance >= 0).
