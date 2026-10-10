@@ -4,7 +4,7 @@ import { Container } from "./Container";
 
 export function SiteFooter() {
   return (
-    <footer className="mt-24 bg-ink-900 text-ink-300">
+    <footer className="mt-24 bg-night text-mist-300">
       <Container className="flex flex-col gap-8 py-12 sm:flex-row sm:items-start sm:justify-between">
         <div className="max-w-sm space-y-3">
           <Image src="/senzi-logo.png" alt="Senzi" width={88} height={25} />

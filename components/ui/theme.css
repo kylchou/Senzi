@@ -3,12 +3,27 @@
  * Brand: red #FF2C2C, charcoal #25282B, white #FFFFFF.
  * red-600 and red-700 are darker steps of the brand red so white text on red
  * and red text on white both meet WCAG AA contrast.
+ *
+ * Theming: the ink and red scales, `surface`, and `page` switch under `.dark`.
+ * `night` and `mist` never switch; they are for brand surfaces that stay
+ * charcoal in both themes (navbar, hero, footer). `white` is never redefined,
+ * so other teams' `bg-white` and `text-white` keep their meaning.
  */
 @theme {
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
   --font-display: var(--font-montserrat), var(--font-inter), ui-sans-serif, sans-serif;
 
   --color-white: #ffffff;
+  /* Page background and raised surfaces (cards, inputs, panels). */
+  --color-page: #ffffff;
+  --color-surface: #ffffff;
+
+  /* Fixed brand surfaces and the text that sits on them. */
+  --color-night: #25282b;
+  --color-night-800: #33373b;
+  --color-mist-200: #e3e5e7;
+  --color-mist-300: #c9ccd0;
+  --color-mist-400: #a3a8ad;
 
   --color-ink-950: #1b1d1f;
   --color-ink-900: #25282b;
@@ -31,6 +46,42 @@
   --radius-card: 14px;
   --shadow-card: 0 1px 2px rgb(37 40 43 / 0.04), 0 4px 16px -8px rgb(37 40 43 / 0.08);
   --shadow-lift: 0 2px 4px rgb(37 40 43 / 0.05), 0 12px 32px -12px rgb(37 40 43 / 0.18);
+
+  --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/*
+ * Dark theme. The ink scale flips so text stays readable, surfaces step up from
+ * a near-black page, and the red softens so it does not glow. Contrast: ink-500
+ * text on surface is about 5:1, red-700 text on surface about 6.5:1, and white
+ * on red-600 about 5.9:1.
+ */
+.dark {
+  color-scheme: dark;
+
+  --color-page: #121416;
+  --color-surface: #1b1e21;
+
+  --color-ink-950: #f7f8f9;
+  --color-ink-900: #eceef0;
+  --color-ink-800: #dcdfe2;
+  --color-ink-700: #c4c9cd;
+  --color-ink-600: #a6acb2;
+  --color-ink-500: #8b9198;
+  --color-ink-400: #6a7077;
+  --color-ink-300: #464c52;
+  --color-ink-200: #33383d;
+  --color-ink-100: #282c30;
+  --color-ink-50: #1f2226;
+
+  --color-red-500: #f25555;
+  --color-red-600: #d63a3a;
+  --color-red-700: #ff7a7a;
+  --color-red-100: #3d2124;
+  --color-red-50: #2b1b1d;
+
+  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.3), 0 4px 16px -8px rgb(0 0 0 / 0.4);
+  --shadow-lift: 0 2px 4px rgb(0 0 0 / 0.3), 0 12px 32px -12px rgb(0 0 0 / 0.6);
 }
 
 @layer base {
@@ -38,10 +89,16 @@
     color-scheme: light;
     -webkit-font-smoothing: antialiased;
   }
+  html.dark {
+    color-scheme: dark;
+  }
   body {
-    background: var(--color-white);
+    background: var(--color-page);
     color: var(--color-ink-900);
     font-family: var(--font-sans);
+    transition:
+      background-color 200ms ease,
+      color 200ms ease;
   }
   h1, h2, h3 {
     font-family: var(--font-display);
@@ -55,6 +112,31 @@
     outline: 2px solid var(--color-red-500);
     outline-offset: 2px;
   }
+}
+
+/* Motion */
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Smooth color change while switching themes (class added for 300ms by theme.ts). */
+.theme-switching,
+.theme-switching *,
+.theme-switching *::before,
+.theme-switching *::after {
+  transition:
+    background-color 220ms ease,
+    border-color 220ms ease,
+    color 220ms ease,
+    fill 220ms ease,
+    stroke 220ms ease !important;
 }
 
 @media (prefers-reduced-motion: reduce) {

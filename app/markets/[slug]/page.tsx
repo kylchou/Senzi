@@ -93,7 +93,7 @@ async function MarketView({ params }: Pick<PageProps<"/markets/[slug]">, "params
         </aside>
 
         <div className="min-w-0 space-y-8 lg:col-start-1 lg:row-start-2">
-          <section aria-labelledby="history-heading" className="rounded-[var(--radius-card)] border border-ink-200 bg-white p-5">
+          <section aria-labelledby="history-heading" className="rounded-[var(--radius-card)] border border-ink-200 bg-surface p-5">
             <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
               <h2 id="history-heading" className="font-display text-lg font-bold text-ink-900">
                 Community allocation over time

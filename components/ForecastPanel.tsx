@@ -111,7 +111,7 @@ export function ForecastPanel({
   return (
     <section
       aria-labelledby="forecast-heading"
-      className="rounded-[var(--radius-card)] border border-ink-200 bg-white p-5 shadow-[var(--shadow-card)]"
+      className="rounded-[var(--radius-card)] border border-ink-200 bg-surface p-5 shadow-[var(--shadow-card)]"
     >
       <div className="flex items-baseline justify-between gap-2">
         <h2 id="forecast-heading" className="font-display text-lg font-bold text-ink-900">
@@ -200,7 +200,7 @@ export function ForecastPanel({
                 aria-invalid={touched && validation ? true : undefined}
                 aria-describedby={touched && validation ? errorId : undefined}
                 className={cn(
-                  "h-12 w-full rounded-xl border border-ink-200 bg-white pl-4 pr-20 font-display text-xl font-bold tabular-nums text-ink-900 transition-colors hover:border-ink-300 focus-visible:border-ink-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/30",
+                  "h-12 w-full rounded-xl border border-ink-200 bg-surface pl-4 pr-20 font-display text-xl font-bold tabular-nums text-ink-900 transition-colors hover:border-ink-300 focus-visible:border-ink-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/30",
                   touched && validation && "border-red-600",
                 )}
               />
@@ -216,7 +216,7 @@ export function ForecastPanel({
                   className={cn(
                     "h-8 flex-1 rounded-lg border text-xs font-semibold tabular-nums transition-colors disabled:opacity-40",
                     amount === String(preset)
-                      ? "border-ink-900 bg-ink-900 text-white"
+                      ? "border-ink-900 bg-ink-900 text-surface"
                       : "border-ink-200 text-ink-700 hover:border-ink-300 hover:bg-ink-50",
                   )}
                 >

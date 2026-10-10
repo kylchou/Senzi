@@ -157,16 +157,16 @@ export function ProbabilityChart({
                 className="stroke-ink-300"
                 strokeWidth={1}
               />
-              <circle cx={current.x} cy={current.y} r={5} className="fill-red-500 stroke-white" strokeWidth={2} />
+              <circle cx={current.x} cy={current.y} r={5} className="fill-red-500 stroke-surface" strokeWidth={2} />
             </g>
           ) : (
-            <circle cx={last.x} cy={last.y} r={4.5} className="fill-red-500 stroke-white" strokeWidth={2} />
+            <circle cx={last.x} cy={last.y} r={4.5} className="fill-red-500 stroke-surface" strokeWidth={2} />
           )}
         </svg>
 
         {current && (
           <div
-            className="pointer-events-none absolute top-2 z-10 min-w-36 -translate-x-1/2 rounded-lg bg-ink-900 px-3 py-2 text-xs text-white shadow-[var(--shadow-lift)]"
+            className="pointer-events-none absolute top-2 z-10 min-w-36 -translate-x-1/2 rounded-lg bg-ink-900 px-3 py-2 text-xs text-surface shadow-[var(--shadow-lift)]"
             style={{ left: `${Math.min(85, Math.max(15, (current.x / box.width) * 100))}%` }}
           >
             <p className="text-ink-300">{formatDateTime(current.point.at)}</p>

@@ -7,6 +7,7 @@ import { Suspense, useState } from "react";
 import { Menu, Search, X } from "lucide-react";
 import { AuthControls } from "@/components/ui/AuthControls";
 import { Container } from "@/components/ui/Container";
+import { ThemeSegmented, ThemeToggle } from "@/components/ui/ThemeToggle";
 import { cn } from "@/components/ui/cn";
 
 const links = [
@@ -40,10 +41,10 @@ function NavbarView({ pathname }: { pathname: string | null }) {
   const open = pathname !== null && openOn === pathname;
 
   return (
-    <header className="sticky top-0 z-40 border-b border-white/5 bg-ink-900 text-white">
+    <header className="sticky top-0 z-40 border-b border-white/5 bg-night text-white">
       <a
         href="#main"
-        className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-md focus:bg-white focus:px-3 focus:py-2 focus:text-ink-900"
+        className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-md focus:bg-surface focus:px-3 focus:py-2 focus:text-ink-900"
       >
         Skip to content
       </a>
@@ -59,7 +60,7 @@ function NavbarView({ pathname }: { pathname: string | null }) {
               href={link.href}
               aria-current={isActive(pathname, link.href) ? "page" : undefined}
               className={cn(
-                "relative rounded-full px-3 py-1.5 text-sm font-medium text-ink-300 transition-colors hover:text-white",
+                "relative rounded-full px-3 py-1.5 text-sm font-medium text-mist-300 transition-colors hover:text-white",
                 isActive(pathname, link.href) &&
                   "text-white after:absolute after:inset-x-3 after:-bottom-[15px] after:h-0.5 after:bg-red-500",
               )}
@@ -73,16 +74,17 @@ function NavbarView({ pathname }: { pathname: string | null }) {
           <Link
             href="/search"
             aria-label="Search"
-            className="rounded-full p-2 text-ink-300 transition-colors hover:bg-white/10 hover:text-white"
+            className="rounded-full p-2 text-mist-300 transition-colors hover:bg-white/10 hover:text-white"
           >
             <Search className="size-5" aria-hidden />
           </Link>
+          <ThemeToggle />
           <AuthControls />
         </div>
 
         <button
           type="button"
-          className="ml-auto rounded-full p-2 text-ink-300 hover:bg-white/10 hover:text-white md:hidden"
+          className="ml-auto rounded-full p-2 text-mist-300 hover:bg-white/10 hover:text-white md:hidden"
           aria-expanded={open}
           aria-controls="mobile-nav"
           aria-label={open ? "Close menu" : "Open menu"}
@@ -101,13 +103,14 @@ function NavbarView({ pathname }: { pathname: string | null }) {
                 href={link.href}
                 aria-current={isActive(pathname, link.href) ? "page" : undefined}
                 className={cn(
-                  "rounded-lg px-3 py-2.5 text-sm font-medium text-ink-300 hover:bg-white/5 hover:text-white",
+                  "rounded-lg px-3 py-2.5 text-sm font-medium text-mist-300 hover:bg-white/5 hover:text-white",
                   isActive(pathname, link.href) && "bg-white/5 text-white",
                 )}
               >
                 {link.label}
               </Link>
             ))}
+            <ThemeSegmented className="mt-2" />
             <AuthControls variant="accent" className="mt-2 w-full" />
           </Container>
         </nav>
