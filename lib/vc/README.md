@@ -123,11 +123,20 @@ All alerts go through one publisher (`services/alert-publisher.ts`). It writes t
 - a track record: YES rate with a 95% interval, and Brier scores for the opening baseline and the final allocation share, scored with the forecasting engine's own `brierScore` / `wilsonInterval`
 - public indicators
 
-Each column only includes public markets, published PUBLIC studies, and studies the caller's firm can see. Indicators come from the model through `server/indicators-adapter.ts`, which uses scraped public data only, never sponsor-provided figures. Until `lib/model` can be bundled by Next.js (see [`REQUESTS.md`](./REQUESTS.md)), the app uses `server/indicators-pending.ts` instead, and the page shows indicators as temporarily unavailable.
+Each column only includes public markets, published PUBLIC studies, and studies the caller's firm can see. Indicators come from the model through `server/indicators-adapter.ts`, which uses scraped public data only, never sponsor-provided figures. Startups the model doesn't track show as "not tracked".
 
 ## AI research assistant
 
-The design is in [`AI_RESEARCH_ASSISTANT.md`](./AI_RESEARCH_ASSISTANT.md). The provider-independent foundation is built; nothing calls an AI provider yet.
+**Tyche** is the AI research assistant. It's a bubble in the bottom-right corner of every VC page ("Ask Tyche · AI assistant") that opens a small chat about the study or comparison on screen.
+
+- **Provider:** Meta Model API, `muse-spark-1.3` (Standard tier, which Meta doesn't train on). The connection is in `server/meta-muse.ts`, using plain `fetch`, so there's no SDK dependency.
+- **Flow:** `services/assistant.ts` builds the authorized evidence package, sends Tyche's instructions (`assistant/prompt.ts`) and the evidence, and checks every citation. If the check finds errors, it asks the model once to rewrite.
+- **Route:** `POST /api/vc/assistant` is signed-in only, limited to 30 questions per user per hour (`lib/rate-limit.ts`), and audited as `assistant.ask`.
+- **Widget:** `components/vc/Tyche.tsx`, mounted in `app/vc/layout.tsx`.
+- **Setup:** set `SENZI_AI_ASSISTANT_API_KEY`. Without it, the bubble says Tyche isn't set up yet.
+- **Eval:** `assistant/evals/` has 20 graded cases. Run them with `npx tsx --env-file=.env.local lib/vc/assistant/evals/run.ts`. Each case is a real request to the Meta Model API.
+
+The design is in [`AI_RESEARCH_ASSISTANT.md`](./AI_RESEARCH_ASSISTANT.md). The foundation underneath Tyche:
 
 - **Context builder** (`assistant/context.ts`, loaded by `services/assistant-context.ts`): builds one evidence package per question, for a study or a comparison. It reads through the same permission-checked services as the pages, so a package never holds anything the asker can't open. Every item has a stable id built from real records (`study:…#criteria-yes`, `snapshot:…`, `fact:…`, `news:…`), a kind, a date, a source link and a fixed caveat. Allocation-share items always carry "Not a calibrated probability".
 - **Data tiers:** `standard` (the default) excludes restricted studies and private notes. `extended` includes them and needs explicit team approval. The tier is set with `VC_ASSISTANT_DATA_TIER`.
@@ -139,6 +148,7 @@ The design is in [`AI_RESEARCH_ASSISTANT.md`](./AI_RESEARCH_ASSISTANT.md). The p
   - a move that follows an unverified report
   - stale evidence
   - a near deadline with few forecasters
+- **Key stats** (`assistant/stats.ts`): one computed item per study (`stats:<studyId>`) with exact derived numbers, so Tyche quotes them instead of doing arithmetic: the share's gap to the opening baseline, the change since the first snapshot and over 7 days, forecaster growth, days until forecasting closes, verified/unverified/disputed evidence counts, and how old the newest evidence is.
 - **Citation checker** (`assistant/citations.ts`): checks an answer's `[[id]]` markers against the package.
   - Errors: unknown ids, percentages that don't match the cited evidence, and the allocation share called a probability.
   - Warnings: uncited claims, which are shown as "not from your data".
@@ -146,7 +156,7 @@ The design is in [`AI_RESEARCH_ASSISTANT.md`](./AI_RESEARCH_ASSISTANT.md). The p
 
 ## Environment variables
 
-`VC_ASSISTANT_DATA_TIER` (optional): `standard` (default) or `extended`. Set it to `extended` only after the team approves sending restricted studies and private notes to an AI provider. Otherwise there are no new variables. `GET /api/vc/cron` uses the existing `CRON_SECRET`; without it the endpoint always returns `401`. The cron runs every 15 minutes (see `vercel.json`).
+`SENZI_AI_ASSISTANT_API_KEY` (needed for Tyche): the Meta Model API key, in `.env.local` and the Vercel project settings. `SENZI_AI_ASSISTANT_MODEL` (optional) overrides the model. `VC_ASSISTANT_DATA_TIER` (optional): `standard` (default) or `extended`. Set it to `extended` only after the team approves sending restricted studies and private notes to an AI provider. Otherwise there are no new variables. `GET /api/vc/cron` uses the existing `CRON_SECRET`; without it the endpoint always returns `401`. The cron runs every 15 minutes (see `vercel.json`).
 
 ## Tests
 

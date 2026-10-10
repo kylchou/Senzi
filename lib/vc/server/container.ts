@@ -8,6 +8,7 @@ import { createVcServices, type VcServices } from "../services";
 import { createForecastingGateway } from "./forecasting-adapter";
 import { createIndicatorGateway } from "./indicators-adapter";
 import { createPlatformGateway } from "./platform-adapter";
+import { createMetaMuseModel, tycheApiKey } from "./meta-muse";
 import { createPrismaVcRepository } from "./prisma-repository";
 
 let deps: VcDeps | undefined;
@@ -24,10 +25,17 @@ export function getVcDeps(): VcDeps {
   return deps;
 }
 
+function tycheModel() {
+  const apiKey = tycheApiKey();
+  return apiKey ? createMetaMuseModel({ apiKey, model: process.env.SENZI_AI_ASSISTANT_MODEL?.trim() || undefined }) : null;
+}
+
 export function getVcServices(): VcServices {
   services ??= createVcServices(getVcDeps(), {
     // What the team has approved sending to an AI provider; "standard" unless set.
     assistantTier: process.env.VC_ASSISTANT_DATA_TIER === "extended" ? "extended" : "standard",
+    // Tyche is off until SENZI_AI_ASSISTANT_API_KEY is set.
+    assistantModel: tycheModel(),
   });
   return services;
 }

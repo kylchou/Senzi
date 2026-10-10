@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { EstimateSummary } from "@/components/vc/EstimateSummary";
+import { EvidenceList } from "@/components/vc/EvidenceList";
 import { FollowButton } from "@/components/vc/FollowButton";
 import { NotesPanel } from "@/components/vc/NotesPanel";
 import { ParticipantsEditor } from "@/components/vc/ParticipantsEditor";
@@ -26,7 +27,7 @@ export default async function StudyPage({ params }: { params: Promise<{ studyId:
   const ctx = await requirePageContext(`/vc/studies/${studyId}`);
   const services = getVcServices();
   const detail = await orNotFound(services.studies.get(ctx, studyId));
-  const { study, permissions, estimate, history, events, participants, startup } = detail;
+  const { study, permissions, estimate, history, events, participants, startup, evidence } = detail;
   const full = permissions.viewLevel === "full";
   const now = new Date();
 
@@ -162,6 +163,14 @@ export default async function StudyPage({ params }: { params: Promise<{ studyId:
           )}
         </Section>
       </div>
+
+      <Section
+        id="evidence"
+        title="Startup evidence"
+        description={`Public facts and news about ${startup?.name ?? "this startup"}. Verification status is shown on each item; none of it is an estimate or a forecast.`}
+      >
+        <EvidenceList facts={evidence.facts} news={evidence.news} />
+      </Section>
 
       {full && participants && (
         <Section

@@ -3,6 +3,7 @@ import { AllocationBar } from "@/components/ui/AllocationBar";
 import { AnimatedNumber } from "@/components/ui/AnimatedNumber";
 import { ExternalLink } from "@/components/ui/ExternalLink";
 import { InfoTip } from "@/components/ui/InfoTip";
+import { Term } from "@/components/ui/Term";
 import { formatCredits, formatDate, formatRelative, formatShare } from "@/lib/market-view/format";
 import type { MarketDetail } from "@/lib/market-view/types";
 
@@ -53,7 +54,12 @@ export function MarketBrief({ market }: { market: MarketDetail }) {
             <p className="font-display text-lg font-bold">
               {resolution.outcome === "VOID" ? "Resolved as void" : `Resolved ${resolution.outcome}`}
             </p>
-            <p className="text-sm text-ink-300">Verified outcome, {formatDate(resolution.resolvedAt)}.</p>
+            <p className="text-sm text-ink-300">
+              <Term id="resolution" className="decoration-ink-500">
+                Verified outcome
+              </Term>
+              , {formatDate(resolution.resolvedAt)}.
+            </p>
             <p className="mt-2 text-sm text-ink-200">{resolution.evidenceSummary}</p>
             {resolution.evidenceUrls.length > 0 && (
               <ul className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-sm">
@@ -125,17 +131,23 @@ export function MarketBrief({ market }: { market: MarketDetail }) {
           <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.12em] text-red-700">
             <Scale className="size-4" aria-hidden /> Resolves YES if
           </p>
-          <p className="mt-2 whitespace-pre-line text-sm leading-relaxed text-ink-800">{market.yesCriteria}</p>
+          <p id="criteria-yes" className="mt-2 whitespace-pre-line text-sm leading-relaxed text-ink-800">
+            {market.yesCriteria}
+          </p>
         </div>
         <div className="surface-card p-5">
           <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.12em] text-ink-600">
             <CircleSlash className="size-4" aria-hidden /> Resolves NO if
           </p>
-          <p className="mt-2 whitespace-pre-line text-sm leading-relaxed text-ink-800">{market.noCriteria}</p>
+          <p id="criteria-no" className="mt-2 whitespace-pre-line text-sm leading-relaxed text-ink-800">
+            {market.noCriteria}
+          </p>
         </div>
       </div>
       {market.resolvesBy && !resolution && (
-        <p className="text-sm text-ink-600">Expected resolution by {formatDate(market.resolvesBy)}.</p>
+        <p className="text-sm text-ink-600">
+          Expected resolution by <time dateTime={market.resolvesBy}>{formatDate(market.resolvesBy)}</time>
+        </p>
       )}
     </div>
   );

@@ -2,10 +2,12 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
 import { Disclaimer } from "@/components/vc/Disclaimer";
+import { Tyche } from "@/components/vc/Tyche";
 import { VC_LINKS } from "@/components/vc/nav-links";
 import { VcNav } from "@/components/vc/VcNav";
 import { getVcServices } from "@/lib/vc/server/container";
 import { getVcContext } from "@/lib/vc/server/context";
+import { isTycheConfigured } from "@/lib/vc/server/meta-muse";
 
 export const metadata: Metadata = {
   title: "VentureCast Intelligence",
@@ -25,6 +27,13 @@ async function NavData() {
       isPlatformAdmin={ctx.user.isPlatformAdmin}
     />
   );
+}
+
+/** Tyche's corner bubble, for signed-in users only. Reads the session, so it renders inside Suspense. */
+async function TycheMount() {
+  const ctx = await getVcContext();
+  if (!ctx) return null;
+  return <Tyche enabled={isTycheConfigured()} />;
 }
 
 /** Prerendered placeholder with the same links and no per-user or per-path state. */
@@ -61,6 +70,9 @@ export default function VcLayout({ children }: LayoutProps<"/vc">) {
       <footer className="mx-auto w-full max-w-6xl px-4 pb-8">
         <Disclaimer />
       </footer>
+      <Suspense fallback={null}>
+        <TycheMount />
+      </Suspense>
     </div>
   );
 }

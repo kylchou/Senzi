@@ -13,6 +13,8 @@ import {
   PUBLISHED_STATUSES,
   type EstimatePoint,
   type MarketEstimate,
+  type StartupFactView,
+  type StartupNewsView,
   type Study,
   type StudyEvent,
   type StudyNote,
@@ -36,7 +38,12 @@ export interface StudyDetail {
   /** Full timeline for the firm; status-only timeline for limited viewers. */
   events: StudyEvent[];
   participants: UserSummary[] | null;
+  /** Public facts and news about the study's startup, newest first. */
+  evidence: { facts: StartupFactView[]; news: StartupNewsView[] };
 }
+
+/** Most facts and news items shown on a study page. */
+export const STUDY_EVIDENCE_LIMITS = { facts: 20, news: 10 } as const;
 
 export interface StudyListItem {
   study: StudyView;
@@ -121,7 +128,7 @@ export function createStudyService(deps: VcDeps) {
     const { study, permissions } = await loadVisible(ctx, studyId);
     const full = permissions.viewLevel === "full";
 
-    const [startups, estimates, history, events, participants] = await Promise.all([
+    const [startups, estimates, history, events, participants, evidence] = await Promise.all([
       platform.getStartups([study.startupId]),
       estimatesFor([study]),
       study.marketId ? forecasting.getHistory(study.marketId) : Promise.resolve([]),
@@ -129,6 +136,7 @@ export function createStudyService(deps: VcDeps) {
       full && study.participantIds.length > 0
         ? platform.getUsers(study.participantIds)
         : Promise.resolve(full ? [] : null),
+      platform.getStartupEvidence([study.startupId]),
     ]);
     const startup = startups[0];
 
@@ -141,6 +149,10 @@ export function createStudyService(deps: VcDeps) {
       // Limited viewers see when the status changed, not who changed it or why.
       events: full ? events : events.map((e) => ({ ...e, actorId: null, reason: null })),
       participants: participants as UserSummary[] | null,
+      evidence: {
+        facts: evidence.facts.slice(0, STUDY_EVIDENCE_LIMITS.facts),
+        news: evidence.news.slice(0, STUDY_EVIDENCE_LIMITS.news),
+      },
     };
   }
 

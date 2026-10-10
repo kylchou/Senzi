@@ -1,6 +1,6 @@
 # Community UI (Sahil)
 
-Public Senzi pages: homepage, markets, market detail, startups, startup profiles, search, news (`/news`), and the forecast panel. Market pages also have a generated share image (`app/markets/[slug]/opengraph-image.tsx`). Setup and environment variables are in the README and `.env.example`; this UI needs nothing extra.
+Public Senzi pages: homepage, markets, market detail, startups, startup profiles, search, news (`/news`), and the forecast panel. Market pages also have a generated share image (`app/markets/[slug]/opengraph-image.tsx`). Setup and environment variables are in the README and `.env.example`; the only optional variable is `SENZI_REPLAY_DEMO` (see Market Replay).
 
 ## Privacy rules
 
@@ -34,6 +34,7 @@ Same envelope as `docs/API.md`: `{ data, meta }` and `{ error: { code, message }
 | `GET /api/markets` | `q`, `status`, `industry`, `sort` (`closing`, `active`, `newest`), `cursor`, `limit` | `MarketSummary[]` |
 | `GET /api/markets/:slug` | | `MarketDetail` |
 | `GET /api/markets/:slug/history` | | `{ marketId, openingBaseline, points: HistoryPoint[] }` |
+| `GET /api/markets/:slug/replay` | | `ReplayData` (see Market Replay) |
 | `GET /api/startups` | `q`, `industry`, `cursor`, `limit` | `StartupSummary[]` |
 | `GET /api/startups/:slug` | | `StartupProfile` |
 
@@ -47,18 +48,80 @@ Types: `lib/market-view/types.ts`.
 { "marketId": "...", "side": "YES", "credits": 25, "idempotencyKey": "uuid" }
 ```
 
-Expected success: `201 { "data": { "id", "marketId", "side", "credits", "createdAt", "entryAllocationShare"?, "balanceAfter"? } }`. The two optional fields are shown on the receipt when present.
+Expected success: `201 { "data": { "id", "marketId", "side", "credits", "createdAt", "entryAllocationShare"?, "balanceAfter"?, "priceAfter"? } }`. Optional fields may be null or absent and are shown on the receipt only when set: `priceAfter` as "General Users estimate after", `balanceAfter` as "Balance after". Other LMSR receipt fields (`shares`, `averagePrice`, `digest`, and so on) are accepted and ignored. When `balanceAfter` is null the panel refetches the balance from `/api/users/me`.
 
 Error codes the panel handles: `UNAUTHENTICATED` (sign-in prompt), `INSUFFICIENT_CREDITS`, `INVALID_STATE` (market closed, form locks), `NOT_FOUND`, `CONFLICT`, `VALIDATION_ERROR` (shows the server message), `FORBIDDEN`. The same idempotency key is resent when a user retries after a network failure, and a new one is made when the forecast changes. The browser never computes balances.
 
+## Market Replay
+
+A Replay button beside the market chart opens a dialog that plays the market's history back. Code: `components/ui/replay/` (UI), `lib/market-view/replay.ts` (pure logic, unit tested), `lib/market-view/replay-data.ts` (server query).
+
+Signals, all read from existing `MarketSnapshot` rows (ordered by `sequence`, forward-filled between rows):
+
+| Label | Column |
+| --- | --- |
+| Senzi Model | `modelValue` |
+| General Users | `generalEstimate` |
+| Verified Users | `specializedEstimate` |
+
+`ReplayData` is `{ source, market, start, end, points, events, activity, resolution }`.
+
+- `points`: `{ at, model, general, verified, forecasts, credits }`, values 0 to 1 or null when a signal has not been recorded.
+- `events`: `{ id, at, kind, title, detail?, url?, origin }`. `origin` is `real` (market opened, opening baseline, linked news, resolution), `derived` (computed from the history: large moves and wide gaps), or `demo`.
+- `activity`: forecasts grouped into about 60 time buckets with YES and NO counts and credits only. No user ids.
+- `resolution`: outcome, date, and first evidence URL, only once resolved.
+
+Replay needs at least two recorded moments of one signal; otherwise it shows "Not enough history to replay yet." Biggest move, Biggest divergence, and Compare moments are computed from the numbers only.
+
+Demo data: with `SENZI_REPLAY_DEMO=1`, markets without enough history get generated history from `lib/market-view/replay-demo.ts`. The response has `source: "demo"`, the dialog shows a "Demo data" badge, and every demo event is titled "Demo event: ...". Real history always wins. Leave the variable unset in production.
+
+Keyboard: Space plays or pauses, arrow keys step between recorded moments and events, Home and End jump to the ends of the slider, Escape leaves presentation mode and then closes.
+
 ## Theme, motion, and app chrome
 
-- Light, dark, and system themes. `components/ui/theme.css` holds the tokens; the ink and red scales, `surface`, `page`, and `hairline` switch under a `.dark` class on `<html>`. `night` and `mist` never switch (navbar, hero). `white` is never redefined, so VC and admin `bg-white` and `dark:` styles behave as before.
-- `ThemeScript` applies the saved or system theme before first paint; `ThemeToggle` switches it.
+- Light, dark, and system themes. `components/ui/theme.css` holds the tokens; the ink and red scales, `surface`, `page`, and `hairline` switch under a `.dark` class on `<html>`. The navbar, hero, tutorial, and tab bar use these switching tokens, so every part of the page follows the theme. `night` and `mist` stay fixed and are only for surfaces that must remain charcoal. `white` is never redefined, so VC and admin `bg-white` and `dark:` styles behave as before.
+- `ThemeScript` applies the saved or system theme before first paint. `ThemeToggle` (moon or sun in the navbar) switches between light and dark in one click; the OS setting applies until it is used.
 - `AppOverlays` mounts the mobile tab bar, the Command-K palette (also `/`), and toasts once.
 - `NotificationsBell` reads `GET /api/users/me/notifications` and uses `PATCH` with `{ ids: "all" }`, and badges the tab icon while anything is unread.
+- Tooltips (`InfoTip`, chart and replay markers) are removed from layout while hidden and shift to stay on screen, so they never widen the page on phones.
 - Motion uses CSS keyframes and React `ViewTransition`; everything is disabled under `prefers-reduced-motion`.
-- Preferences kept in `localStorage`: `senzi-theme`, `senzi-last-credits`, `senzi-recent-searches`, `senzi-filters:<path>`, and `senzi-tour-market-v1`.
+- Preferences kept in `localStorage`: `senzi-theme`, `senzi-a11y`, `senzi-lang`, `senzi-last-credits`, `senzi-recent-searches`, `senzi-filters:<path>`, and `senzi-tour-market-v1`.
+
+## Accessibility center
+
+The accessibility icon in the navbar opens a floating panel (a bottom sheet on phones). Changes apply instantly and are saved in `localStorage` (`senzi-a11y`). A red dot on the icon shows when anything differs from the defaults.
+
+Each setting is a data attribute on `<html>`, applied before first paint by `ThemeScript`. Global CSS in `components/ui/a11y/a11y.css` reacts to it, so pages need no settings logic.
+
+| Setting | Attribute | Effect |
+| --- | --- | --- |
+| Dyslexia-Friendly Reading | `data-dyslexia` | Letter, word, and line spacing on reading text; shorter lines; slightly larger text. Charts, logos, `translate="no"` names, and `tabular-nums` figures are excluded. |
+| Text Size | `data-text-size` (`sm`, `lg`, `xl`) | Rescales Tailwind's `--text-*` variables; large headings scale half as much. Chart labels keep their size. |
+| Comfortable Spacing | `data-spacing` | `--spacing` grows 5% and reading line height increases. |
+| High Contrast | `data-contrast` | Darker muted text, stronger hairlines, heavier focus ring, underlined text links, grayscale disabled controls. Light and dark. |
+| Reduce Motion | `data-reduce-motion` | Stops animations, hover movement, scroll reveals, and view transitions. The OS setting does the same. `motionReduced()` covers animated numbers and Replay easing. |
+| Chart Accessibility | `data-chart` (`cvd`, `contrast`) | See below. |
+| Focus Mode | `data-focus` | Hides decoration and `data-focus-hide` details; `<Secondary>` sections collapse behind a "Show" button. |
+| Larger Controls | `data-large-controls` | 44px minimum targets for buttons, fields, radios, switches, and nav links. Chart markers (`data-hit-exempt="marker"`) gain padding instead. |
+
+Presets (Standard, Reading Friendly, High Visibility, Reduced Motion) set several options at once; users can adjust afterwards.
+
+Charts: every chart takes its line styles from `components/ui/chart-style.tsx`. In Color-Blind Friendly and High Contrast modes Model is solid with circles, General is dashed with squares, and Verified is dotted with triangles. The market chart uses the same patterns for YES allocation, calibrated probability, and baseline. Legends use `LineSwatch` so they match the lines. Future charts (portfolio, leaderboard) should use the same module.
+
+Also included:
+
+- `ReadAloud`: speaker button using the browser's SpeechSynthesis, with pause and stop. It reads the page text as shown, so translated text is read in the chosen language. Hidden when speech is unavailable. On the market question and rules, and on each walkthrough step.
+- `Term`: dotted-underline term with a plain-language tooltip from `lib/glossary.ts` (Senzi Model, General Users, Verified Users, Probability, Market resolution, Virtual credits, Forecast). Escape hides it.
+- Keyboard: Replay, search, and the market tour trap focus while open (`useFocusTrap`); segmented controls use arrow keys; the market chart shows a focus ring.
+
+## Languages
+
+The translate icon offers English (default), Spanish, Mandarin Chinese, Hindi, Portuguese, French, Japanese, and Korean. The choice is saved in `localStorage` (`senzi-lang`) and sets `<html lang>` before first paint.
+
+- Interface text comes from `lib/i18n/messages.ts`: one row per English string with seven translations, plus pattern rules for labels with numbers ("Closes in 12 days"). It works in every browser.
+- Database content (market questions, news, startup details) uses the browser's on-device Translator API where available (current Chrome and Edge). Nothing is sent to a server. Other browsers keep that content in English, and the menu says so.
+- `components/ui/i18n/translator.ts` translates text nodes in place and follows React updates with a MutationObserver. It skips nodes React has not hydrated yet, so hydration never sees translated text.
+- Mark brand names and anything that must stay as written with `translate="no"`. Add new interface strings to `messages.ts`; the unit tests check every language has every string.
 
 ## Shared files touched
 
