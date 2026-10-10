@@ -18,6 +18,7 @@ import type { AdminMarketSummary, AdminStartupSummary, RequestContext, SessionUs
 import {
   checkMarketInvariants,
   createMarketForStudySchema,
+  idSchema,
   type AdminCreditAdjustmentInput,
   type CreateMarketForStudyInput,
   type CreateMarketInput,
@@ -404,6 +405,45 @@ export async function createMarketForStudy(raw: CreateMarketForStudyInput): Prom
     if (isUniqueViolation(error, "slug")) return db.market.findUniqueOrThrow({ where: { slug } });
     throw error;
   }
+}
+
+/**
+ * Stops forecasting on a study's market when VC Intelligence closes the study
+ * early. The caller (the study close transition) checks authorization.
+ * Idempotent: a market that is already CLOSED, RESOLVED, or CANCELLED is
+ * returned unchanged. Returns null when the study never opened a market.
+ */
+export async function closeMarketForStudy(input: {
+  studyId: string;
+  closedById: string | null;
+  reason?: string | null;
+}): Promise<Market | null> {
+  const studyId = idSchema.parse(input.studyId);
+  return db.$transaction(async (tx) => {
+    const study = await tx.researchStudy.findUnique({ where: { id: studyId }, select: { marketId: true } });
+    if (!study) throw notFound("Study");
+    if (!study.marketId) return null;
+
+    const { count } = await tx.market.updateMany({
+      where: { id: study.marketId, status: MarketStatus.OPEN },
+      data: { status: MarketStatus.CLOSED },
+    });
+    const market = await tx.market.findUniqueOrThrow({ where: { id: study.marketId } });
+    if (count === 1) {
+      await recordAudit(
+        {
+          actorId: input.closedById,
+          organizationId: market.organizationId,
+          action: "market.closeFromStudy",
+          entityType: "Market",
+          entityId: market.id,
+          data: { studyId, reason: input.reason ?? null },
+        },
+        tx,
+      );
+    }
+    return market;
+  });
 }
 
 /**
