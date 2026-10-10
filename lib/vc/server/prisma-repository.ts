@@ -190,7 +190,8 @@ export function createPrismaVcRepository(prisma: PrismaClient): VcRepository {
     },
 
     async createAlerts(alerts) {
-      const { count } = await prisma.vcAlert.createMany({
+      if (alerts.length === 0) return [];
+      const rows = await prisma.vcAlert.createManyAndReturn({
         data: alerts.map((a) => ({
           organizationId: a.organizationId,
           type: a.type,
@@ -204,7 +205,11 @@ export function createPrismaVcRepository(prisma: PrismaClient): VcRepository {
         })),
         skipDuplicates: true,
       });
-      return count;
+      return rows.map((a) => ({
+        ...a,
+        type: a.type as AlertType,
+        payload: (a.payload ?? {}) as Record<string, unknown>,
+      }));
     },
     async listAlerts(organizationId, userId, options) {
       const rows = await prisma.vcAlert.findMany({

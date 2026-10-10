@@ -1,5 +1,6 @@
 import type { VcDeps } from "../ports";
 import { createAlertService } from "./alerts";
+import { createCompareService } from "./compare";
 import { createDashboardService } from "./dashboard";
 import { createReportService } from "./reports";
 import { createStudyService } from "./studies";
@@ -11,7 +12,8 @@ export function createVcServices(deps: VcDeps) {
   const alerts = createAlertService(deps);
   const reports = createReportService(deps);
   const dashboard = createDashboardService(deps, { alerts, reports });
-  return { studies, watchlists, alerts, reports, dashboard };
+  const compare = createCompareService(deps);
+  return { studies, watchlists, alerts, reports, dashboard, compare };
 }
 
 export type VcServices = ReturnType<typeof createVcServices>;

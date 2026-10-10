@@ -17,6 +17,10 @@
     "db:seed": "prisma db seed",
     "db:reset": "prisma migrate reset --force && prisma db seed",
     "db:studio": "prisma studio",
+    "scrape": "tsx scripts/scrapers/run.ts",
+    "model:demo-data": "tsx lib/model/cli/make-demo-data.ts",
+    "model:refresh": "tsx lib/model/cli/refresh.ts",
+    "model:backtest": "tsx lib/model/cli/backtest.ts",
     "postinstall": "prisma generate"
   },
   "dependencies": {

@@ -6,6 +6,7 @@ import { canViewMarket } from "@/lib/permissions";
 import type { SessionUser } from "@/lib/types";
 import { VcError } from "@/lib/vc/errors";
 import { getVcDeps } from "@/lib/vc/server/container";
+import { createIndicatorGateway } from "@/lib/vc/server/indicators-adapter";
 import { createVcServices } from "@/lib/vc/services";
 import type { StudyVisibility, VcContext } from "@/lib/vc/types";
 import { makeAdmin, makeMarket, makeOrg, makeStartup, makeUser, placeForecast, resetDatabase } from "../helpers";
@@ -231,8 +232,8 @@ describe("adapters", () => {
   it("dedupes alerts and keeps watchlist names unique per firm", async () => {
     const w = await world();
     const alert = { organizationId: w.orgA.id, type: "DEADLINE_APPROACHING" as const, title: "t", body: "b", dedupeKey: "k1" };
-    expect(await deps.repo.createAlerts([alert])).toBe(1);
-    expect(await deps.repo.createAlerts([alert])).toBe(0);
+    expect(await deps.repo.createAlerts([alert])).toHaveLength(1);
+    expect(await deps.repo.createAlerts([alert])).toHaveLength(0);
     await services.alerts.markRead(w.ctx.analystA, (await services.alerts.list(w.ctx.analystA, { limit: 10 })).map((a) => a.id));
     expect(await services.alerts.unreadCount(w.ctx.analystA)).toBe(0);
     expect(await services.alerts.unreadCount(w.ctx.ownerA)).toBe(1);
@@ -242,3 +243,40 @@ describe("adapters", () => {
     expect(await services.watchlists.list(w.ctx.ownerB)).toEqual([]);
   });
 });
+
+describe("alerts reach personal inboxes", () => {
+  it("delivers to members who can see the study and clears them when read in VC", async () => {
+    const w = await world();
+    const study = await openStudy(w, "RESTRICTED");
+    // Status changes reach only the author and firm owners/admins.
+    const inbox = async (u: SessionUser) => db.notification.findMany({ where: { userId: u.id } });
+    expect((await inbox(w.analystA)).length).toBeGreaterThan(0);
+    expect((await inbox(w.ownerA)).length).toBeGreaterThan(0);
+    expect(await inbox(w.viewerA)).toEqual([]);
+    expect(await inbox(w.ownerB)).toEqual([]);
+
+    const [first] = await services.alerts.list(w.ctx.analystA, { limit: 1 });
+    const linked = (await inbox(w.analystA)).find((n) => (n.data as { vcAlertId?: string }).vcAlertId === first.id)!;
+    expect(linked).toMatchObject({ link: `/vc/studies/${study.id}`, readAt: null });
+    await services.alerts.markRead(w.ctx.analystA, [first.id]);
+    expect((await db.notification.findUniqueOrThrow({ where: { id: linked.id } })).readAt).not.toBeNull();
+  });
+});
+
+describe("startup comparison", () => {
+  it("reads public indicators from the model for a startup it tracks", async () => {
+    const w = await world();
+    const tracked = await db.startup.update({ where: { id: w.startup.id }, data: { slug: "supabase", name: "Supabase" } });
+    const other = await makeStartup();
+    // Exercises the real model adapter directly; the app uses a placeholder until lib/model can be bundled.
+    const c = await createVcServices({ ...deps, indicators: createIndicatorGateway() }).compare.compare(w.ctx.analystA, [
+      tracked.id,
+      other.id,
+    ]);
+    expect(c.columns[0].indicators.status).toBe("ok");
+    expect(c.columns[0].indicators.rows.length).toBeGreaterThan(0);
+    expect(c.columns[0].indicators.rows.every((r) => !/sponsor/i.test(r.provenanceLabel))).toBe(true);
+    expect(c.columns[1].indicators.status).toBe("not_tracked");
+  });
+});
+
