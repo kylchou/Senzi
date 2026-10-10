@@ -9,6 +9,7 @@ import { AuthControls } from "@/components/ui/AuthControls";
 import { openCommandPalette, ShortcutHint } from "@/components/ui/CommandPalette";
 import { NotificationsBell } from "@/components/ui/NotificationsBell";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
+import { VcLink } from "@/components/ui/VcLink";
 import { cn } from "@/components/ui/cn";
 import { useRememberedHref } from "@/components/ui/remembered-filters";
 
@@ -76,8 +77,18 @@ function RoutedNavLinks() {
   return <NavLinks pathname={usePathname()} />;
 }
 
+const linkClass =
+  "rounded-full px-3.5 py-1.5 text-sm font-medium text-mist-300 transition-colors duration-200 hover:bg-white/5 hover:text-white";
+
 function NavLinks({ pathname }: { pathname: string | null }) {
-  return links.map((link) => <NavLink key={link.href} link={link} pathname={pathname} />);
+  return (
+    <>
+      {links.map((link) => (
+        <NavLink key={link.href} link={link} pathname={pathname} />
+      ))}
+      <VcLink active={isActive(pathname, "/vc")} className={linkClass} />
+    </>
+  );
 }
 
 /** Opens the listing with its last-used filters. */
@@ -87,10 +98,7 @@ function NavLink({ link, pathname }: { link: (typeof links)[number]; pathname: s
     <Link
       href={href}
       aria-current={isActive(pathname, link.href) ? "page" : undefined}
-      className={cn(
-        "rounded-full px-3.5 py-1.5 text-sm font-medium text-mist-300 transition-colors duration-200 hover:bg-white/5 hover:text-white",
-        isActive(pathname, link.href) && "bg-white/10 text-white",
-      )}
+      className={cn(linkClass, isActive(pathname, link.href) && "bg-white/10 text-white")}
     >
       {link.label}
     </Link>
