@@ -8,7 +8,7 @@ import { STUDY_STATUSES } from "@/lib/vc/types";
 import { studyListQuery } from "@/lib/vc/validation";
 
 const SCOPES = [
-  { key: "organization", label: "My firm" },
+  { key: "organization", label: "My questions" },
   { key: "participating", label: "Invited" },
   { key: "public", label: "Public research" },
 ] as const;
@@ -34,7 +34,7 @@ export default async function StudiesPage({
   return (
     <div className="space-y-4">
       <header className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-semibold">Research studies</h1>
+        <h1 className="text-2xl font-semibold">My questions</h1>
         {ctx.activeOrg && (
           <Link
             href="/vc/studies/new"

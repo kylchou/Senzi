@@ -84,6 +84,11 @@ export interface MarketSummary {
 
 
 export interface MarketEstimate {
+  /** Independent model and LMSR prices; absent on legacy estimates. */
+  modelValue?: number | null;
+  generalPrice?: number | null;
+  specializedPrice?: number | null;
+  specializedCount?: number;
   marketId: string;
   status: MarketStatus;
   /** Opening baseline set before any community forecasts. Not a forecast. */
@@ -121,9 +126,12 @@ export interface CalibratedProbability {
 }
 
 export interface EstimatePoint {
+  modelValue?: number | null;
+  specializedPrice?: number | null;
   /** Snapshot id, when the point comes from a stored snapshot. */
   id?: string;
   at: Date;
+  /** General LMSR price. Legacy property name retained for existing consumers. */
   yesShare: number | null;
   totalCredits: number;
   participantCount: number;
@@ -276,6 +284,7 @@ export interface StudyReport {
   };
   communityEstimate: {
     label: string;
+    /** Legacy document key; the accompanying label distinguishes LMSR from old allocation reports. */
     yesAllocationShare: number | null;
     yesCredits: number;
     noCredits: number;
@@ -320,7 +329,7 @@ export interface CompareQuestion {
   status: MarketStatus;
   closesAt: Date | null;
   openingBaseline: number | null;
-  /** Community YES credit-allocation share. Not a calibrated probability. */
+  /** General LMSR price; legacy property name retained for comparison consumers. */
   allocationShare: number | null;
   calibratedProbability: number | null;
   forecasters: number;
