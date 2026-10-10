@@ -30,6 +30,7 @@ import {
 } from "@/lib/resolutions";
 import { requirePlatformAdmin } from "@/lib/auth";
 import { reviewVcVerification } from "@/lib/verification";
+import { createAccessCode, reviewProductVerification, revokeAccessCode } from "@/lib/product-verification";
 import type { SessionUser, ValidationIssue } from "@/lib/types";
 import {
   adminCreditAdjustmentSchema,
@@ -43,6 +44,7 @@ import {
   rejectProposalSchema,
   startupFactSchema,
   reviewVerificationSchema,
+  createAccessCodeSchema,
   setAccountTypeSchema,
   setPlatformRoleSchema,
   updateMarketSchema,
@@ -168,6 +170,8 @@ function marketFields(fd: FormData) {
         }
       : {}),
     visibility,
+    // Unchecked boxes aren't submitted, so a hidden field marks the box as present.
+    ...(fd.has("verifiedUsersOnlyField") ? { verifiedUsersOnly: checkbox(fd, "verifiedUsersOnly") } : {}),
     ...(fd.has("visibility")
       ? { organizationId: visibility === "PUBLIC" ? null : text(fd, "organizationId") || null }
       : {}),
@@ -312,6 +316,39 @@ export async function reviewVerificationAction(requestId: string, _: ActionState
   return run(
     (admin) =>
       reviewVcVerification(admin, requestId, reviewVerificationSchema.parse({ decision: text(fd, "decision"), note: text(fd, "note") })),
+    "Decision saved",
+  );
+}
+
+// --- Product users --------------------------------------------------------------
+
+export async function createAccessCodeAction(_: ActionState, fd: FormData): Promise<ActionState> {
+  let code = "";
+  const state = await run(async (admin) => {
+    const input = createAccessCodeSchema.parse({
+      startupId: text(fd, "startupId"),
+      code: text(fd, "code") ?? "",
+      label: text(fd, "label"),
+      maxUses: number(fd, "maxUses") ?? null,
+      expiresInDays: number(fd, "expiresInDays") ?? null,
+    });
+    code = (await createAccessCode(admin, input)).code;
+  }, "Code created");
+  return state.ok ? { ...state, message: `Code: ${code}. Copy it now; it won't be shown again.` } : state;
+}
+
+export async function revokeAccessCodeAction(codeId: string): Promise<ActionState> {
+  return run((admin) => revokeAccessCode(admin, codeId), "Code revoked");
+}
+
+export async function reviewProductVerificationAction(verificationId: string, _: ActionState, fd: FormData): Promise<ActionState> {
+  return run(
+    (admin) =>
+      reviewProductVerification(
+        admin,
+        verificationId,
+        reviewVerificationSchema.parse({ decision: text(fd, "decision"), note: text(fd, "note") }),
+      ),
     "Decision saved",
   );
 }

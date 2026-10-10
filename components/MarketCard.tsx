@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Clock, Users } from "lucide-react";
+import { Clock, ShieldCheck, Users } from "lucide-react";
 import { AllocationBar } from "@/components/ui/AllocationBar";
 import { MarketStatusBadge } from "@/components/ui/MarketStatusBadge";
 import { CardSparkline } from "@/components/ui/CardSparkline";
@@ -36,6 +36,11 @@ export function MarketCard({ market }: { market: MarketSummary }) {
           </Link>
         </h3>
       </Morph>
+      {market.verifiedUsersOnly && (
+        <p className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-ink-600">
+          <ShieldCheck className="size-3.5" aria-hidden /> Verified {market.startup.name} users only
+        </p>
+      )}
 
       <div className="mt-auto pt-5">
         <div className="mb-2.5 flex items-end justify-between gap-2">

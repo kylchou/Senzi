@@ -21,7 +21,8 @@
     "model:demo-data": "tsx lib/model/cli/make-demo-data.ts",
     "model:refresh": "tsx lib/model/cli/refresh.ts",
     "model:backtest": "tsx lib/model/cli/backtest.ts",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "db:demo:verified": "tsx prisma/demo-verified.ts"
   },
   "dependencies": {
     "@clerk/nextjs": "^7.9.14",

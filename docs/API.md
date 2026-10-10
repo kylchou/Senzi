@@ -54,6 +54,15 @@ Admin (platform admins only)
 
 The `/admin` pages call the same functions in `lib/admin.ts`.
 
+## Verified product users
+
+People prove they use a startup's product to unlock its verified-users-only markets (`Market.verifiedUsersOnly`, set in the admin market form and locked once the market opens). Code is in `lib/product-verification.ts`.
+
+- **Access code (instant).** Admins make codes at `/admin/product-users`: generated, or custom like `STRIPE-DEMO`, with optional max uses and expiry. Only a hash is stored, and the code is shown once. Users enter it at `/verify/<startup slug>`; case, spaces, and dashes don't matter. Guesses are rate-limited to 10 an hour.
+- **Screenshot (reviewed).** Users upload a PNG, JPEG, or WebP (up to 3 MB) of their account. It waits at `/admin/product-users` for an admin, who can't review their own. `GET /api/admin/product-verifications/:id/screenshot` serves the image to admins only.
+- Approved verifications feed Felix's `TraderDirectory.isVerifiedUserOf`, so the engine marks those forecasts `verifiedAtEntry` (the Verified Users line) and refuses trades on verified-users markets from anyone else (`NOT_VERIFIED`).
+- `npm run db:demo:verified` adds a Stripe verified-users market and the `STRIPE-DEMO` code to a database seeded before this existed. It's safe to run twice.
+
 ## Market lifecycle
 
 `DRAFT → OPEN ⇄ CLOSED → RESOLVED`, and a market can be `CANCELLED` from any of those. Some rules:
