@@ -15,7 +15,7 @@ import { MarketStatusBadge } from "@/components/ui/MarketStatusBadge";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { StartupMark } from "@/components/ui/StartupMark";
 import { shareMovement } from "@/lib/market-view/chart";
-import { formatDateTime, formatDeadline, isPastDeadline, requestTime } from "@/lib/market-view/format";
+import { formatDate, formatDateTime, formatDeadline, isPastDeadline, requestTime } from "@/lib/market-view/format";
 import { getMarket, getMarketHistory } from "@/lib/market-view/queries";
 
 export async function generateMetadata({ params }: PageProps<"/markets/[slug]">): Promise<Metadata> {
@@ -65,7 +65,7 @@ async function MarketView({ params }: Pick<PageProps<"/markets/[slug]">, "params
             <StartupMark name={market.startup.name} logoUrl={market.startup.logoUrl} size="sm" />
             <span className="text-sm font-semibold text-ink-900">{market.startup.name}</span>
           </Link>
-          <span className="text-sm text-ink-500">{market.category ?? market.startup.sector}</span>
+          <span className="text-sm text-ink-500">{market.category ?? market.startup.industry}</span>
           <MarketStatusBadge status={market.status} outcome={market.outcome} closesAt={market.closesAt} />
         </div>
         <h1 className="mt-4 text-3xl font-bold leading-tight text-ink-900 sm:text-4xl">{market.question}</h1>
@@ -103,9 +103,29 @@ async function MarketView({ params }: Pick<PageProps<"/markets/[slug]">, "params
             <ProbabilityChart history={history} openingBaseline={market.openingBaseline} now={chartEnd} />
           </section>
 
+          <section aria-labelledby="sources-heading">
+            <h2 id="sources-heading" className="mb-3 font-display text-lg font-bold text-ink-900">
+              Sources
+            </h2>
+            {market.sources.length === 0 ? (
+              <p className="text-sm text-ink-600">No sources listed.</p>
+            ) : (
+              <ul className="divide-y divide-ink-100 rounded-[var(--radius-card)] border border-ink-200">
+                {market.sources.map((source) => (
+                  <li key={source.url} className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 px-5 py-3.5 text-sm">
+                    <ExternalLink href={source.url}>{source.title}</ExternalLink>
+                    <span className="text-xs text-ink-500">
+                      {[source.publisher, source.publishedAt && formatDate(source.publishedAt)].filter(Boolean).join(" · ")}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+
           <section aria-labelledby="coverage-heading">
             <h2 id="coverage-heading" className="mb-3 font-display text-lg font-bold text-ink-900">
-              Sources and coverage
+              Coverage
             </h2>
             <NewsFeed items={market.coverage} showStartup={false} emptyTitle="No linked coverage yet" />
           </section>
@@ -122,7 +142,7 @@ async function MarketView({ params }: Pick<PageProps<"/markets/[slug]">, "params
               >
                 Startup profile
               </Link>
-              {market.startup.website && <ExternalLink href={market.startup.website}>Website</ExternalLink>}
+              {market.startup.websiteUrl && <ExternalLink href={market.startup.websiteUrl}>Website</ExternalLink>}
             </div>
           </section>
         </div>

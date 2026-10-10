@@ -1,4 +1,4 @@
-import { CheckCircle2, FileSearch, Scale } from "lucide-react";
+import { CheckCircle2, CircleSlash, Scale } from "lucide-react";
 import { AllocationBar } from "@/components/ui/AllocationBar";
 import { ExternalLink } from "@/components/ui/ExternalLink";
 import { InfoTip } from "@/components/ui/InfoTip";
@@ -37,7 +37,7 @@ export function MarketBrief({ market }: { market: MarketDetail }) {
           <CheckCircle2 className="mt-0.5 size-5 shrink-0 text-red-500" aria-hidden />
           <div className="min-w-0">
             <p className="font-display text-lg font-bold">
-              {resolution.outcome === "CANCELLED" ? "Resolved as cancelled" : `Resolved ${resolution.outcome}`}
+              {resolution.outcome === "VOID" ? "Resolved as void" : `Resolved ${resolution.outcome}`}
             </p>
             <p className="text-sm text-ink-300">Verified outcome, {formatDate(resolution.resolvedAt)}.</p>
             <p className="mt-2 text-sm text-ink-200">{resolution.evidenceSummary}</p>
@@ -68,14 +68,17 @@ export function MarketBrief({ market }: { market: MarketDetail }) {
           <Stat
             label="Calibrated"
             value={formatShare(market.calibratedProbability)}
-            note={market.calibratedProbability === null ? "Not yet available" : "Model estimate"}
-            tip="Probability of YES estimated by the forecasting engine from past accuracy. Separate from the community allocation."
+            note={market.calibratedProbability === null ? "Not yet available" : "From the forecasting engine"}
+            tip="Probability of YES from the forecasting engine, shown only once its calibration report supports it. Separate from the community allocation."
           />
           <Stat
             label="Opening baseline"
             value={formatShare(market.openingBaseline)}
-            note="Set at open"
-            tip="Starting estimate set by the market author before any forecasts. Not a community figure."
+            note={market.openingBaseline === null ? "Not set" : "Set at open"}
+            tip={
+              market.baselineMethodology ??
+              "Starting estimate set before any forecasts, with its method. Not a community figure."
+            }
           />
           <Stat
             label="Forecasts"
@@ -101,30 +104,23 @@ export function MarketBrief({ market }: { market: MarketDetail }) {
         </div>
       </div>
 
-      <div className="rounded-[var(--radius-card)] border border-ink-200 p-5">
-        <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.12em] text-red-700">
-          <Scale className="size-4" aria-hidden /> Resolution criteria
-        </p>
-        <p className="mt-2 whitespace-pre-line text-sm leading-relaxed text-ink-800">{market.resolutionCriteria}</p>
-        {(market.resolutionSource || market.resolvesBy) && (
-          <dl className="mt-4 grid gap-3 border-t border-ink-100 pt-4 text-sm sm:grid-cols-2">
-            {market.resolutionSource && (
-              <div>
-                <dt className="flex items-center gap-1.5 text-xs font-medium text-ink-600">
-                  <FileSearch className="size-3.5" aria-hidden /> Evidence source
-                </dt>
-                <dd className="mt-0.5 text-ink-800">{market.resolutionSource}</dd>
-              </div>
-            )}
-            {market.resolvesBy && (
-              <div>
-                <dt className="text-xs font-medium text-ink-600">Expected resolution</dt>
-                <dd className="mt-0.5 text-ink-800">{formatDate(market.resolvesBy)}</dd>
-              </div>
-            )}
-          </dl>
-        )}
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div className="rounded-[var(--radius-card)] border border-ink-200 p-5">
+          <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.12em] text-red-700">
+            <Scale className="size-4" aria-hidden /> Resolves YES if
+          </p>
+          <p className="mt-2 whitespace-pre-line text-sm leading-relaxed text-ink-800">{market.yesCriteria}</p>
+        </div>
+        <div className="rounded-[var(--radius-card)] border border-ink-200 p-5">
+          <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.12em] text-ink-600">
+            <CircleSlash className="size-4" aria-hidden /> Resolves NO if
+          </p>
+          <p className="mt-2 whitespace-pre-line text-sm leading-relaxed text-ink-800">{market.noCriteria}</p>
+        </div>
       </div>
+      {market.resolvesBy && !resolution && (
+        <p className="text-sm text-ink-600">Expected resolution by {formatDate(market.resolvesBy)}.</p>
+      )}
     </div>
   );
 }

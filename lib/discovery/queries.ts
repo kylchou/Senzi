@@ -13,7 +13,7 @@ const startupSummarySelect = {
   slug: true,
   name: true,
   tagline: true,
-  sector: true,
+  industry: true,
   stage: true,
   headquarters: true,
   foundedYear: true,
@@ -28,7 +28,7 @@ function toStartupSummary(row: StartupSummaryRow): StartupSummary {
     slug: row.slug,
     name: row.name,
     tagline: row.tagline,
-    sector: row.sector,
+    industry: row.industry,
     stage: row.stage,
     headquarters: row.headquarters,
     foundedYear: row.foundedYear,
@@ -37,18 +37,18 @@ function toStartupSummary(row: StartupSummaryRow): StartupSummary {
   };
 }
 
-export function publicStartupFilter(params: Pick<StartupQuery, "q" | "sector">): Prisma.StartupWhereInput {
+export function publicStartupFilter(params: Pick<StartupQuery, "q" | "industry">): Prisma.StartupWhereInput {
   const and: Prisma.StartupWhereInput[] = [PUBLIC_STARTUP_WHERE];
   if (params.q) {
     and.push({
       OR: [
         { name: { contains: params.q, mode: "insensitive" } },
         { tagline: { contains: params.q, mode: "insensitive" } },
-        { sector: { contains: params.q, mode: "insensitive" } },
+        { industry: { contains: params.q, mode: "insensitive" } },
       ],
     });
   }
-  if (params.sector) and.push({ sector: params.sector });
+  if (params.industry) and.push({ industry: params.industry });
   return { AND: and };
 }
 
@@ -83,31 +83,46 @@ export async function listFeaturedStartups(limit = 4): Promise<StartupSummary[]>
   return rows.map(toStartupSummary);
 }
 
-export async function listSectors(): Promise<string[]> {
+export async function listIndustries(): Promise<string[]> {
   const rows = await db.startup.findMany({
     where: PUBLIC_STARTUP_WHERE,
-    distinct: ["sector"],
-    select: { sector: true },
-    orderBy: { sector: "asc" },
+    distinct: ["industry"],
+    select: { industry: true },
+    orderBy: { industry: "asc" },
   });
-  return rows.map((row) => row.sector);
+  return rows.map((row) => row.industry);
 }
 
 export const getStartupProfile = cache(async (slug: string): Promise<StartupProfile | null> => {
   const row = await db.startup.findFirst({
     where: { AND: [{ slug }, PUBLIC_STARTUP_WHERE] },
-    select: { ...startupSummarySelect, description: true, website: true },
+    select: {
+      ...startupSummarySelect,
+      description: true,
+      websiteUrl: true,
+      facts: {
+        orderBy: { asOf: "desc" },
+        select: { label: true, value: true, sourceName: true, sourceUrl: true, asOf: true, verified: true },
+      },
+    },
   });
   if (!row) return null;
 
   const [markets, news] = await Promise.all([listMarketsForStartup(row.id), listNews({ startupId: row.id, limit: 6 })]);
-  return { ...toStartupSummary(row), description: row.description, website: row.website, markets, news };
+  return {
+    ...toStartupSummary(row),
+    description: row.description,
+    websiteUrl: row.websiteUrl,
+    facts: row.facts.map((fact) => ({ ...fact, asOf: fact.asOf.toISOString() })),
+    markets,
+    news,
+  };
 });
 
 export async function searchAll(q: string): Promise<{ markets: MarketSummary[]; startups: StartupSummary[] }> {
   const [markets, startups] = await Promise.all([
-    listMarkets({ q, sort: "closing", limit: 12, status: undefined, sector: undefined, cursor: undefined }),
-    listStartups({ q, limit: 12, sector: undefined, cursor: undefined }),
+    listMarkets({ q, sort: "closing", limit: 12, status: undefined, industry: undefined, cursor: undefined }),
+    listStartups({ q, limit: 12, industry: undefined, cursor: undefined }),
   ]);
   return { markets: markets.items, startups: startups.items };
 }

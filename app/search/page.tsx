@@ -56,7 +56,7 @@ async function RoutedSearchForm({ searchParams }: Pick<PageProps<"/search">, "se
 
 async function Results({ searchParams }: Pick<PageProps<"/search">, "searchParams">) {
   const q = parseSearchQuery(await searchParams);
-  if (!q) return <EmptyState title="Search markets and startups" body="Try a company name, sector, or milestone." />;
+  if (!q) return <EmptyState title="Search markets and startups" body="Try a company name, industry, or milestone." />;
 
   await io();
   const results = await searchAll(q);

@@ -17,7 +17,7 @@ export function StartupCard({ startup }: { startup: StartupSummary }) {
             </Link>
           </h3>
           <p className="text-xs text-ink-500">
-            {startup.sector} · {formatStage(startup.stage)}
+            {startup.industry} · {formatStage(startup.stage)}
           </p>
         </div>
       </div>
