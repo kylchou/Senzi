@@ -270,11 +270,31 @@ export const createMarketForStudySchema = z
     noCriteria: criteriaSchema("NO"),
     closesAt: dateInputSchema,
     openingBaseline: z.object({ value: openingBaselineSchema, methodology: z.string().trim().min(3).max(1000) }),
+    /** The model estimate that set the opening baseline; becomes the market's model line. */
+    model: z
+      .object({
+        low: openingBaselineSchema,
+        high: openingBaselineSchema,
+        confidence: z.enum(["low", "medium", "high"]),
+        asOf: dateInputSchema,
+        modelName: z.string().trim().min(1).max(100),
+        modelVersion: z.string().trim().min(1).max(100),
+        inputsHash: z.string().trim().min(1).max(200),
+        inputsNote: z.string().trim().max(500),
+        /** Public-safe description of the inputs: no firm-entered values. */
+        inputsUsed: z.array(z.record(z.string(), z.unknown())).max(500),
+        notes: z.array(z.string().max(500)).max(50),
+      })
+      .strict(),
     visibility: z.enum(StudyVisibility),
     sources: z.array(z.object({ url: httpUrlSchema, title: z.string().trim().min(1).max(200) })).max(20),
     createdById: idSchema,
   })
-  .strict();
+  .strict()
+  .refine((v) => v.model.low <= v.openingBaseline.value && v.openingBaseline.value <= v.model.high, {
+    message: "The opening baseline must sit inside the model's band",
+    path: ["openingBaseline", "value"],
+  });
 
 export const marketStatusChangeSchema = z
   .object({

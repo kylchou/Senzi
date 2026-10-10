@@ -14,7 +14,8 @@ export default async function ReviewQueuePage() {
       <header>
         <h1 className="text-2xl font-semibold">Review queue</h1>
         <p className="text-sm text-slate-500 dark:text-slate-400">
-          Check that each question is measurable, uses public information only, and has a documented baseline methodology.
+          Check that each question is clear and uses public information only. The model sets the opening line when you open
+          forecasting; studies marked &ldquo;Not enough data&rdquo; can be approved but can&apos;t open until it can estimate them.
         </p>
       </header>
       <div className="rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-950">

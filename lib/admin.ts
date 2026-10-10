@@ -1,6 +1,7 @@
 import { z } from "zod";
 import type { Market, Prisma } from "@/generated/prisma/client";
 import {
+  BaselineStatus,
   MarketStatus,
   NotificationType,
   PlatformRole,
@@ -382,6 +383,11 @@ export async function createMarketForStudy(raw: CreateMarketForStudyInput): Prom
           openingBaseline: input.openingBaseline.value,
           baselineMethodology: input.openingBaseline.methodology,
           baselineSetAt: now,
+          // The model's estimate is both the opening price and the first point on the model line.
+          modelValue: input.openingBaseline.value,
+          modelVersion: input.model.modelVersion,
+          modelInputsNote: input.model.inputsNote || null,
+          modelUpdatedAt: input.model.asOf,
           visibility: input.visibility,
           organizationId: isPublic ? null : input.organizationId,
           status: MarketStatus.OPEN,
@@ -389,6 +395,26 @@ export async function createMarketForStudy(raw: CreateMarketForStudyInput): Prom
           closesAt: input.closesAt,
           createdById: input.createdById,
           sources: { create: input.sources.map((s, position) => ({ ...s, position })) },
+        },
+      });
+      // Written before the first trade, so the pricing engine reads its confidence for the starting liquidity.
+      await tx.modelBaselineSnapshot.create({
+        data: {
+          marketId: market.id,
+          status: BaselineStatus.OK,
+          probability: input.openingBaseline.value,
+          low: input.model.low,
+          high: input.model.high,
+          confidence: input.model.confidence,
+          asOf: input.model.asOf,
+          modelName: input.model.modelName,
+          modelVersion: input.model.modelVersion,
+          inputsHash: input.model.inputsHash,
+          method: { source: "study-opening-line" },
+          inputsUsed: input.model.inputsUsed as Prisma.InputJsonValue,
+          sources: [],
+          missing: [],
+          notes: input.model.notes,
         },
       });
       await createOpeningSnapshot(tx, market);

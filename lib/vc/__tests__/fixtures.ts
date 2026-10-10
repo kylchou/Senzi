@@ -35,6 +35,13 @@ export const users = {
   admin: ctxFor("admin", [], { isPlatformAdmin: true }),
 };
 
+const SLUGS: Record<string, string> = { startup_1: "acme", startup_2: "globex" };
+
+/** A link the fake model prices (see createFakeModel): weekly downloads, after the default deadline. */
+export function modelLinkFor(startupId = "startup_1", overrides: Partial<NonNullable<CreateStudyInput["modelLink"]>> = {}) {
+  return { metricId: `downloads:${SLUGS[startupId]}`, threshold: 50_000, targetDate: "2027-01-15", observations: [], ...overrides };
+}
+
 export function validStudyInput(overrides: Partial<CreateStudyInput> = {}): CreateStudyInput {
   return {
     startupId: "startup_1",
@@ -42,11 +49,10 @@ export function validStudyInput(overrides: Partial<CreateStudyInput> = {}): Crea
     yesCriteria: "A Series B round of at least $20M is publicly announced.",
     noCriteria: "No qualifying round is announced by the deadline.",
     context: "Acme raised a $8M Series A in 2025.",
-    baselineValue: 0.35,
-    baselineMethodology: "Historical base rate for comparable Series A SaaS companies.",
     deadline: new Date(NOW.getTime() + 60 * DAY),
     visibility: "ORGANIZATION",
     sources: [{ url: "https://example.com/acme-series-a", title: "Acme Series A announcement" }],
+    modelLink: modelLinkFor(overrides.startupId ?? "startup_1"),
     ...overrides,
   };
 }

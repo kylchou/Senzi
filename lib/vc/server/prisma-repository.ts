@@ -7,8 +7,11 @@ import { Prisma, type PrismaClient } from "@/generated/prisma/client";
 import type { NewStudy, NewStudyEvent, StudyFilter, StudyPatch, VcRepository } from "../ports";
 import type {
   AlertType,
+  FirmObservation,
+  ModelConfidence,
   SavedReport,
   Study,
+  StudyModelEstimate,
   StudyReport,
   VcAlert,
   Watchlist,
@@ -34,6 +37,37 @@ function toStudy(row: StudyRow): Study {
       publishedAt: s.publishedAt,
     })),
     participantIds: participants.map((p) => p.userId),
+  };
+}
+
+type EstimateRow = Prisma.StudyModelEstimateGetPayload<object>;
+
+function toModelEstimate(row: EstimateRow): StudyModelEstimate {
+  const link =
+    row.metricId && row.threshold != null && row.targetDate
+      ? { metricId: row.metricId, threshold: row.threshold, targetDate: row.targetDate.toISOString().slice(0, 10) }
+      : null;
+  return {
+    studyId: row.studyId,
+    status: row.status,
+    link,
+    probability: row.probability,
+    low: row.low,
+    high: row.high,
+    confidence: row.confidence as ModelConfidence | null,
+    modelName: "senzi-direct-metric",
+    modelVersion: row.modelVersion,
+    inputsHash: row.inputsHash,
+    methodology: row.methodology,
+    notes: row.notes,
+    inputsUsed: Array.isArray(row.inputsUsed) ? (row.inputsUsed as Record<string, unknown>[]) : [],
+    // The generated wording lives on the study itself (question and criteria).
+    question: null,
+    yesCriteria: null,
+    noCriteria: null,
+    asOf: row.calculatedAt,
+    observations: row.observations as unknown as FirmObservation[],
+    calculatedById: row.calculatedById,
   };
 }
 
@@ -250,6 +284,39 @@ export function createPrismaVcRepository(prisma: PrismaClient): VcRepository {
         data: owned.map((a) => ({ alertId: a.id, userId, readAt: at })),
         skipDuplicates: true,
       });
+    },
+
+    async findModelEstimate(studyId) {
+      const row = await prisma.studyModelEstimate.findUnique({ where: { studyId } });
+      return row ? toModelEstimate(row) : null;
+    },
+
+    async findModelEstimates(studyIds) {
+      if (studyIds.length === 0) return [];
+      const rows = await prisma.studyModelEstimate.findMany({ where: { studyId: { in: studyIds } } });
+      return rows.map(toModelEstimate);
+    },
+
+    async saveModelEstimate(e) {
+      const data = {
+        status: e.status,
+        metricId: e.link?.metricId ?? null,
+        threshold: e.link?.threshold ?? null,
+        targetDate: e.link ? new Date(`${e.link.targetDate}T00:00:00Z`) : null,
+        probability: e.probability,
+        low: e.low,
+        high: e.high,
+        confidence: e.confidence,
+        modelVersion: e.modelVersion,
+        inputsHash: e.inputsHash,
+        methodology: e.methodology,
+        notes: e.notes,
+        observations: e.observations as unknown as Prisma.InputJsonValue,
+        inputsUsed: e.inputsUsed as Prisma.InputJsonValue,
+        calculatedAt: e.asOf,
+        calculatedById: e.calculatedById,
+      };
+      await prisma.studyModelEstimate.upsert({ where: { studyId: e.studyId }, create: { studyId: e.studyId, ...data }, update: data });
     },
 
     async createReport(data) {

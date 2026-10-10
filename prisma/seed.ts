@@ -19,11 +19,14 @@ import {
 } from "../generated/prisma/enums";
 import { applyCreditTransaction, grantSignupCredits } from "../lib/credits";
 import { db } from "../lib/db";
+import { FileModelStore } from "../lib/model";
+import { estimateWithModel } from "../lib/vc/model-estimate";
 import { PENDING_AUTH_PREFIX, SIGNUP_GRANT_CREDITS } from "../lib/types";
 import {
   achievements,
   facts,
   markets,
+  modelStartups,
   news,
   SEED_ANCHOR,
   startups,
@@ -127,6 +130,12 @@ async function main() {
   for (const s of startups) {
     const row = await db.startup.create({
       data: { ...s, websiteUrl: `https://${s.slug}.example.com`, isPublished: true, isDemo: true, createdById: adminId },
+    });
+    startupIds.set(s.slug, row.id);
+  }
+  for (const { domain, ...s } of modelStartups) {
+    const row = await db.startup.create({
+      data: { ...s, websiteUrl: `https://${domain}`, isPublished: true, isDemo: true, createdById: adminId },
     });
     startupIds.set(s.slug, row.id);
   }
@@ -404,8 +413,7 @@ async function main() {
       question: "Will Meridian Pay launch payroll in Brazil by June 30, 2027?",
       yesCriteria: "YES if Meridian Pay publicly lists Brazil as a supported payroll country on or before 2027-06-30.",
       noCriteria: "Resolves NO if Brazil is not listed as supported by the deadline.",
-      baselineValue: 0.35,
-      baselineMethodology: "Historical pace of Meridian's country launches.",
+      // No metric measures a country launch, so the model has no opening line: it can be reviewed but not opened.
       deadline: daysFrom(270),
       visibility: StudyVisibility.PUBLIC,
       status: StudyStatus.SUBMITTED,
@@ -433,6 +441,63 @@ async function main() {
       visibility: StudyVisibility.ORGANIZATION,
       status: StudyStatus.DRAFT,
       events: { create: studyEvents("lena", [[null, StudyStatus.DRAFT, "create", -1]]) },
+    },
+  });
+
+  // An approved study the model priced from Supabase's public npm downloads, ready to open.
+  const supabaseId = startupIds.get("supabase")!;
+  const supabaseLink = { metricId: "npm_downloads:@supabase/supabase-js", threshold: 38_000_000, targetDate: "2026-12-13" };
+  const supabaseLine = estimateWithModel(new FileModelStore(), {
+    startup: { id: supabaseId, name: "Supabase", slug: "supabase" },
+    link: supabaseLink,
+    observations: [],
+    asOf: SEED_ANCHOR,
+  });
+  const supabaseOk = supabaseLine.status === "OK";
+  await db.researchStudy.create({
+    data: {
+      organizationId: northstar.id,
+      createdById: uid("theo"),
+      startupId: supabaseId,
+      question: supabaseLine.question!,
+      yesCriteria: supabaseLine.yesCriteria!,
+      noCriteria: supabaseLine.noCriteria!,
+      context: "Developer adoption check before a follow-on discussion.",
+      baselineValue: supabaseOk ? supabaseLine.probability : null,
+      baselineMethodology: supabaseOk ? supabaseLine.methodology : null,
+      deadline: daysFrom(60),
+      visibility: StudyVisibility.ORGANIZATION,
+      status: StudyStatus.APPROVED,
+      submittedAt: daysFrom(-3),
+      approvedAt: daysFrom(-1),
+      version: 3,
+      sources: { create: [{ url: "https://www.npmjs.com/package/@supabase/supabase-js", title: "@supabase/supabase-js on npm" }] },
+      events: {
+        create: studyEvents("theo", [
+          [null, StudyStatus.DRAFT, "create", -4],
+          [StudyStatus.DRAFT, StudyStatus.SUBMITTED, "submit", -3],
+          [StudyStatus.SUBMITTED, StudyStatus.APPROVED, "approve", -1],
+        ]),
+      },
+      modelEstimate: {
+        create: {
+          status: supabaseOk ? "OK" : "INSUFFICIENT_DATA",
+          metricId: supabaseLink.metricId,
+          threshold: supabaseLink.threshold,
+          targetDate: new Date(`${supabaseLink.targetDate}T00:00:00Z`),
+          probability: supabaseLine.probability,
+          low: supabaseLine.low,
+          high: supabaseLine.high,
+          confidence: supabaseLine.confidence,
+          modelVersion: supabaseLine.modelVersion,
+          inputsHash: supabaseLine.inputsHash,
+          methodology: supabaseLine.methodology,
+          notes: supabaseLine.notes,
+          inputsUsed: supabaseLine.inputsUsed as object[],
+          calculatedAt: SEED_ANCHOR,
+          calculatedById: uid("theo"),
+        },
+      },
     },
   });
 

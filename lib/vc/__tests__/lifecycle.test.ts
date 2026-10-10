@@ -73,9 +73,10 @@ describe("study lifecycle", () => {
     expect(isEditable("OPEN")).toBe(false);
   });
 
-  it("blocks submission without a baseline methodology", () => {
-    const issues = getTransitionIssues("submit", { ...base, baselineMethodology: null }, NOW);
-    expect(issues[0]).toMatch(/baseline/i);
+  it("lets a study without an opening line be submitted and approved (the model checks at open)", () => {
+    const noLine = { ...base, baselineValue: null, baselineMethodology: null };
+    expect(getTransitionIssues("submit", noLine, NOW)).toEqual([]);
+    expect(getTransitionIssues("approve", noLine, NOW)).toEqual([]);
   });
 
   it("blocks restricted studies without participants", () => {

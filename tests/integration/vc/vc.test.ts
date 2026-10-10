@@ -63,6 +63,23 @@ async function world() {
 
 type World = Awaited<ReturnType<typeof world>>;
 
+const isoDay = (offsetDays: number) => new Date(Date.now() + offsetDays * DAY).toISOString().slice(0, 10);
+
+/** The firm's own ARR history: three dated figures over two months, enough for the model to price. */
+function arrLink(observations = 3) {
+  return {
+    metricId: "sponsor_arr",
+    threshold: 3_000_000,
+    targetDate: isoDay(60),
+    observations: [
+      { metricId: "sponsor_arr", value: 2_000_000, periodStart: isoDay(-70), periodEnd: isoDay(-70), note: "" },
+      { metricId: "sponsor_arr", value: 2_300_000, periodStart: isoDay(-40), periodEnd: isoDay(-40), note: "" },
+      { metricId: "sponsor_arr", value: 2_600_000, periodStart: isoDay(-10), periodEnd: isoDay(-10), note: "" },
+      { metricId: "sponsor_arr", value: 2_700_000, periodStart: isoDay(-3), periodEnd: isoDay(-3), note: "" },
+    ].slice(0, observations),
+  };
+}
+
 /** Creates a study as the analyst and drives it through review to OPEN. */
 async function openStudy(w: World, visibility: StudyVisibility) {
   const draft = await services.studies.create(w.ctx.analystA, {
@@ -71,8 +88,7 @@ async function openStudy(w: World, visibility: StudyVisibility) {
     yesCriteria: "A Series B of at least $20M is announced publicly before the deadline.",
     noCriteria: "No qualifying Series B is announced publicly before the deadline.",
     context: null,
-    baselineValue: 0.35,
-    baselineMethodology: "Base rate for comparable Series A companies in the sector.",
+    modelLink: arrLink(),
     deadline: new Date(Date.now() + 30 * DAY),
     visibility,
     sources: [{ url: "https://example.com/series-a", title: "Series A announcement" }],
@@ -115,10 +131,17 @@ describe("study lifecycle against the shared schema", () => {
     expect(market).toMatchObject({
       visibility: MarketVisibility.ORGANIZATION,
       organizationId: w.orgA.id,
-      openingBaseline: 0.35,
-      baselineMethodology: "Base rate for comparable Series A companies in the sector.",
+      openingBaseline: study.baselineValue,
+      modelValue: study.baselineValue,
+      baselineMethodology: study.baselineMethodology,
+      question: study.question,
       status: "OPEN",
     });
+    expect(study.baselineValue).toBeGreaterThan(0);
+    expect(study.baselineMethodology).toMatch(/^Model direct-metric/);
+    // The firm's ARR figures never reach the shared market tables.
+    const snapshot = await db.modelBaselineSnapshot.findFirstOrThrow({ where: { marketId: market.id } });
+    expect(JSON.stringify(snapshot.inputsUsed)).not.toContain("2000000");
     expect(market.sources.map((s) => s.url)).toEqual(["https://example.com/series-a"]);
     expect(await canViewMarket(w.viewerA.id, market.id)).toBe(true);
     expect(await canViewMarket(w.ownerB.id, market.id)).toBe(false);
@@ -128,7 +151,7 @@ describe("study lifecycle against the shared schema", () => {
     await recordSnapshot(market.id);
     const detail = await services.studies.get(w.ctx.viewerA, study.id);
     expect(detail.estimate).toMatchObject({
-      openingBaseline: { value: 0.35 },
+      openingBaseline: { value: study.baselineValue },
       allocation: { yesCredits: 100, noCredits: 0, yesShare: 1 },
       participantCount: 1,
       forecastCount: 1,
@@ -209,16 +232,61 @@ describe("study lifecycle against the shared schema", () => {
       question: "Will this startup ship its product publicly this year?",
       yesCriteria: "The product is generally available to customers before the deadline.",
       noCriteria: "The product is not generally available to customers by the deadline.",
-      baselineValue: null,
-      baselineMethodology: null,
+      modelLink: null,
       deadline: new Date(Date.now() + 10 * DAY),
       visibility: "ORGANIZATION",
     });
     await services.studies.update(w.ctx.analystA, draft.id, { context: "First edit", expectedVersion: 1 });
     await expectCode(services.studies.update(w.ctx.analystA, draft.id, { context: "Stale", expectedVersion: 1 }), "CONFLICT");
-    await expectCode(services.studies.transition(w.ctx.analystA, draft.id, { action: "submit", expectedVersion: 2 }), "VALIDATION_ERROR");
-    const events = await db.studyEvent.findMany({ where: { studyId: draft.id } });
-    expect(events.map((e) => e.action)).toEqual(["create"]);
+    await services.studies.transition(w.ctx.analystA, draft.id, { action: "submit", expectedVersion: 2 });
+    const events = await db.studyEvent.findMany({ where: { studyId: draft.id }, orderBy: { createdAt: "asc" } });
+    expect(events.map((e) => e.action)).toEqual(["create", "submit"]);
+  });
+});
+
+describe("model-set opening line", () => {
+  it("blocks opening without enough data and creates no market", async () => {
+    const w = await world();
+    const draft = await services.studies.create(w.ctx.analystA, {
+      startupId: w.startup.id,
+      question: "Will this startup's ARR reach $3M by the target date?",
+      yesCriteria: "ARR of at least $3M is publicly confirmed before the target date.",
+      noCriteria: "ARR stays below $3M or isn't confirmed before the target date.",
+      modelLink: arrLink(2),
+      deadline: new Date(Date.now() + 30 * DAY),
+      visibility: "ORGANIZATION",
+    });
+    expect(draft.baselineValue).toBeNull();
+    const stored = await db.studyModelEstimate.findUniqueOrThrow({ where: { studyId: draft.id } });
+    expect(stored).toMatchObject({ status: "INSUFFICIENT_DATA", metricId: "sponsor_arr" });
+
+    await services.studies.transition(w.ctx.analystA, draft.id, { action: "submit", expectedVersion: 1 });
+    await services.studies.transition(w.ctx.admin, draft.id, { action: "approve", expectedVersion: 2 });
+    await expectCode(services.studies.transition(w.ctx.admin, draft.id, { action: "open", expectedVersion: 3 }), "VALIDATION_ERROR");
+    expect(await db.market.count({ where: { slug: `study-${draft.id}` } })).toBe(0);
+  });
+
+  it("publishes newer estimates to the model line through the forecasting engine", async () => {
+    const w = await world();
+    const study = await openStudy(w, "ORGANIZATION");
+    const before = await db.market.findUniqueOrThrow({ where: { id: study.marketId! } });
+
+    // Nothing changed: nothing to publish.
+    await services.openingLine.refreshOpenMarkets();
+    expect(await db.modelBaselineSnapshot.count({ where: { marketId: study.marketId! } })).toBe(1);
+
+    // The firm adds a newer figure. Before the first forecast, the model still sets the opening price too.
+    const stored = (await deps.repo.findModelEstimate(study.id))!;
+    await deps.repo.saveModelEstimate({ ...stored, observations: arrLink(4).observations });
+    const result = await services.openingLine.refreshOpenMarkets();
+    expect(result.published).toBeGreaterThanOrEqual(1);
+
+    const after = await db.market.findUniqueOrThrow({ where: { id: study.marketId! } });
+    expect(after.modelValue).not.toBe(before.modelValue);
+    expect(after.openingBaseline).toBe(after.modelValue);
+    expect(after.modelUpdatedAt!.getTime()).toBeGreaterThan(before.modelUpdatedAt!.getTime());
+    expect(await db.marketSnapshot.count({ where: { marketId: study.marketId!, trigger: "MODEL_UPDATE" } })).toBe(1);
+    expect(await db.modelBaselineSnapshot.count({ where: { marketId: study.marketId! } })).toBe(2);
   });
 });
 

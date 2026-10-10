@@ -4,8 +4,9 @@ import { errorResponse, isAuthorizedCron, ok } from "@/lib/vc/server/http";
 
 /**
  * GET /api/vc/cron — scheduled job (Authorization: Bearer $CRON_SECRET).
- * Syncs study status with market state (deadline close, resolution) and
- * generates watchlist alerts. Idempotent; safe to retry.
+ * Syncs study status with market state (deadline close, resolution),
+ * publishes newer model estimates to open study markets, and generates
+ * watchlist alerts. Idempotent; safe to retry.
  */
 export async function GET(req: NextRequest) {
   if (!isAuthorizedCron(req)) {
@@ -14,8 +15,9 @@ export async function GET(req: NextRequest) {
   try {
     const services = getVcServices();
     const sync = await services.studies.syncWithMarkets();
+    const modelLines = await services.openingLine.refreshOpenMarkets();
     const alerts = await services.alerts.evaluate();
-    return ok({ sync, alerts });
+    return ok({ sync, modelLines, alerts });
   } catch (err) {
     return errorResponse(err);
   }

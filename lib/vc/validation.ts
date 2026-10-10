@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { httpUrlSchema, idSchema, openingBaselineSchema } from "@/lib/validation";
+import { httpUrlSchema, idSchema } from "@/lib/validation";
 import { MAX_PARTICIPANTS, MAX_SOURCES } from "./constants";
 import { ALERT_TYPES, STUDY_STATUSES, STUDY_VISIBILITIES } from "./types";
 
@@ -17,6 +17,42 @@ export const studySourceInput = z.object({
 });
 export type StudySourceInput = z.infer<typeof studySourceInput>;
 
+/** A real calendar day, YYYY-MM-DD (UTC). */
+const day = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, "Use YYYY-MM-DD")
+  .refine((v) => new Date(`${v}T00:00:00Z`).toISOString().slice(0, 10) === v, "Enter a real calendar date");
+
+/** One figure the firm reports for the linked metric. Private to the firm. */
+export const firmObservationInput = z
+  .object({
+    metricId: z.string().trim().min(1).max(200),
+    value: z.number().finite().min(0).max(1e15),
+    periodStart: day,
+    periodEnd: day,
+    note: z.string().trim().max(500).default(""),
+  })
+  .refine((v) => v.periodStart <= v.periodEnd, { message: "The period can't end before it starts", path: ["periodEnd"] });
+
+export const MAX_FIRM_OBSERVATIONS = 100;
+
+const metricLinkFields = {
+  metricId: z.string().trim().min(1).max(200),
+  threshold: z.number().finite().positive("Threshold must be more than 0").max(1e15),
+  targetDate: day,
+};
+
+/**
+ * The measurable form of a study question that the model prices, plus the
+ * firm's own history for that metric. Null means no metric measures the
+ * question, so the model has no opening line for it.
+ */
+export const modelLinkInput = z.object({
+  ...metricLinkFields,
+  observations: z.array(firmObservationInput).max(MAX_FIRM_OBSERVATIONS).default([]),
+});
+export type ModelLinkInput = z.infer<typeof modelLinkInput>;
+
 const studyFields = {
   startupId: id,
   question: z
@@ -28,18 +64,15 @@ const studyFields = {
   yesCriteria: z.string().trim().min(20, "Describe exactly what counts as YES").max(5000),
   noCriteria: z.string().trim().min(20, "Describe exactly what counts as NO").max(5000),
   context: z.string().trim().max(5000).nullish(),
-  baselineValue: openingBaselineSchema.nullish(),
-  baselineMethodology: z.string().trim().min(20).max(1000).nullish(),
+  /** The opening line comes from the model, never from the firm: link the question to a metric instead. */
+  modelLink: modelLinkInput.nullish(),
   deadline: z.coerce.date(),
   visibility: z.enum(STUDY_VISIBILITIES),
   sources: z.array(studySourceInput).max(MAX_SOURCES).optional(),
 };
 const studyObject = z.object(studyFields);
 
-export const createStudyInput = studyObject.refine(
-  (v) => (v.baselineValue == null) === (v.baselineMethodology == null),
-  { message: "Provide the baseline value and its methodology together", path: ["baselineMethodology"] },
-);
+export const createStudyInput = studyObject;
 export type CreateStudyInput = z.infer<typeof createStudyInput>;
 
 /** Partial edit of a DRAFT study. Omitted fields are left unchanged. */
@@ -140,3 +173,14 @@ export const assistantAskInput = z.object({
     .default([]),
 });
 export type AssistantAskInput = z.infer<typeof assistantAskInput>;
+
+/** Preview of the model's opening line while drafting; nothing is saved. */
+export const openingLinePreviewInput = z.object({
+  startupId: id,
+  question: z.string().trim().min(5, "Type the question first").max(300),
+  deadline: z.coerce.date(),
+  /** Omit to have the AI suggest a measurable form of the question. */
+  link: z.object(metricLinkFields).nullish(),
+  observations: z.array(firmObservationInput).max(MAX_FIRM_OBSERVATIONS).default([]),
+});
+export type OpeningLinePreviewInput = z.infer<typeof openingLinePreviewInput>;

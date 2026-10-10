@@ -81,11 +81,53 @@ describe("createMarketForStudySchema", () => {
       noCriteria: "NO if no priced Series B is announced by 2027-12-31.",
       closesAt: new Date("2027-06-30T00:00:00Z"),
       openingBaseline: { value: 0.3, methodology: "Base rate" },
+      model: {
+      low: 0.2,
+      high: 0.4,
+      confidence: "medium",
+      asOf: new Date("2026-10-01T00:00:00Z"),
+      modelName: "senzi-direct",
+      modelVersion: "direct-metric-1.0.0",
+      inputsHash: "hash-1",
+      inputsNote: "npm downloads",
+      inputsUsed: [],
+      notes: [],
+    },
       visibility: "RESTRICTED",
       sources: [],
       createdById: "user_1",
     });
     expect(result.success).toBe(true);
+  });
+
+  it("requires the model estimate, with the baseline inside its band", () => {
+    const base = {
+      studyId: "study_1",
+      organizationId: "org_1",
+      startupId: "startup_1",
+      question: "Will Acme raise a Series B by 2027?",
+      yesCriteria: "YES if Acme announces a priced Series B before 2027-12-31.",
+      noCriteria: "NO if no priced Series B is announced by 2027-12-31.",
+      closesAt: new Date("2027-06-30T00:00:00Z"),
+      openingBaseline: { value: 0.3, methodology: "Base rate" },
+      visibility: "RESTRICTED",
+      sources: [],
+      createdById: "user_1",
+    };
+    const model = {
+    low: 0.2,
+    high: 0.4,
+    confidence: "medium",
+    asOf: new Date("2026-10-01T00:00:00Z"),
+    modelName: "senzi-direct",
+    modelVersion: "direct-metric-1.0.0",
+    inputsHash: "hash-1",
+    inputsNote: "npm downloads",
+    inputsUsed: [],
+    notes: [],
+  };
+    expect(createMarketForStudySchema.safeParse(base).success).toBe(false);
+    expect(createMarketForStudySchema.safeParse({ ...base, model: { ...model, low: 0.35 } }).success).toBe(false);
   });
 });
 

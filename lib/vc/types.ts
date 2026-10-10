@@ -403,3 +403,70 @@ export interface StartupNewsView {
   publishedAt: Date;
   verification: "UNVERIFIED" | "VERIFIED" | "DISPUTED";
 }
+
+// ---------------------------------------------------------------------------
+// Opening line: the model sets every study's starting price
+// ---------------------------------------------------------------------------
+
+export type EstimateStatus = "OK" | "INSUFFICIENT_DATA" | "NOT_MEASURABLE";
+export type ModelConfidence = "low" | "medium" | "high";
+
+/** The measurable form of a question: "will <metric> be at least <threshold> by <targetDate>?" */
+export interface MetricLink {
+  metricId: string;
+  threshold: number;
+  /** YYYY-MM-DD (UTC). For weekly totals, the last day of the 7-day window. */
+  targetDate: string;
+}
+
+/** A figure the firm entered for the linked metric. Private to the firm. */
+export interface FirmObservation {
+  metricId: string;
+  value: number;
+  /** YYYY-MM-DD. Equal to periodEnd for snapshot metrics (ARR, users). */
+  periodStart: string;
+  periodEnd: string;
+  note: string;
+}
+
+/** A metric the model can forecast for a startup. */
+export interface OpeningLineMetric {
+  id: string;
+  label: string;
+  unit: string;
+  kind: "snapshot" | "weekly_total";
+  /** True when public data exists; false when only the firm's own figures can feed it. */
+  hasPublicData: boolean;
+}
+
+/** One model run for a study question. */
+export interface ModelEstimate {
+  status: EstimateStatus;
+  link: MetricLink | null;
+  /** In [0.01, 0.99] when status is OK; null otherwise. */
+  probability: number | null;
+  low: number | null;
+  high: number | null;
+  confidence: ModelConfidence | null;
+  modelName: string;
+  modelVersion: string;
+  inputsHash: string | null;
+  /** Public-safe method note; never contains the firm's raw figures. */
+  methodology: string | null;
+  /** Why the estimate is what it is, or what data is missing. */
+  notes: string[];
+  /** Data points used, including the firm's private figures. Never sent to other firms. */
+  inputsUsed: Record<string, unknown>[];
+  /** Precise question and criteria generated from the link; null when not measurable. */
+  question: string | null;
+  yesCriteria: string | null;
+  noCriteria: string | null;
+  asOf: Date;
+}
+
+/** A study's stored opening line. */
+export interface StudyModelEstimate extends ModelEstimate {
+  studyId: string;
+  observations: FirmObservation[];
+  calculatedById: string | null;
+}

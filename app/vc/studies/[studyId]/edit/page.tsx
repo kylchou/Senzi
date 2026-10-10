@@ -8,7 +8,7 @@ export default async function EditStudyPage({ params }: { params: Promise<{ stud
   const ctx = await requirePageContext(`/vc/studies/${studyId}/edit`);
   const detail = await orNotFound(getVcServices().studies.get(ctx, studyId));
   if (!detail.permissions.canEdit) redirect(`/vc/studies/${studyId}`);
-  const { study, startup } = detail;
+  const { study, startup, openingLine, firmObservations } = detail;
 
   return (
     <div className="mx-auto max-w-3xl space-y-4">
@@ -23,8 +23,11 @@ export default async function EditStudyPage({ params }: { params: Promise<{ stud
             yesCriteria: study.yesCriteria,
             noCriteria: study.noCriteria,
             context: study.context,
-            baselineValue: study.baselineValue,
-            baselineMethodology: study.baselineMethodology,
+            openingLine: {
+              link: openingLine?.link ?? null,
+              observations: firmObservations ?? [],
+              metricLabel: openingLine?.metricLabel ?? null,
+            },
             deadline: study.deadline,
             visibility: study.visibility,
             sources: study.sources,
