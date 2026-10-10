@@ -1,76 +1,129 @@
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
-import { OrgRole, StudyAccess, StudyRole } from "@/generated/prisma/enums";
+import { OrgRole, StudyStatus } from "@/generated/prisma/enums";
+import { createMarketForStudy } from "@/lib/admin";
 import { db } from "@/lib/db";
 import { addMember, changeMemberRole, listMembers, removeMember } from "@/lib/organizations";
-import {
-  readableStudiesWhere,
-  requireOrgRole,
-  requireStudyAccess,
-  requireWatchlistAccess,
-  visibleMarketsWhere,
-} from "@/lib/permissions";
-import { makeAdmin, makeMarket, makeOrg, makeUser, resetDatabase } from "./helpers";
+import { canViewMarket, requireOrgRole, visibleMarketsWhere } from "@/lib/permissions";
+import type { SessionUser } from "@/lib/types";
+import { makeAdmin, makeMarket, makeOrg, makeStartup, makeUser, resetDatabase } from "./helpers";
 
 beforeEach(resetDatabase);
 afterAll(() => db.$disconnect());
 
-async function makeStudy(organizationId: string, access: StudyAccess, members: [string, StudyRole][] = []) {
+const DAY = 24 * 60 * 60 * 1000;
+
+async function makeStudy(
+  organizationId: string,
+  author: SessionUser,
+  opts: { status?: StudyStatus; participants?: SessionUser[] } = {},
+) {
+  const startup = await makeStartup();
   return db.researchStudy.create({
     data: {
       organizationId,
-      slug: `study-${Math.random().toString(36).slice(2, 8)}`,
-      title: "Study",
-      access,
-      members: { create: members.map(([userId, role]) => ({ userId, role })) },
+      createdById: author.id,
+      startupId: startup.id,
+      question: "Will this study's startup hit its milestone?",
+      yesCriteria: "Resolves YES if the milestone is publicly confirmed before the deadline.",
+      noCriteria: "Resolves NO if the milestone is not confirmed by the deadline.",
+      deadline: new Date(Date.now() + 60 * DAY),
+      status: opts.status ?? StudyStatus.APPROVED,
+      participants: { create: (opts.participants ?? []).map((p) => ({ userId: p.id, addedById: author.id })) },
     },
   });
 }
 
-describe("organization isolation", () => {
-  it("hides one org's studies, watchlists, and private markets from another org", async () => {
+function studyMarketInput(study: Awaited<ReturnType<typeof makeStudy>>, visibility: "PUBLIC" | "ORGANIZATION" | "RESTRICTED") {
+  return {
+    studyId: study.id,
+    organizationId: study.organizationId,
+    startupId: study.startupId,
+    question: study.question,
+    yesCriteria: study.yesCriteria,
+    noCriteria: study.noCriteria,
+    closesAt: study.deadline,
+    openingBaseline: { value: 0.3, methodology: "Base rate" },
+    visibility,
+    sources: [{ url: "https://example.com/filing", title: "Filing" }],
+    createdById: study.createdById,
+  };
+}
+
+describe("market visibility and organization isolation", () => {
+  it("shows organization markets only to that org's members", async () => {
     const admin = await makeAdmin();
     const alice = await makeUser();
     const bob = await makeUser();
-    const orgA = await makeOrg([[alice, OrgRole.OWNER]]);
+    const orgA = await makeOrg([[alice, OrgRole.VIEWER]]);
     await makeOrg([[bob, OrgRole.OWNER]]);
+    const market = await makeMarket(admin, { private: orgA.id });
 
-    const study = await makeStudy(orgA.id, StudyAccess.ORGANIZATION);
-    const watchlist = await db.watchlist.create({ data: { ownerId: alice.id, organizationId: orgA.id, name: "A" } });
-    const privateMarket = await makeMarket(admin, { private: orgA.id });
-
-    await expect(requireStudyAccess(bob, study.id)).rejects.toMatchObject({ code: "NOT_FOUND" });
-    await expect(requireWatchlistAccess(bob, watchlist.id)).rejects.toMatchObject({ code: "NOT_FOUND" });
+    expect(await canViewMarket(alice.id, market.id)).toBe(true);
+    expect(await canViewMarket(bob.id, market.id)).toBe(false);
+    expect(await canViewMarket(null, market.id)).toBe(false);
     await expect(requireOrgRole(bob, orgA.id)).rejects.toMatchObject({ code: "NOT_FOUND" });
-    expect(await db.researchStudy.count({ where: readableStudiesWhere(bob.id) })).toBe(0);
-    expect(await db.market.count({ where: { id: privateMarket.id, ...visibleMarketsWhere(bob.id) } })).toBe(0);
-    expect(await db.market.count({ where: { id: privateMarket.id, ...visibleMarketsWhere(alice.id) } })).toBe(1);
-    expect(await db.market.count({ where: { id: privateMarket.id, ...visibleMarketsWhere(null) } })).toBe(0);
   });
 
-  it("does not give platform admins access to org research", async () => {
+  it("does not show org markets to platform admins who aren't members", async () => {
     const admin = await makeAdmin();
     const owner = await makeUser();
     const org = await makeOrg([[owner, OrgRole.OWNER]]);
-    const study = await makeStudy(org.id, StudyAccess.ORGANIZATION);
-    await expect(requireStudyAccess(admin, study.id)).rejects.toMatchObject({ code: "NOT_FOUND" });
+    const market = await makeMarket(admin, { private: org.id });
+    expect(await canViewMarket(admin.id, market.id)).toBe(false);
   });
 
-  it("limits restricted studies to their members and org admins", async () => {
+  it("limits restricted study markets to org admins, the author, and participants", async () => {
     const owner = await makeUser();
+    const author = await makeUser();
     const analyst = await makeUser();
-    const lead = await makeUser();
+    const outsider = await makeUser();
     const org = await makeOrg([
       [owner, OrgRole.OWNER],
+      [author, OrgRole.ANALYST],
       [analyst, OrgRole.ANALYST],
-      [lead, OrgRole.ANALYST],
     ]);
-    const study = await makeStudy(org.id, StudyAccess.RESTRICTED, [[lead.id, StudyRole.LEAD]]);
+    const study = await makeStudy(org.id, author, { participants: [outsider] });
+    const market = await createMarketForStudy(studyMarketInput(study, "RESTRICTED"));
+    // VC Intelligence links the study to its market when the open transition commits.
+    await db.researchStudy.update({ where: { id: study.id }, data: { marketId: market.id, status: StudyStatus.OPEN } });
 
-    await expect(requireStudyAccess(analyst, study.id)).rejects.toMatchObject({ code: "NOT_FOUND" });
-    await expect(requireStudyAccess(lead, study.id, "manage")).resolves.toBeTruthy();
-    await expect(requireStudyAccess(owner, study.id, "manage")).resolves.toBeTruthy();
-    expect(await db.researchStudy.count({ where: readableStudiesWhere(analyst.id) })).toBe(0);
-    expect(await db.researchStudy.count({ where: readableStudiesWhere(lead.id) })).toBe(1);
+    expect(await canViewMarket(owner.id, market.id)).toBe(true);
+    expect(await canViewMarket(author.id, market.id)).toBe(true);
+    expect(await canViewMarket(outsider.id, market.id)).toBe(true);
+    expect(await canViewMarket(analyst.id, market.id)).toBe(false);
+    expect(await db.market.count({ where: visibleMarketsWhere(analyst.id) })).toBe(0);
+  });
+});
+
+describe("createMarketForStudy", () => {
+  it("opens one market per study, even when called repeatedly or concurrently", async () => {
+    const owner = await makeUser();
+    const org = await makeOrg([[owner, OrgRole.OWNER]]);
+    const study = await makeStudy(org.id, owner);
+    const input = studyMarketInput(study, "ORGANIZATION");
+
+    const results = await Promise.all([1, 2, 3].map(() => createMarketForStudy(input)));
+    expect(new Set(results.map((m) => m.id)).size).toBe(1);
+    expect(results[0]).toMatchObject({ status: "OPEN", visibility: "ORGANIZATION", organizationId: org.id, openingBaseline: 0.3 });
+    expect(await db.marketSource.count({ where: { marketId: results[0]!.id } })).toBe(1);
+    expect(await db.marketSnapshot.count({ where: { marketId: results[0]!.id, trigger: "OPENING" } })).toBe(1);
+  });
+
+  it("refuses studies that haven't been approved", async () => {
+    const owner = await makeUser();
+    const org = await makeOrg([[owner, OrgRole.OWNER]]);
+    const study = await makeStudy(org.id, owner, { status: StudyStatus.SUBMITTED });
+    await expect(createMarketForStudy(studyMarketInput(study, "PUBLIC"))).rejects.toMatchObject({ code: "INVALID_STATE" });
+  });
+
+  it("refuses details that don't match the study", async () => {
+    const owner = await makeUser();
+    const org = await makeOrg([[owner, OrgRole.OWNER]]);
+    const other = await makeOrg([[owner, OrgRole.OWNER]]);
+    const study = await makeStudy(org.id, owner);
+    await expect(
+      createMarketForStudy({ ...studyMarketInput(study, "PUBLIC"), organizationId: other.id }),
+    ).rejects.toMatchObject({ code: "INVALID_STATE" });
   });
 });
 
@@ -105,16 +158,15 @@ describe("membership management", () => {
     await expect(removeMember(owner, org.id, owner.id)).rejects.toMatchObject({ code: "INVALID_STATE" });
   });
 
-  it("removes study access along with org membership", async () => {
+  it("removes study invitations along with org membership", async () => {
     const owner = await makeUser();
     const analyst = await makeUser();
     const org = await makeOrg([
       [owner, OrgRole.OWNER],
       [analyst, OrgRole.ANALYST],
     ]);
-    const study = await makeStudy(org.id, StudyAccess.RESTRICTED, [[analyst.id, StudyRole.CONTRIBUTOR]]);
+    const study = await makeStudy(org.id, owner, { participants: [analyst] });
     await removeMember(owner, org.id, analyst.id);
-    expect(await db.studyMembership.count({ where: { studyId: study.id } })).toBe(0);
-    await expect(requireStudyAccess(analyst, study.id)).rejects.toMatchObject({ code: "NOT_FOUND" });
+    expect(await db.studyParticipant.count({ where: { studyId: study.id } })).toBe(0);
   });
 });

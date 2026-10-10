@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   adminCreditAdjustmentSchema,
+  createMarketForStudySchema,
   createMarketSchema,
   forecastSubmissionSchema,
   httpUrlSchema,
@@ -12,10 +13,13 @@ const validMarket = {
   slug: "acme-series-b",
   startupId: "startup_1",
   question: "Will Acme raise a Series B by 2027?",
-  resolutionCriteria: "YES if Acme announces a priced Series B before 2027-12-31.",
+  yesCriteria: "YES if Acme announces a priced Series B before 2027-12-31.",
+  noCriteria: "NO if no priced Series B is announced by 2027-12-31.",
   openingBaseline: 0.4,
+  baselineMethodology: "Base rate for Series A companies",
   opensAt: "2026-10-01T00:00:00Z",
   closesAt: "2027-06-30T00:00:00Z",
+  sources: [{ title: "Acme newsroom", url: "https://acme.example.com/news" }],
 };
 
 describe("createMarketSchema", () => {
@@ -32,11 +36,22 @@ describe("createMarketSchema", () => {
     expect(result.error?.issues[0]?.path).toEqual(["closesAt"]);
   });
 
-  it("requires private markets to name an organization", () => {
-    expect(createMarketSchema.safeParse({ ...validMarket, visibility: "PRIVATE" }).success).toBe(false);
+  it("requires non-public markets to name an organization", () => {
+    expect(createMarketSchema.safeParse({ ...validMarket, visibility: "RESTRICTED" }).success).toBe(false);
     expect(
-      createMarketSchema.safeParse({ ...validMarket, visibility: "PRIVATE", organizationId: "org_1" }).success,
+      createMarketSchema.safeParse({ ...validMarket, visibility: "ORGANIZATION", organizationId: "org_1" }).success,
     ).toBe(true);
+  });
+
+  it("needs a methodology whenever there is a baseline", () => {
+    expect(createMarketSchema.safeParse({ ...validMarket, baselineMethodology: "" }).success).toBe(false);
+    const noBaseline = { ...validMarket, openingBaseline: undefined, baselineMethodology: undefined };
+    expect(createMarketSchema.safeParse(noBaseline).success).toBe(true);
+  });
+
+  it("needs at least one resolution source and both criteria", () => {
+    expect(createMarketSchema.safeParse({ ...validMarket, sources: [] }).success).toBe(false);
+    expect(createMarketSchema.safeParse({ ...validMarket, noCriteria: undefined }).success).toBe(false);
   });
 
   it("keeps the opening baseline away from 0 and 1", () => {
@@ -50,6 +65,25 @@ describe("createMarketSchema", () => {
 
   it("rejects unknown fields", () => {
     expect(createMarketSchema.safeParse({ ...validMarket, yesCredits: 1000 }).success).toBe(false);
+  });
+});
+
+describe("createMarketForStudySchema", () => {
+  it("accepts the VC Intelligence payload", () => {
+    const result = createMarketForStudySchema.safeParse({
+      studyId: "study_1",
+      organizationId: "org_1",
+      startupId: "startup_1",
+      question: "Will Acme raise a Series B by 2027?",
+      yesCriteria: "YES if Acme announces a priced Series B before 2027-12-31.",
+      noCriteria: "NO if no priced Series B is announced by 2027-12-31.",
+      closesAt: new Date("2027-06-30T00:00:00Z"),
+      openingBaseline: { value: 0.3, methodology: "Base rate" },
+      visibility: "RESTRICTED",
+      sources: [],
+      createdById: "user_1",
+    });
+    expect(result.success).toBe(true);
   });
 });
 
