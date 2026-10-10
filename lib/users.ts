@@ -30,7 +30,7 @@ export async function updateProfile(user: SessionUser, input: UpdateProfileInput
   }
   const refreshed = await db.user.findUniqueOrThrow({
     where: { id: user.id },
-    select: { id: true, authId: true, email: true, username: true, displayName: true, avatarUrl: true, platformRole: true },
+    select: { id: true, authId: true, email: true, username: true, displayName: true, avatarUrl: true, platformRole: true, accountType: true, accountVerifiedAt: true },
   });
   return getCurrentUserProfile(refreshed);
 }

@@ -3,7 +3,7 @@ import { cache } from "react";
 import { notFound as notFoundPage } from "next/navigation";
 import { auth, currentUser } from "@clerk/nextjs/server";
 import type { UserJSON } from "@clerk/nextjs/server";
-import { PlatformRole } from "@/generated/prisma/enums";
+import { AccountType, PlatformRole } from "@/generated/prisma/enums";
 import { conflict, forbidden, unauthenticated } from "@/lib/api-response";
 import { grantSignupCredits } from "@/lib/credits";
 import { db, isUniqueViolation } from "@/lib/db";
@@ -30,6 +30,8 @@ const sessionUserSelect = {
   displayName: true,
   avatarUrl: true,
   platformRole: true,
+  accountType: true,
+  accountVerifiedAt: true,
 } as const;
 
 export interface AuthIdentity {
@@ -38,6 +40,17 @@ export interface AuthIdentity {
   emailVerified: boolean;
   displayName: string;
   avatarUrl: string | null;
+  /** Self-declared at signup through Clerk unsafeMetadata. Null if missing or invalid. */
+  accountType: AccountType | null;
+}
+
+export function parseAccountType(value: unknown): AccountType | null {
+  return value === AccountType.VC || value === AccountType.TRADER ? value : null;
+}
+
+/** Traders are verified by their confirmed email. VCs wait for review (lib/verification.ts). */
+function initialVerification(identity: Pick<AuthIdentity, "accountType" | "emailVerified">): Date | null {
+  return identity.accountType === AccountType.TRADER && identity.emailVerified ? new Date() : null;
 }
 
 /** Emails in SENZI_ADMIN_EMAILS become platform admins on first sign-in. */
@@ -75,6 +88,12 @@ export async function provisionUser(identity: AuthIdentity): Promise<SessionUser
       }
       let userId: string;
       if (byEmail) {
+        if (identity.accountType) {
+          await tx.user.updateMany({
+            where: { id: byEmail.id, accountType: null },
+            data: { accountType: identity.accountType, accountVerifiedAt: initialVerification(identity) },
+          });
+        }
         if (!byEmail.authId.startsWith(PENDING_AUTH_PREFIX) || !identity.emailVerified) {
           throw conflict("This email is already linked to another account");
         }
@@ -95,6 +114,8 @@ export async function provisionUser(identity: AuthIdentity): Promise<SessionUser
             email,
             displayName: identity.displayName,
             avatarUrl: identity.avatarUrl,
+            accountType: identity.accountType,
+            accountVerifiedAt: initialVerification(identity),
             platformRole: makeAdmin ? PlatformRole.ADMIN : PlatformRole.USER,
           },
           select: { id: true },
@@ -133,6 +154,7 @@ async function getAuthIdentity(): Promise<AuthIdentity | null> {
       clerkUser.username ||
       primary.emailAddress.split("@")[0]!,
     avatarUrl: clerkUser.imageUrl || null,
+    accountType: parseAccountType(clerkUser.unsafeMetadata?.accountType),
   };
 }
 
@@ -147,6 +169,7 @@ export function identityFromClerkUser(data: UserJSON): AuthIdentity | null {
     emailVerified: primary.verification?.status === "verified",
     displayName: fullName || data.username || primary.email_address.split("@")[0]!,
     avatarUrl: data.image_url || null,
+    accountType: parseAccountType(data.unsafe_metadata?.accountType),
   };
 }
 
@@ -177,11 +200,47 @@ export function isPlatformAdmin(user: Pick<SessionUser, "platformRole"> | null):
   return user?.platformRole === PlatformRole.ADMIN;
 }
 
+/**
+ * Sets the account type once. A no-op if it's already set. Signing in proves
+ * Clerk verified their email, which is all a trader needs; VCs still need review.
+ */
+export async function chooseAccountType(user: SessionUser, type: AccountType): Promise<SessionUser> {
+  await db.user.updateMany({
+    where: { id: user.id, accountType: null },
+    data: { accountType: type, accountVerifiedAt: type === AccountType.TRADER ? new Date() : null },
+  });
+  return db.user.findUniqueOrThrow({ where: { id: user.id }, select: sessionUserSelect });
+}
+
+/** For API routes: 401 when signed out, 403 unless a verified account of this type. */
+export async function requireAccountType(type: AccountType): Promise<SessionUser> {
+  const user = await requireUser();
+  if (user.accountType !== type) {
+    throw forbidden(type === AccountType.TRADER ? "Only trader accounts can trade" : "VC account required");
+  }
+  if (!user.accountVerifiedAt) throw forbidden("Your account hasn't been verified yet");
+  return user;
+}
+
+/** Where someone lands after sign-in. Unchosen or unverified accounts finish at /onboarding. */
+export function homePathFor(user: Pick<SessionUser, "accountType" | "accountVerifiedAt">): string {
+  if (!user.accountType || !user.accountVerifiedAt) return "/onboarding";
+  return user.accountType === AccountType.VC ? "/vc" : "/profile";
+}
+
 /** For API routes and server actions: throws 401/403 unless a platform admin. */
 export async function requirePlatformAdmin(): Promise<SessionUser> {
   const user = await requireUser();
   if (!isPlatformAdmin(user)) throw forbidden("Administrator access required");
   return user;
+}
+
+/** For pages: sends signed-out visitors to sign in, then back to `returnTo`. */
+export async function requireUserPage(returnTo: string): Promise<SessionUser> {
+  const user = await getCurrentUser();
+  if (user) return user;
+  const { redirectToSignIn } = await auth();
+  return redirectToSignIn({ returnBackUrl: returnTo });
 }
 
 /**

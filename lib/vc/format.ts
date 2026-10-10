@@ -47,7 +47,7 @@ export const STATUS_LABELS: Record<StudyStatus, string> = {
 export const VISIBILITY_LABELS: Record<StudyVisibility, { label: string; description: string }> = {
   PUBLIC: {
     label: "Public",
-    description: "Once open, the question and community estimates are visible to all VentureCast users. Notes and reports stay private.",
+    description: "Once open, the question and community estimates are visible to all Senzi users. Notes and reports stay private.",
   },
   ORGANIZATION: {
     label: "Organization",
