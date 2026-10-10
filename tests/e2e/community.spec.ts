@@ -157,6 +157,65 @@ test.describe("market replay", () => {
   });
 });
 
+test.describe("accessibility center", () => {
+  const html = (page: Page) => page.locator("html");
+
+  test("settings apply instantly, persist, and reset", async ({ page }) => {
+    await page.goto(await firstMarketHref(page));
+    const button = page.getByRole("button", { name: /^Accessibility/ });
+    await button.click();
+    const panel = page.getByRole("dialog", { name: "Accessibility" });
+    await expect(panel).toBeVisible();
+    await expectAccessible(page);
+
+    await panel.getByRole("switch", { name: "Dyslexia-Friendly Reading" }).click();
+    await expect(html(page)).toHaveAttribute("data-dyslexia", "");
+    await panel.getByRole("radio", { name: "Extra Large" }).click();
+    await expect(html(page)).toHaveAttribute("data-text-size", "xl");
+    await panel.getByRole("radio", { name: "Color-Blind Friendly" }).click();
+    await expect(html(page)).toHaveAttribute("data-chart", "cvd");
+    await expect(button).toHaveAttribute("aria-label", "Accessibility, settings active");
+
+    await page.keyboard.press("Escape");
+    await expect(panel).toBeHidden();
+    await expect(button).toBeFocused();
+
+    await page.reload();
+    await expect(html(page)).toHaveAttribute("data-text-size", "xl");
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+
+    await page.getByRole("button", { name: /^Accessibility/ }).click();
+    await page.getByRole("dialog", { name: "Accessibility" }).getByRole("button", { name: "Reset" }).click();
+    await expect(html(page)).not.toHaveAttribute("data-text-size", /.*/);
+    await expect(html(page)).not.toHaveAttribute("data-dyslexia", /.*/);
+  });
+
+  test("High Visibility preset stays accessible", async ({ page }) => {
+    await page.goto(await firstMarketHref(page));
+    await page.getByRole("button", { name: /^Accessibility/ }).click();
+    await page.getByRole("button", { name: "High Visibility" }).click();
+    await expect(html(page)).toHaveAttribute("data-contrast", "");
+    await expect(page.getByRole("button", { name: "High Visibility" })).toHaveAttribute("aria-pressed", "true");
+    await page.keyboard.press("Escape");
+    await expectAccessible(page);
+  });
+
+  test("language menu translates the interface and returns to English", async ({ page }) => {
+    await page.goto("/");
+    await page.getByRole("button", { name: /^Language/ }).click();
+    await page.getByRole("menuitemradio", { name: /Español/ }).click();
+    await expect(html(page)).toHaveAttribute("lang", "es");
+    await expect(page.getByRole("navigation", { name: "Principal" }).getByRole("link", { name: "Mercados" })).toBeVisible();
+    await page.reload();
+    await expect(page.getByRole("link", { name: /Explorar mercados/ }).first()).toBeVisible();
+
+    await page.getByRole("button", { name: /^Idioma/ }).click();
+    await page.getByRole("menuitemradio", { name: /English/ }).click();
+    await expect(html(page)).toHaveAttribute("lang", "en");
+    await expect(page.getByRole("link", { name: /Explore markets/ }).first()).toBeVisible();
+  });
+});
+
 test.describe("app chrome", () => {
   test("Ctrl+K opens search, finds markets, and Escape closes it", async ({ page }) => {
     await page.goto("/");

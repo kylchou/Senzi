@@ -85,7 +85,43 @@ Keyboard: Space plays or pauses, arrow keys step between recorded moments and ev
 - `NotificationsBell` reads `GET /api/users/me/notifications` and uses `PATCH` with `{ ids: "all" }`, and badges the tab icon while anything is unread.
 - Tooltips (`InfoTip`, chart and replay markers) are removed from layout while hidden and shift to stay on screen, so they never widen the page on phones.
 - Motion uses CSS keyframes and React `ViewTransition`; everything is disabled under `prefers-reduced-motion`.
-- Preferences kept in `localStorage`: `senzi-theme`, `senzi-last-credits`, `senzi-recent-searches`, `senzi-filters:<path>`, and `senzi-tour-market-v1`.
+- Preferences kept in `localStorage`: `senzi-theme`, `senzi-a11y`, `senzi-lang`, `senzi-last-credits`, `senzi-recent-searches`, `senzi-filters:<path>`, and `senzi-tour-market-v1`.
+
+## Accessibility center
+
+The accessibility icon in the navbar opens a floating panel (a bottom sheet on phones). Changes apply instantly and are saved in `localStorage` (`senzi-a11y`). A red dot on the icon shows when anything differs from the defaults.
+
+Each setting is a data attribute on `<html>`, applied before first paint by `ThemeScript`. Global CSS in `components/ui/a11y/a11y.css` reacts to it, so pages need no settings logic.
+
+| Setting | Attribute | Effect |
+| --- | --- | --- |
+| Dyslexia-Friendly Reading | `data-dyslexia` | Letter, word, and line spacing on reading text; shorter lines; slightly larger text. Charts, logos, `translate="no"` names, and `tabular-nums` figures are excluded. |
+| Text Size | `data-text-size` (`sm`, `lg`, `xl`) | Rescales Tailwind's `--text-*` variables; large headings scale half as much. Chart labels keep their size. |
+| Comfortable Spacing | `data-spacing` | `--spacing` grows 5% and reading line height increases. |
+| High Contrast | `data-contrast` | Darker muted text, stronger hairlines, heavier focus ring, underlined text links, grayscale disabled controls. Light and dark. |
+| Reduce Motion | `data-reduce-motion` | Stops animations, hover movement, scroll reveals, and view transitions. The OS setting does the same. `motionReduced()` covers animated numbers and Replay easing. |
+| Chart Accessibility | `data-chart` (`cvd`, `contrast`) | See below. |
+| Focus Mode | `data-focus` | Hides decoration and `data-focus-hide` details; `<Secondary>` sections collapse behind a "Show" button. |
+| Larger Controls | `data-large-controls` | 44px minimum targets for buttons, fields, radios, switches, and nav links. Chart markers (`data-hit-exempt="marker"`) gain padding instead. |
+
+Presets (Standard, Reading Friendly, High Visibility, Reduced Motion) set several options at once; users can adjust afterwards.
+
+Charts: every chart takes its line styles from `components/ui/chart-style.tsx`. In Color-Blind Friendly and High Contrast modes Model is solid with circles, General is dashed with squares, and Verified is dotted with triangles. The market chart uses the same patterns for YES allocation, calibrated probability, and baseline. Legends use `LineSwatch` so they match the lines. Future charts (portfolio, leaderboard) should use the same module.
+
+Also included:
+
+- `ReadAloud`: speaker button using the browser's SpeechSynthesis, with pause and stop. It reads the page text as shown, so translated text is read in the chosen language. Hidden when speech is unavailable. On the market question and rules, and on each walkthrough step.
+- `Term`: dotted-underline term with a plain-language tooltip from `lib/glossary.ts` (Senzi Model, General Users, Verified Users, Probability, Market resolution, Virtual credits, Forecast). Escape hides it.
+- Keyboard: Replay, search, and the market tour trap focus while open (`useFocusTrap`); segmented controls use arrow keys; the market chart shows a focus ring.
+
+## Languages
+
+The translate icon offers English (default), Spanish, Mandarin Chinese, Hindi, Portuguese, French, Japanese, and Korean. The choice is saved in `localStorage` (`senzi-lang`) and sets `<html lang>` before first paint.
+
+- Interface text comes from `lib/i18n/messages.ts`: one row per English string with seven translations, plus pattern rules for labels with numbers ("Closes in 12 days"). It works in every browser.
+- Database content (market questions, news, startup details) uses the browser's on-device Translator API where available (current Chrome and Edge). Nothing is sent to a server. Other browsers keep that content in English, and the menu says so.
+- `components/ui/i18n/translator.ts` translates text nodes in place and follows React updates with a MutationObserver. It skips nodes React has not hydrated yet, so hydration never sees translated text.
+- Mark brand names and anything that must stay as written with `translate="no"`. Add new interface strings to `messages.ts`; the unit tests check every language has every string.
 
 ## Shared files touched
 
