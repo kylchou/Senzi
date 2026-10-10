@@ -38,7 +38,7 @@ export const CALIBRATION_EXPLAINER =
   "A calibrated probability is shown only when enough resolved forecasts exist to evaluate calibration.";
 
 export const VC_DISCLAIMER =
-  "VentureCast estimates are research signals generated from virtual-credit forecasts. They are not guaranteed predictions, investment advice, or recommendations. No real money is wagered. Do not share or act on material nonpublic information.";
+  "Senzi estimates are research signals generated from virtual-credit forecasts. They are not guaranteed predictions, investment advice, or recommendations. No real money is wagered. Do not share or act on material nonpublic information.";
 
 export const STANDARD_LIMITATIONS = [
   "Forecasts use virtual credits only; participants have no financial stake in the outcome.",
