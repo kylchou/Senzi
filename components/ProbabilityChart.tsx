@@ -16,7 +16,29 @@ import {
 import { formatDate, formatDateTime, formatPointChange, formatShare } from "@/lib/market-view/format";
 import { eventImpact } from "@/lib/market-view/insights";
 import type { HistoryPoint, NewsItemView } from "@/lib/market-view/types";
+import { usePrefs } from "@/components/ui/a11y/preferences";
+import { LineSwatch, lineStyle, SeriesMarker, showsMarkers, type LineStyle } from "@/components/ui/chart-style";
 import { cn } from "@/components/ui/cn";
+import { Term } from "@/components/ui/Term";
+
+/**
+ * Line drawing props. The default mode draws the line in once; accessible chart
+ * modes use the line pattern instead (the draw trick needs the dash array).
+ */
+function lineProps(style: LineStyle, patterned: boolean) {
+  const base = { fill: "none", strokeWidth: style.width, strokeLinejoin: "round" as const };
+  if (patterned) {
+    return { ...base, className: style.stroke, strokeDasharray: style.dash, strokeLinecap: style.dash ? style.cap : ("round" as const) };
+  }
+  return {
+    ...base,
+    className: cn("animate-[draw_900ms_var(--ease-out-soft)_forwards]", style.stroke),
+    strokeLinecap: "round" as const,
+    pathLength: 1,
+    strokeDasharray: 1,
+    strokeDashoffset: 1,
+  };
+}
 
 /** Chart box in real pixels so labels stay readable at every width. */
 function boxFor(width: number): ChartBox {
@@ -52,6 +74,11 @@ export function ProbabilityChart({
   const [width, setWidth] = useState(720);
   const [range, setRange] = useState<ChartRangeKey>("all");
   const [active, setActive] = useState<number | null>(null);
+  const mode = usePrefs().chart;
+  const patterned = showsMarkers(mode);
+  const allocationStyle = lineStyle("allocation", mode);
+  const calibratedStyle = lineStyle("calibrated", mode);
+  const baselineStyle = lineStyle("baseline", mode);
 
   const ranges = useMemo(() => availableRanges(history, now), [history, now]);
   const days = CHART_RANGES.find((option) => option.key === range)?.days ?? null;
@@ -85,6 +112,11 @@ export function ProbabilityChart({
     .map(({ event, time }) => ({ event, x: xFor(time), impact: eventImpact(history, event.publishedAt, now) }));
   const current = active !== null ? points[active] : null;
   const last = points[points.length - 1];
+  // Shape markers along each line in accessible chart modes.
+  const markerEvery = Math.max(1, Math.ceil(points.length / 8));
+  const lineMarkers = patterned
+    ? points.filter((_, index) => index % markerEvery === 0 && index < points.length - 1)
+    : [];
 
   function pointAt(clientX: number) {
     const rect = svgRef.current?.getBoundingClientRect();
@@ -132,7 +164,7 @@ export function ProbabilityChart({
         <svg
           ref={svgRef}
           viewBox={`0 0 ${box.width} ${box.height}`}
-          className="h-auto w-full touch-pan-y select-none outline-none"
+          className="h-auto w-full touch-pan-y select-none rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
           role="img"
           aria-labelledby={titleId}
           tabIndex={0}
@@ -216,9 +248,10 @@ export function ProbabilityChart({
                   x2={box.width - box.padding.right}
                   y1={yFor(openingBaseline)}
                   y2={yFor(openingBaseline)}
-                  className="stroke-ink-500"
-                  strokeWidth={1.5}
-                  strokeDasharray="5 5"
+                  className={baselineStyle.stroke}
+                  strokeWidth={baselineStyle.width}
+                  strokeDasharray={baselineStyle.dash}
+                  strokeLinecap={baselineStyle.cap}
                 />
                 <text
                   x={box.width - box.padding.right}
@@ -232,31 +265,24 @@ export function ProbabilityChart({
               </g>
             )}
 
-            {calibratedPath && (
-              <path
-                d={calibratedPath}
-                fill="none"
-                className="animate-[draw_900ms_var(--ease-out-soft)_forwards] stroke-ink-900"
-                strokeWidth={1.5}
-                strokeLinejoin="round"
-                strokeLinecap="round"
-                pathLength={1}
-                strokeDasharray={1}
-                strokeDashoffset={1}
-              />
-            )}
+            {calibratedPath && <path d={calibratedPath} {...lineProps(calibratedStyle, patterned)} />}
 
-            <path
-              d={path}
-              fill="none"
-              className="animate-[draw_900ms_var(--ease-out-soft)_forwards] stroke-red-500"
-              strokeWidth={2}
-              strokeLinejoin="round"
-              strokeLinecap="round"
-              pathLength={1}
-              strokeDasharray={1}
-              strokeDashoffset={1}
-            />
+            <path d={path} {...lineProps(allocationStyle, patterned)} />
+
+            {lineMarkers.map(({ x, y, point }) => (
+              <g key={point.at}>
+                <SeriesMarker shape={allocationStyle.marker} x={x} y={y} size={3.5} className={allocationStyle.fill} />
+                {point.calibrated !== null && calibratedPath && (
+                  <SeriesMarker
+                    shape={calibratedStyle.marker}
+                    x={x}
+                    y={yFor(point.calibrated)}
+                    size={3.5}
+                    className={calibratedStyle.fill}
+                  />
+                )}
+              </g>
+            ))}
           </g>
 
           {current ? (
@@ -282,7 +308,11 @@ export function ProbabilityChart({
                   className="animate-[live-ping_2.4s_ease-out_infinite] fill-red-500 [transform-box:fill-box] [transform-origin:center]"
                 />
               )}
-              <circle cx={last.x} cy={last.y} r={4.5} className="fill-red-500 stroke-surface" strokeWidth={2} />
+              {patterned ? (
+                <SeriesMarker shape={allocationStyle.marker} x={last.x} y={last.y} size={5} className={allocationStyle.fill} />
+              ) : (
+                <circle cx={last.x} cy={last.y} r={4.5} className="fill-red-500 stroke-surface" strokeWidth={2} />
+              )}
             </g>
           )}
         </svg>
@@ -311,6 +341,7 @@ export function ProbabilityChart({
               target="_blank"
               rel="noopener noreferrer"
               aria-label={`News, ${formatDate(event.publishedAt)}: ${event.title}, ${event.publisher}`}
+              data-hit-exempt="marker"
               className="group absolute z-20 -translate-x-1/2 -translate-y-1/2 p-1.5"
               style={{ left: `${left}%`, top: `${(yFor(0) / box.height) * 100}%` }}
             >
@@ -337,18 +368,20 @@ export function ProbabilityChart({
 
       <figcaption className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-ink-600">
         <span className="inline-flex items-center gap-2">
-          <span aria-hidden className="h-0.5 w-5 rounded-full bg-red-500" />
+          <LineSwatch style={allocationStyle} mode={mode} />
           YES allocation share
         </span>
         {calibratedPath && (
           <span className="inline-flex items-center gap-2">
-            <span aria-hidden className="h-[1.5px] w-5 rounded-full bg-ink-900" />
-            Calibrated probability
+            <LineSwatch style={calibratedStyle} mode={mode} />
+            <span>
+              Calibrated <Term id="probability">probability</Term>
+            </span>
           </span>
         )}
         {openingBaseline !== null && (
           <span className="inline-flex items-center gap-2">
-            <span aria-hidden className="w-5 border-t-[1.5px] border-dashed border-ink-500" />
+            <LineSwatch style={baselineStyle} mode={mode} />
             Opening baseline
           </span>
         )}

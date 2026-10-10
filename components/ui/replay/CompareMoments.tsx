@@ -2,6 +2,8 @@
 
 import { formatShortDate } from "@/lib/market-view/format";
 import { compareMoments, SERIES_LABEL, type ReplayPoint, type SeriesKey } from "@/lib/market-view/replay";
+import { usePrefs } from "../a11y/preferences";
+import { LineSwatch, lineStyle } from "../chart-style";
 import { cn } from "../cn";
 import { percent, points, SERIES_STYLE } from "./series";
 
@@ -28,6 +30,7 @@ export function CompareMoments({
   const result = compareMoments(data, from, to);
   const rows = result.rows.filter((row) => available[row.series]);
   const gap = result.gaps[0];
+  const mode = usePrefs().chart;
 
   return (
     <section aria-labelledby="compare-heading" className="animate-[rise-in_260ms_var(--ease-out-soft)]">
@@ -67,7 +70,7 @@ export function CompareMoments({
             <tr key={row.series} className="border-t border-hairline">
               <th scope="row" className="py-2 text-left font-medium text-ink-700">
                 <span className="flex items-center gap-2">
-                  <span aria-hidden className={cn("w-4", SERIES_STYLE[row.series].swatch)} />
+                  <LineSwatch style={lineStyle(row.series, mode)} mode={mode} />
                   {SERIES_STYLE[row.series].short}
                 </span>
               </th>
