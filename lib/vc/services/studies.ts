@@ -25,6 +25,7 @@ import {
   type StudyEvent,
   type StudyNote,
   type StudyStatus,
+  type StudyVisibility,
   type UserSummary,
   type VcContext,
 } from "../types";
@@ -188,6 +189,36 @@ export function createStudyService(deps: VcDeps) {
     };
   }
 
+  /**
+   * The study's visibility follows who may trade: a question open to the public
+   * is public research; one for verified users only stays with the firm (its
+   * market's audience is set when forecasting opens).
+   */
+  function visibilityFor(audience: { openToPublic: boolean; openToVerified: boolean }): StudyVisibility {
+    return audience.openToPublic ? "PUBLIC" : "ORGANIZATION";
+  }
+
+  /**
+   * Who the market is for. Verified-users-only questions open as public markets
+   * that only verified users of the product can trade or see the line of
+   * (lib/product-verification.ts); everything else keeps the study's visibility.
+   * Verified users' trades on a public market make up its verified line.
+   */
+  function marketAudience(study: Study): { visibility: StudyVisibility; verifiedUsersOnly: boolean } {
+    const verifiedOnly = study.openToVerified && !study.openToPublic;
+    return verifiedOnly ? { visibility: "PUBLIC", verifiedUsersOnly: true } : { visibility: study.visibility, verifiedUsersOnly: false };
+  }
+
+  function audienceOf(input: { openToPublic?: boolean; openToVerified?: boolean }) {
+    const audience = { openToPublic: input.openToPublic ?? true, openToVerified: input.openToVerified ?? false };
+    if (!audience.openToPublic && !audience.openToVerified) {
+      throw new VcError("VALIDATION_ERROR", "Open the question to the public, to verified users, or both", [
+        { path: "openToPublic", message: "Choose at least one" },
+      ]);
+    }
+    return audience;
+  }
+
   /** A linked question resolves from a public source; make sure the study names it first. */
   function withResolutionSource<T extends { url: string; title: string; publisher: string | null; publishedAt: Date | null }>(
     sources: T[],
@@ -231,7 +262,9 @@ export function createStudyService(deps: VcDeps) {
       ...fieldsFrom(estimate, input),
       context: input.context ?? null,
       deadline: input.deadline,
-      visibility: input.visibility,
+      visibility: input.visibility ?? visibilityFor(audienceOf(input)),
+      ...audienceOf(input),
+      prizePoolCredits: input.prizePoolCredits ?? 0,
       sources: withResolutionSource(
         (input.sources ?? []).map((s) => ({
           url: s.url,
@@ -262,6 +295,19 @@ export function createStudyService(deps: VcDeps) {
     const patch: StudyPatch = {};
     for (const [key, value] of Object.entries(fields)) {
       if (value !== undefined) (patch as Record<string, unknown>)[key] = value;
+    }
+    const audience = {
+      openToPublic: fields.openToPublic ?? study.openToPublic,
+      openToVerified: fields.openToVerified ?? study.openToVerified,
+    };
+    if (!audience.openToPublic && !audience.openToVerified) {
+      throw new VcError("VALIDATION_ERROR", "Open the question to the public, to verified users, or both", [
+        { path: "openToPublic", message: "Choose at least one" },
+      ]);
+    }
+    // Changing who can trade moves the study's visibility with it, unless a visibility was set explicitly.
+    if (fields.visibility === undefined && (fields.openToPublic !== undefined || fields.openToVerified !== undefined)) {
+      patch.visibility = visibilityFor(audience);
     }
 
     // Re-price whenever anything the estimate depends on changes. Undefined modelLink keeps the stored link.
@@ -400,7 +446,7 @@ export function createStudyService(deps: VcDeps) {
         closesAt: study.deadline,
         openingBaseline: { value: estimate.probability, methodology: estimate.methodology },
         model: marketModelInput(estimate, metricLabel),
-        visibility: study.visibility,
+        ...marketAudience(study),
         sources: study.sources.map((s) => ({ url: s.url, title: s.title })),
         createdById: ctx.user.id,
       });
@@ -513,6 +559,56 @@ export function createStudyService(deps: VcDeps) {
   }
 
   /**
+   * Pays prize pools for resolved studies whose markets have finished settling.
+   * Safe to run repeatedly: each trader's share has its own idempotency key,
+   * and a paid study is marked so it's skipped next time.
+   */
+  async function payPrizePools(): Promise<{ paid: number; pending: number; failed: number }> {
+    const due = (await repo.listStudies({ statuses: ["RESOLVED"], hasMarket: true })).filter(
+      (s) => s.prizePoolCredits > 0 && !s.prizeDistributedAt,
+    );
+    let paid = 0;
+    let pending = 0;
+    let failed = 0;
+    for (const study of due) {
+      try {
+        const result = await platform.payPrizePool({
+          studyId: study.id,
+          marketId: study.marketId!,
+          credits: study.prizePoolCredits,
+          question: study.question,
+        });
+        if (result.state === "pending") {
+          pending++;
+          continue;
+        }
+        const updated = await repo.updateStudy(study.id, study.version, { prizeDistributedAt: now() });
+        if (!updated) continue; // changed concurrently; the next run marks it (payouts are idempotent)
+        await alertPublisher.publish([
+          {
+            organizationId: study.organizationId,
+            type: "STUDY_STATUS_CHANGED",
+            studyId: study.id,
+            startupId: study.startupId,
+            marketId: study.marketId,
+            title: result.winners > 0 ? "Prize pool paid" : "Prize pool not paid",
+            body:
+              result.winners > 0
+                ? `${result.paid.toLocaleString("en-US")} credits went to ${result.winners} trader${result.winners === 1 ? "" : "s"} who gained on "${study.question}".`
+                : `No trader gained credits on "${study.question}", so its prize pool wasn't paid out.`,
+            dedupeKey: `prize-paid:${study.id}`,
+          },
+        ]);
+        paid++;
+      } catch (err) {
+        failed++;
+        console.error(`[vc] prize pool payout failed for study ${study.id}`, err);
+      }
+    }
+    return { paid, pending, failed };
+  }
+
+  /**
    * Mirrors a corrected market outcome onto an already-resolved study. Status
    * stays RESOLVED; the change is recorded as a study event and announced to
    * the firm. Evidence-only corrections need nothing here: evidence is read
@@ -556,6 +652,7 @@ export function createStudyService(deps: VcDeps) {
     addNote,
     deleteNote,
     syncWithMarkets,
+    payPrizePools,
     loadVisible,
   };
 }

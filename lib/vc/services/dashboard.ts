@@ -21,10 +21,12 @@ import type { ReportService, SavedReportSummary } from "./reports";
 export interface DashboardStudyRow {
   study: StudyView;
   startupName: string | null;
+  /** For linking to the company hub. */
+  startupSlug: string | null;
   baseline: BaselineView;
   estimate: MarketEstimate | null;
   freshness: Freshness;
-  /** Change in General LMSR price over the last 7 days. */
+  /** Change in crowd price over the last 7 days. */
   change7d: number | null;
   followed: boolean;
 }
@@ -37,7 +39,8 @@ export interface VcDashboard {
   pipeline: DashboardStudyRow[];
   movements: DashboardStudyRow[];
   upcomingDeadlines: DashboardStudyRow[];
-  watchlistSummary: { id: string; name: string; itemCount: number }[];
+  /** What the firm follows: startup names, and how many questions. */
+  following: { startups: { id: string; name: string }[]; studyCount: number };
   recentReports: SavedReportSummary[];
   unreadAlerts: number;
   /** Latest unread alerts the user can see, and unread counts per alert type. */
@@ -84,6 +87,7 @@ export function createDashboardService(
       platform.getStartups([...new Set(visible.map(({ s }) => s.startupId))]),
     ]);
     const startupName = new Map(startups.map((s) => [s.id, s.name]));
+    const startupSlug = new Map(startups.map((s) => [s.id, s.slug]));
 
     const openWithMarket = visible
       .filter(({ s }) => s.status === "OPEN" && s.marketId)
@@ -103,6 +107,7 @@ export function createDashboardService(
       return {
         study: redactStudy(ctx, s, p),
         startupName: startupName.get(s.startupId) ?? null,
+        startupSlug: startupSlug.get(s.startupId) ?? null,
         baseline: resolveBaseline(s, estimate),
         estimate,
         freshness: describeFreshness(estimate, s.status, at),
@@ -140,6 +145,11 @@ export function createDashboardService(
       services.alerts.list(ctx, { unreadOnly: true, limit: 100 }),
     ]);
 
+    const followedStartupIds = [
+      ...new Set(watchlists.flatMap((w) => w.items.filter((i) => i.type === "STARTUP").map((i) => i.startupId!))),
+    ];
+    const followedStartups = followedStartupIds.length ? await platform.getStartups(followedStartupIds) : [];
+
     return {
       organization: { id: org.organizationId, name: org.organizationName, role: org.role },
       generatedAt: at,
@@ -148,7 +158,7 @@ export function createDashboardService(
       pipeline,
       movements,
       upcomingDeadlines,
-      watchlistSummary: watchlists.map((w) => ({ id: w.id, name: w.name, itemCount: w.items.length })),
+      following: { startups: followedStartups.map((s) => ({ id: s.id, name: s.name })), studyCount: watchedIds.size },
       recentReports,
       unreadAlerts,
       alertSummary: {

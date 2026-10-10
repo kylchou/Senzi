@@ -21,6 +21,8 @@ export const RATE_LIMITS = {
   orgInvite: { limit: 30, windowSeconds: 60 * 60 },
   profileUpdate: { limit: 30, windowSeconds: 60 * 60 },
   verificationSubmit: { limit: 5, windowSeconds: 24 * 60 * 60 },
+  /** Access-code guesses per user, so codes can't be brute-forced. */
+  accessCodeRedeem: { limit: 10, windowSeconds: 60 * 60 },
   creditAdjust: { limit: 60, windowSeconds: 60 * 60 },
   resolutionReview: { limit: 60, windowSeconds: 60 * 60 },
   forecastSubmit: { limit: 60, windowSeconds: 60 },

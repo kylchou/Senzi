@@ -291,7 +291,7 @@ describe("draft preview", () => {
 });
 
 describe("AI suggestion parsing", () => {
-  const metrics = [{ id: "downloads:acme", label: "weekly downloads", unit: "downloads", kind: "weekly_total" as const, hasPublicData: true }];
+  const metrics = [{ id: "downloads:acme", label: "weekly downloads", unit: "downloads", kind: "weekly_total" as const, hasPublicData: true, thresholdLabel: "At least", dateLabel: "Week ending" }];
   const deadline = new Date("2026-12-01T00:00:00Z");
 
   it("accepts only listed metrics, real dates after the deadline, and a threshold", () => {

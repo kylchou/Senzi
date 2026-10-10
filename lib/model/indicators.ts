@@ -19,10 +19,25 @@ export interface Indicator {
   change4w: number | null;
   source: SourceId;
   sourceUrl: string | null;
+  /** When the latest value was fetched (scraped) or entered (sponsor). */
+  fetchedAt: string | null;
   provenance: Provenance;
   provenanceLabel: string;
   simulated: boolean;
   missingReason?: string;
+}
+
+/** One scraped metric over time, for the company hub's indicator charts. */
+export interface IndicatorHistory {
+  metricId: string;
+  label: string;
+  unit: string;
+  source: SourceId;
+  sourceUrl: string | null;
+  fetchedAt: string | null;
+  higherIsBetter: boolean;
+  /** Daily counts are summed into 7-day totals; other kinds are the observed values. */
+  points: { date: string; value: number }[];
 }
 
 function visible(points: readonly DataPoint[], asOf: Date) {
@@ -57,6 +72,7 @@ export function getCompanyIndicators(
       change4w: null,
       source: m.source,
       sourceUrl: null,
+      fetchedAt: null,
       provenance: 'scraped',
       provenanceLabel: 'Scraped from a public source',
       simulated: false,
@@ -67,6 +83,7 @@ export function getCompanyIndicators(
     }
     const latest = latestOf(mine)!;
     row.sourceUrl = latest.sourceUrl;
+    row.fetchedAt = latest.fetchedAt;
 
     if (m.kind === 'daily_count') {
       // Latest complete 7-day total, compared with the 7 days ending four weeks earlier.
@@ -112,6 +129,7 @@ export function getCompanyIndicators(
       change4w: null,
       source: 'sponsor',
       sourceUrl: null,
+      fetchedAt: null,
       provenance: 'sponsor_provided',
       provenanceLabel: 'Sponsor-provided',
       simulated: false,
@@ -120,7 +138,50 @@ export function getCompanyIndicators(
       rows.push({ ...base, missingReason: 'Not provided by the sponsor' });
       continue;
     }
-    rows.push({ ...base, value: latest.value, asOf: latest.periodEnd, provenanceLabel: sponsorLabel(latest), simulated: latest.simulated });
+    rows.push({ ...base, value: latest.value, asOf: latest.periodEnd, fetchedAt: latest.fetchedAt, provenanceLabel: sponsorLabel(latest), simulated: latest.simulated });
   }
   return rows;
+}
+
+/** Scraped metrics over time, oldest first. Metrics with no data are left out. */
+export function getIndicatorHistory(companyId: string, scraped: readonly DataPoint[], asOf: Date): IndicatorHistory[] {
+  const company = getCompany(companyId);
+  const pts = visible(scraped, asOf).filter((p) => p.companyId === companyId && p.provenance === 'scraped');
+  const out: IndicatorHistory[] = [];
+  for (const m of metricsFor(company)) {
+    const mine = pts.filter((p) => p.metricId === m.id);
+    const latest = latestOf(mine);
+    if (!latest) continue;
+    let points: { date: string; value: number }[];
+    if (m.kind === 'daily_count') {
+      // Non-overlapping complete 7-day totals, stepping back from the latest day.
+      const series = buildDailySeries(mine, m.id, asOf);
+      points = [];
+      for (let end = series.lastDay; end !== null && series.firstDay !== null && end - 6 >= series.firstDay; end -= 7) {
+        const total = windowTotal(series, end);
+        if (total !== null) points.push({ date: new Date(end * 86_400_000).toISOString().slice(0, 10), value: total });
+      }
+      points.reverse();
+    } else {
+      // One value per period end; a re-fetch of the same period replaces the older one.
+      const byDay = new Map<string, DataPoint>();
+      for (const p of mine) {
+        const prev = byDay.get(p.periodEnd);
+        if (!prev || prev.fetchedAt < p.fetchedAt) byDay.set(p.periodEnd, p);
+      }
+      points = [...byDay.values()].sort((a, b) => a.periodEnd.localeCompare(b.periodEnd)).map((p) => ({ date: p.periodEnd, value: p.value }));
+    }
+    if (!points.length) continue;
+    out.push({
+      metricId: m.id,
+      label: m.kind === 'daily_count' ? `${m.label} (7-day totals)` : m.label,
+      unit: m.unit,
+      source: m.source,
+      sourceUrl: latest.sourceUrl,
+      fetchedAt: latest.fetchedAt,
+      higherIsBetter: m.higherIsBetter,
+      points,
+    });
+  }
+  return out;
 }

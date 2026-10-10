@@ -24,6 +24,7 @@ import { grantSignupCredits } from "../lib/credits";
 import { applyTrade, defaultLiquidity, openingState, quoteTrade, sharesForSpend, yesPrice } from "../lib/forecasting/lmsr";
 import { LMSR_RULE_ID } from "../lib/forecasting/lmsr-pricing";
 import { db } from "../lib/db";
+import { seedVerifiedUsersDemo } from "./verified-users-demo";
 import { FileModelStore } from "../lib/model";
 import { estimateWithModel } from "../lib/vc/model-estimate";
 import { PENDING_AUTH_PREFIX, SIGNUP_GRANT_CREDITS } from "../lib/types";
@@ -713,6 +714,9 @@ async function main() {
   await db.userAchievement.createMany({
     data: withForecasts.map(({ userId }) => ({ userId, achievementId: firstForecast.id, awardedAt: SEED_ANCHOR })),
   });
+
+  // A Stripe market for verified Stripe users, and the STRIPE-DEMO access code.
+  await seedVerifiedUsersDemo(SEED_ANCHOR);
 
   const counts = {
     users: await db.user.count(),

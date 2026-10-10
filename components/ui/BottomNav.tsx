@@ -4,10 +4,12 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Suspense } from "react";
 import { SignInButton, useAuth } from "@clerk/nextjs";
-import { Building2, Compass, Home, Pencil, Search, User } from "lucide-react";
+import { Briefcase, Building2, Compass, Home, Pencil, Search, User } from "lucide-react";
 import { cn } from "./cn";
 import { openCommandPalette } from "./CommandPalette";
 import { useRememberedHref } from "./remembered-filters";
+import { useIsVcAccount } from "./account-type";
+import { hasVcAccess, useVcWorkspace } from "./vc-workspace";
 
 const tabs = [
   { href: "/", label: "Home", Icon: Home, exact: true },
@@ -15,6 +17,9 @@ const tabs = [
   { href: "/startups", label: "Startups", Icon: Building2, exact: false },
   { href: "/how-it-works", label: "Learn", Icon: Pencil, exact: false },
 ];
+
+/** For firm members the Learn slot opens their Intelligence workspace instead, keeping the bar at six items. */
+const intelligenceTab = { href: "/vc", label: "Intelligence", Icon: Briefcase, exact: false };
 
 const itemClass =
   "flex min-h-14 flex-1 flex-col items-center justify-center gap-0.5 text-[11px] font-medium transition-[color,transform] duration-150 active:scale-90";
@@ -49,7 +54,13 @@ function RoutedTabs() {
 }
 
 function Tabs({ pathname }: { pathname: string | null }) {
-  return tabs.map((tab) => <Tab key={tab.href} tab={tab} pathname={pathname} />);
+  const vc = hasVcAccess(useVcWorkspace());
+  // VC accounts don't trade, so they don't get the Markets tab.
+  const isVcAccount = useIsVcAccount();
+  const shown = (vc ? tabs.map((tab) => (tab.href === "/how-it-works" ? intelligenceTab : tab)) : tabs).filter(
+    (tab) => !(isVcAccount && tab.href === "/markets"),
+  );
+  return shown.map((tab) => <Tab key={tab.href} tab={tab} pathname={pathname} />);
 }
 
 function Tab({ tab: { href, label, Icon, exact }, pathname }: { tab: (typeof tabs)[number]; pathname: string | null }) {

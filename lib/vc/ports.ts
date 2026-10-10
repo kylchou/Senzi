@@ -64,6 +64,8 @@ export interface CreateMarketForStudyInput {
   };
   /** Non-PUBLIC markets must be excluded from public market APIs. */
   visibility: StudyVisibility;
+  /** Only verified users of the startup's product may trade and see the line. */
+  verifiedUsersOnly?: boolean;
   sources: { url: string; title: string }[];
   createdById: string;
 }
@@ -95,6 +97,14 @@ export interface PlatformGateway {
   markAlertNotificationsRead(userId: string, alertIds: string[], at: Date): Promise<void>;
   /** Stops forecasting on the study's market. Idempotent; a no-op if the study has no market. */
   closeMarketForStudy(input: { studyId: string; closedById: string | null; reason: string | null }): Promise<void>;
+  /**
+   * Pays a study's prize pool once its market has settled, split by each
+   * trader's net gain (lib/vc/prize-pool.ts). Idempotent per trader.
+   * "pending" until settlement completes; "done" afterwards, even if no one gained.
+   */
+  payPrizePool(input: { studyId: string; marketId: string; credits: number; question: string }): Promise<
+    { state: "pending" } | { state: "done"; winners: number; paid: number }
+  >;
 }
 
 // ---------------------------------------------------------------------------
@@ -123,6 +133,9 @@ export interface NewStudy {
   baselineMethodology: string | null;
   deadline: Date;
   visibility: StudyVisibility;
+  openToPublic: boolean;
+  openToVerified: boolean;
+  prizePoolCredits: number;
   sources: Omit<StudySource, "id">[];
 }
 
@@ -138,6 +151,10 @@ export type StudyPatch = Partial<
     | "baselineMethodology"
     | "deadline"
     | "visibility"
+    | "openToPublic"
+    | "openToVerified"
+    | "prizePoolCredits"
+    | "prizeDistributedAt"
     | "status"
     | "marketId"
     | "rejectionReason"

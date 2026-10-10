@@ -390,6 +390,7 @@ export async function createMarketForStudy(raw: CreateMarketForStudyInput): Prom
           modelInputsNote: input.model.inputsNote || null,
           modelUpdatedAt: input.model.asOf,
           visibility: input.visibility,
+          verifiedUsersOnly: input.verifiedUsersOnly,
           organizationId: isPublic ? null : input.organizationId,
           status: MarketStatus.OPEN,
           opensAt: now,

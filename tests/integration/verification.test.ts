@@ -3,6 +3,7 @@ import { OrgRole } from "@/generated/prisma/enums";
 import { db } from "@/lib/db";
 import { addMember, createOrganization } from "@/lib/organizations";
 import {
+  bypassVcVerification,
   emailMatchesWebsite,
   latestVcVerification,
   reviewVcVerification,
@@ -101,5 +102,23 @@ describe("VC verification", () => {
     expect(emailMatchesWebsite("sam@mail.northwind.vc", "https://northwind.vc/team")).toBe(true);
     expect(emailMatchesWebsite("sam@gmail.com", "https://northwind.vc")).toBe(false);
     expect(emailMatchesWebsite("sam@northwind.vc", "not a url")).toBe(false);
+  });
+});
+
+describe("demo bypass", () => {
+  it("approves the VC's own pending request, audits it, and is safe to repeat", async () => {
+    const vc = await unverifiedVc();
+    const request = await submitVcVerification(vc, details);
+    await bypassVcVerification(vc);
+    expect((await db.user.findUniqueOrThrow({ where: { id: vc.id } })).accountVerifiedAt).not.toBeNull();
+    expect(await db.vcVerificationRequest.findUniqueOrThrow({ where: { id: request.id } })).toMatchObject({ status: "APPROVED", reviewNote: "Demo bypass code" });
+    expect(await db.auditLog.count({ where: { action: "verification.bypass", entityId: vc.id } })).toBe(1);
+    await bypassVcVerification(vc);
+    expect(await db.auditLog.count({ where: { action: "verification.bypass", entityId: vc.id } })).toBe(1);
+  });
+
+  it("refuses trader accounts", async () => {
+    const trader = await makeUser({ accountType: "TRADER" });
+    await expect(bypassVcVerification(trader)).rejects.toMatchObject({ code: "INVALID_STATE" });
   });
 });

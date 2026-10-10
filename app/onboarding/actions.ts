@@ -1,10 +1,11 @@
 "use server";
 
+import { timingSafeEqual } from "node:crypto";
 import { redirect } from "next/navigation";
 import { toApiError } from "@/lib/api-response";
 import { chooseAccountType, homePathFor, parseAccountType, requireUser } from "@/lib/auth";
 import { rateLimit, RATE_LIMITS } from "@/lib/rate-limit";
-import { submitVcVerification, switchToTrader } from "@/lib/verification";
+import { bypassVcVerification, submitVcVerification, switchToTrader } from "@/lib/verification";
 import { vcVerificationSchema } from "@/lib/validation";
 
 export async function chooseAccountTypeAction(fd: FormData) {
@@ -58,6 +59,35 @@ export async function submitVerificationAction(_: VerificationFormState, fd: For
     return { ok: false, message: toApiError(error).message };
   }
   redirect("/onboarding");
+}
+
+/** Why a demo bypass attempt didn't go through; shown on /onboarding via ?bypass=. */
+export type BypassOutcome = "invalid" | "rate_limited" | "error";
+
+/**
+ * Demo only: a code from DEMO_VC_BYPASS_CODE skips the admin review. Disabled when the variable is unset.
+ * Never throws: every failure redirects back with a reason, so the page shows a message instead of crashing.
+ */
+export async function bypassVerificationAction(fd: FormData) {
+  const expected = process.env.DEMO_VC_BYPASS_CODE?.trim();
+  const raw = fd.get("code");
+  const code = typeof raw === "string" ? raw.trim() : "";
+  let outcome: BypassOutcome | null = null;
+  try {
+    const user = await requireUser();
+    // Its own budget, sized for code guesses, so it never eats into firm-detail submissions (or vice versa).
+    await rateLimit(`verification-bypass:${user.id}`, RATE_LIMITS.accessCodeRedeem);
+    const a = Buffer.from(code);
+    const b = Buffer.from(expected ?? "");
+    if (!expected || a.length !== b.length || !timingSafeEqual(a, b)) outcome = "invalid";
+    else await bypassVcVerification(user);
+  } catch (error) {
+    const e = toApiError(error);
+    outcome = e.code === "RATE_LIMITED" ? "rate_limited" : "error";
+    // Shows up in the server logs with the real cause.
+    if (outcome === "error") console.error("[onboarding] demo bypass failed", error);
+  }
+  redirect(outcome ? `/onboarding?bypass=${outcome}` : "/onboarding");
 }
 
 export async function switchToTraderAction() {
