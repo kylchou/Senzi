@@ -336,6 +336,8 @@ export const createMarketForStudySchema = z
       })
       .strict(),
     visibility: z.enum(StudyVisibility),
+    /** Only verified users of the startup's product may trade (and see the line). */
+    verifiedUsersOnly: z.boolean().default(false),
     sources: z.array(z.object({ url: httpUrlSchema, title: z.string().trim().min(1).max(200) })).max(20),
     createdById: idSchema,
   })

@@ -6,10 +6,13 @@
  */
 import "server-only";
 import type { PrismaClient } from "@/generated/prisma/client";
+import { CreditTransactionType, SettlementStatus } from "@/generated/prisma/enums";
 import { closeMarketForStudy, createMarketForStudy } from "@/lib/admin";
+import { applyCreditTransaction } from "@/lib/credits";
 import { getCurrentUser, isPlatformAdmin } from "@/lib/auth";
 import { PUBLIC_MARKET_WHERE, PUBLIC_STARTUP_WHERE } from "@/lib/permissions";
 import type { PlatformGateway } from "../ports";
+import { prizeIdempotencyKey, splitPrizePool } from "../prize-pool";
 
 const userSelect = { id: true, displayName: true, email: true } as const;
 const toUserSummary = (u: { id: string; displayName: string; email: string }) => ({
@@ -89,6 +92,44 @@ export function createPlatformGateway(db: PrismaClient): PlatformGateway {
     async createMarketForStudy(input) {
       const market = await createMarketForStudy(input);
       return { marketId: market.id };
+    },
+
+    async payPrizePool({ studyId, marketId, credits, question }) {
+      const resolution = await db.resolution.findUnique({ where: { marketId }, select: { settlementStatus: true } });
+      if (resolution?.settlementStatus !== SettlementStatus.COMPLETED) return { state: "pending" as const };
+      // Net credits each trader ended with on this market: stakes, reversals, payouts and refunds.
+      const rows = await db.creditTransaction.groupBy({
+        by: ["userId"],
+        where: {
+          marketId,
+          type: {
+            in: [
+              CreditTransactionType.FORECAST_STAKE,
+              CreditTransactionType.FORECAST_REVERSAL,
+              CreditTransactionType.SETTLEMENT_PAYOUT,
+              CreditTransactionType.MARKET_REFUND,
+            ],
+          },
+        },
+        _sum: { amount: true },
+      });
+      const shares = splitPrizePool(
+        credits,
+        rows.map((r) => ({ userId: r.userId, gain: r._sum.amount ?? 0 })),
+      );
+      await db.$transaction(async (tx) => {
+        for (const share of shares) {
+          await applyCreditTransaction(tx, {
+            userId: share.userId,
+            amount: share.amount,
+            type: CreditTransactionType.PRIZE_POOL_PAYOUT,
+            idempotencyKey: prizeIdempotencyKey(studyId, share.userId),
+            marketId,
+            memo: `Prize pool share: ${question}`.slice(0, 500),
+          });
+        }
+      });
+      return { state: "done" as const, winners: shares.length, paid: shares.reduce((sum, s) => sum + s.amount, 0) };
     },
 
     async getStartupEvidence(startupIds) {

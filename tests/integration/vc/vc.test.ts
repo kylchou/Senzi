@@ -413,3 +413,52 @@ describe("assistant context against the database", () => {
     await expectCode(services.assistantContext.forStudy(w.ctx.analystA, study.id), "FORBIDDEN");
   });
 });
+
+describe("prize pools and who can trade", () => {
+  it("splits a study's prize pool by traders' gains through the credit ledger, once", async () => {
+    const w = await world();
+    const study = await openStudy(w, "ORGANIZATION");
+    await db.researchStudy.update({ where: { id: study.id }, data: { prizePoolCredits: 600 } });
+    const [winner, loser] = await Promise.all([makeUser({ credits: true }), makeUser({ credits: true })]);
+    await placeForecast(winner, study.marketId!, 100);
+    await placeForecast(loser, study.marketId!, 100);
+
+    await resolveMarket(w.admin, study.marketId!, {
+      outcome: "YES",
+      evidenceSummary: "The public npm downloads API reported the threshold was met.",
+      evidenceUrls: ["https://example.com/npm"],
+    });
+    await services.studies.syncWithMarkets();
+    // Not settled yet: nothing is paid.
+    expect(await services.studies.payPrizePools()).toMatchObject({ paid: 0, pending: 1 });
+
+    // Settlement pays the winner 250 credits (a 150 gain); the loser ends 100 down.
+    const { applyCreditTransaction } = await import("@/lib/credits");
+    await db.$transaction((tx) =>
+      applyCreditTransaction(tx, { userId: winner.id, amount: 250, type: "SETTLEMENT_PAYOUT", idempotencyKey: `test-settle:${study.marketId}`, marketId: study.marketId }),
+    );
+    await db.resolution.update({ where: { marketId: study.marketId! }, data: { settlementStatus: "COMPLETED" } });
+
+    expect(await services.studies.payPrizePools()).toMatchObject({ paid: 1, pending: 0, failed: 0 });
+    const prizes = await db.creditTransaction.findMany({ where: { type: "PRIZE_POOL_PAYOUT", marketId: study.marketId! } });
+    expect(prizes.map((p) => [p.userId, p.amount])).toEqual([[winner.id, 600]]);
+    expect((await db.researchStudy.findUniqueOrThrow({ where: { id: study.id } })).prizeDistributedAt).not.toBeNull();
+
+    // Running again pays nothing more.
+    expect(await services.studies.payPrizePools()).toMatchObject({ paid: 0 });
+    expect(await db.creditTransaction.count({ where: { type: "PRIZE_POOL_PAYOUT" } })).toBe(1);
+  });
+
+  it("refuses forecasts and quotes from VC accounts", async () => {
+    const admin = await makeAdmin();
+    const market = await makeMarket(admin);
+    const vc = await makeUser({ accountType: "VC", credits: true });
+    const { assertCanTrade, submitForecastForUser } = await import("@/lib/forecasting/server/api");
+    await expect(
+      submitForecastForUser(vc, { marketId: market.id, side: "YES", credits: 10, idempotencyKey: "vc-try-1" }),
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
+    expect(() => assertCanTrade(vc)).toThrow(/VC accounts can't trade/);
+    expect(() => assertCanTrade(null)).not.toThrow();
+    expect(await db.forecast.count({ where: { userId: vc.id } })).toBe(0);
+  });
+});

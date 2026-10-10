@@ -157,6 +157,8 @@ enum CreditTransactionType {
   SETTLEMENT_PAYOUT
   MARKET_REFUND
   ACHIEVEMENT_REWARD
+  /// A share of a study's prize pool, paid after its market settles.
+  PRIZE_POOL_PAYOUT
 }
 
 enum SnapshotTrigger {
@@ -763,6 +765,12 @@ model ResearchStudy {
   baselineMethodology String?
   deadline            DateTime
   visibility          StudyVisibility    @default(ORGANIZATION)
+  /// Who may trade: any retail trader, and/or only traders verified as users of the product. At least one.
+  openToPublic        Boolean            @default(true)
+  openToVerified      Boolean            @default(false)
+  /// Credits split among traders by their gains once the market settles. 0 = no prize.
+  prizePoolCredits    Int                @default(0)
+  prizeDistributedAt  DateTime?
   status              StudyStatus        @default(DRAFT)
   rejectionReason     String?
   cancellationReason  String?
