@@ -6,6 +6,7 @@ import {
   downsample,
   nearestIndex,
   plottable,
+  yDomain,
   shareMovement,
   sliceHistory,
   timeTicks,
@@ -57,27 +58,55 @@ describe("buildGeometry", () => {
     expect(geometry.points[1]).toMatchObject({ x: 100, y: 100 });
   });
 
-  it("builds a step path that extends to now", () => {
+  it("draws straight moves between points, then holds flat until now", () => {
+    // 25% to 50% zooms the axis to 20%-60%.
     const geometry = buildGeometry([point(0, 0.5), point(5, 0.25)], box, t0 + 10 * day)!;
-    expect(geometry.path).toBe("M0.0,50.0H50.0V75.0H100.0");
+    expect(geometry.domain).toMatchObject({ min: 0.2, max: 0.6 });
+    expect(geometry.path).toBe("M0.0,25.0L50.0,87.5H100.0");
     expect(geometry.calibratedPath).toBeNull();
   });
 
   it("draws the calibrated probability as its own path", () => {
     const geometry = buildGeometry([point(0, 0.5, 0.4), point(5, 0.25, 0.3)], box, t0 + 10 * day)!;
-    expect(geometry.calibratedPath).toBe("M0.0,60.0H50.0V70.0H100.0");
-    expect(geometry.path).toBe("M0.0,50.0H50.0V75.0H100.0");
+    expect(geometry.calibratedPath).toBe("M0.0,50.0L50.0,75.0H100.0");
+    expect(geometry.path).toBe("M0.0,25.0L50.0,87.5H100.0");
+  });
+
+  it("keeps the baseline on screen", () => {
+    const geometry = buildGeometry([point(0, 0.6), point(5, 0.62)], box, t0 + 10 * day, 0.3)!;
+    expect(geometry.domain.min).toBeLessThanOrEqual(0.3);
   });
 });
 
 describe("nearestIndex", () => {
   const points = [0, 25, 50, 75].map((x) => ({ x, y: 0, point: { at: "", share: 0, calibrated: null, forecasterCount: 0 } }));
 
-  it("returns the point at or before x", () => {
+  it("returns the closest point", () => {
     expect(nearestIndex(points, -5)).toBe(0);
     expect(nearestIndex(points, 30)).toBe(1);
+    expect(nearestIndex(points, 40)).toBe(2);
     expect(nearestIndex(points, 50)).toBe(2);
     expect(nearestIndex(points, 999)).toBe(3);
+  });
+});
+
+describe("yDomain", () => {
+  it("zooms to the data with round gridlines", () => {
+    const domain = yDomain([0.42, 0.55]);
+    expect(domain.min).toBeLessThanOrEqual(0.42);
+    expect(domain.max).toBeGreaterThanOrEqual(0.55);
+    expect(domain.max - domain.min).toBeLessThan(0.5);
+    expect(domain.ticks[0]).toBe(domain.min);
+    expect(domain.ticks.at(-1)).toBe(domain.max);
+    expect(domain.ticks.length).toBeLessThanOrEqual(6);
+  });
+
+  it("keeps at least a 10-point window and stays inside 0-100%", () => {
+    const flat = yDomain([0.5, 0.5]);
+    expect(flat.max - flat.min).toBeGreaterThanOrEqual(0.1);
+    expect(yDomain([0.01, 0.02]).min).toBe(0);
+    expect(yDomain([0.98, 0.99]).max).toBe(1);
+    expect(yDomain([0, 1])).toMatchObject({ min: 0, max: 1 });
   });
 });
 
@@ -131,9 +160,9 @@ describe("sliceHistory", () => {
 
 describe("availableRanges", () => {
   it("offers only ranges shorter than the history", () => {
-    expect(availableRanges([point(0, 0.5)], t0 + 3 * day)).toEqual([]);
-    expect(availableRanges([point(0, 0.5)], t0 + 10 * day)).toEqual(["7d", "all"]);
-    expect(availableRanges([point(0, 0.5)], t0 + 60 * day)).toEqual(["7d", "30d", "all"]);
+    expect(availableRanges([point(0, 0.5)], t0 + 0.5 * day)).toEqual([]);
+    expect(availableRanges([point(0, 0.5)], t0 + 10 * day)).toEqual(["1d", "7d", "all"]);
+    expect(availableRanges([point(0, 0.5)], t0 + 60 * day)).toEqual(["1d", "7d", "30d", "all"]);
     expect(availableRanges([], t0)).toEqual([]);
   });
 });
