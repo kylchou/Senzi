@@ -114,7 +114,7 @@ Each setting is a data attribute on `<html>`, applied before first paint by `The
 
 Presets (Standard, Reading Friendly, High Visibility, Reduced Motion) set several options at once; users can adjust afterwards.
 
-Charts: every chart takes its line styles from `components/ui/chart-style.tsx`. In Color-Blind Friendly and High Contrast modes Model is solid with circles, General is dashed with squares, and Verified is dotted with triangles. The market chart uses the same patterns for YES allocation, calibrated probability, and baseline. Legends use `LineSwatch` so they match the lines. Future charts (portfolio, leaderboard) should use the same module.
+Charts: every chart takes its line styles from `components/ui/chart-style.tsx`. In Color-Blind Friendly and High Contrast modes Model is solid with circles, General is dashed with squares, and Verified is dotted with triangles. The market chart uses the same patterns for YES allocation, calibrated probability, and baseline. Legends use `LineSwatch` so they match the lines. Future charts (such as portfolio) should use the same module.
 
 Also included:
 
