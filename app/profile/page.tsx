@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { ArrowRight, FlaskConical, ShieldCheck } from "lucide-react";
 import { EditProfile } from "@/components/profile/EditProfile";
@@ -12,6 +13,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { getCurrentUser } from "@/lib/auth";
+import { AccountType } from "@/generated/prisma/enums";
 import { db } from "@/lib/db";
 import type { PositionView } from "@/lib/forecasting/portfolio";
 import { portfolioForUser } from "@/lib/forecasting/server/api";
@@ -62,6 +64,8 @@ async function Profile() {
       </div>
     );
   }
+  // Profiles are trader portfolios; VC accounts don't trade.
+  if (user.accountType === AccountType.VC) redirect("/vc");
 
   const loaded = await safe(() => Promise.all([portfolioForUser(user), getCurrentUserProfile(user), listVerifiedStartups(user.id)]));
   if (loaded.failed) {
