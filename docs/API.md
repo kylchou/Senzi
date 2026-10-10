@@ -50,7 +50,7 @@ Admin (platform admins only)
 - `GET /api/admin/users?q=`, `PATCH /api/admin/users/:id` with `{ platformRole }` or `{ accountType, reason }`, `GET /api/admin/users/:id/ledger`. Someone still in a VC org can't be made a trader.
 - `GET /api/admin/verifications?status=PENDING` is the VC review queue. `POST /api/admin/verifications/:id/review` takes `{ decision: "APPROVED" | "REJECTED", note? }`; rejecting needs a note, and admins can't review their own request.
 - `GET /api/admin/audit-logs`
-- `GET /api/admin/cron/close-markets` is for Vercel Cron and needs `Authorization: Bearer $CRON_SECRET`. It closes expired markets, retries settlements that are pending, failed, or stuck, prunes old rate-limit counters, and checks every balance against the ledger (mismatches are logged as `[ledger] balance mismatch`).
+- `GET /api/admin/cron/close-markets` is for Vercel Cron and needs `Authorization: Bearer $CRON_SECRET`. Vercel runs it daily at 05:00 UTC (the free plan allows one run a day), and `.github/workflows/cron.yml` calls it every 15 minutes. Trades already stop at each market's deadline, so a late run only delays the status change and settlement. It closes expired markets, retries settlements that are pending, failed, or stuck, prunes old rate-limit counters, and checks every balance against the ledger (mismatches are logged as `[ledger] balance mismatch`).
 
 The `/admin` pages call the same functions in `lib/admin.ts`.
 
