@@ -42,7 +42,7 @@ export async function generateMetadata({ params }: PageProps<"/markets/[slug]">)
   const market = await getMarket((await params).slug).catch(() => null);
   if (!market) return { title: "Market" };
   const parts = [
-    `YES allocation ${formatShare(market.allocation.share)}`,
+    `Market probability ${formatShare(market.probability)}`,
     market.openingBaseline !== null ? `opening baseline ${formatShare(market.openingBaseline)}` : null,
     market.resolution ? null : `deadline ${formatDate(market.closesAt)}`,
   ].filter(Boolean);
@@ -173,7 +173,7 @@ async function MarketView({ params }: Pick<PageProps<"/markets/[slug]">, "params
           <section aria-labelledby="history-heading" className="surface-card p-5">
             <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
               <h2 id="history-heading" className="font-display text-lg font-bold text-ink-900">
-                Community allocation over time
+                Market probability over time
               </h2>
               <div className="flex items-center gap-2">
                 <MarketMovement movement={shareMovement(history, 7, chartEnd)} />

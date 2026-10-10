@@ -42,6 +42,9 @@ export interface MarketSummary {
   startup: StartupRef;
   /** Null when no baseline was set. */
   openingBaseline: number | null;
+  /** Market probability: the LMSR price of a YES share. Null only while it can't be worked out. */
+  probability: number | null;
+  /** How credits are split between YES and NO. Not a probability. */
   allocation: AllocationView;
   /** Latest calibrated probability from the forecasting engine, or null. */
   calibratedProbability: number | null;
@@ -86,7 +89,7 @@ export interface MarketDetail extends MarketSummary {
 
 export interface HistoryPoint {
   at: string;
-  /** YES allocation share, or null when no credits were allocated. */
+  /** Market probability (the LMSR price of a YES share) after this snapshot, or null. */
   share: number | null;
   /** Calibrated probability at this snapshot, or null. */
   calibrated: number | null;

@@ -13,7 +13,7 @@ const NIGHT = "#25282b";
 const RED = "#ff2c2c";
 const MIST = "#a3a8ad";
 
-/** Link preview for a public market: question, allocation bar, baseline, and deadline. */
+/** Link preview for a public market: question, market probability, baseline, and deadline. */
 export default async function Image({ params }: { params: Promise<{ slug: string }> }) {
   await connection();
   const [market, logo] = await Promise.all([
@@ -21,7 +21,7 @@ export default async function Image({ params }: { params: Promise<{ slug: string
     readFile(path.join(process.cwd(), "public/senzi-logo.png")).then((file) => `data:image/png;base64,${file.toString("base64")}`),
   ]);
 
-  const share = market?.allocation.share ?? null;
+  const share = market?.probability ?? null;
   const question = market?.question ?? "Forecast what startups do next.";
   const status = !market
     ? null
@@ -66,7 +66,7 @@ export default async function Image({ params }: { params: Promise<{ slug: string
             <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between" }}>
               <div style={{ display: "flex", alignItems: "baseline", gap: 18 }}>
                 <span style={{ fontSize: 84, fontWeight: 800 }}>{formatShare(share)}</span>
-                <span style={{ fontSize: 30, color: MIST }}>YES allocation</span>
+                <span style={{ fontSize: 30, color: MIST }}>Market probability</span>
               </div>
               {market.openingBaseline !== null && (
                 <span style={{ fontSize: 30, color: MIST }}>Baseline {formatShare(market.openingBaseline)}</span>

@@ -4,7 +4,7 @@ import { formatPointChange, formatShare } from "@/lib/market-view/format";
 import type { MarketMove } from "@/lib/market-view/insights";
 import { StartupMark } from "./StartupMark";
 
-/** Compact list of the markets whose YES allocation moved most. */
+/** Compact list of the markets whose market probability moved most. */
 export function BiggestMoves({ moves }: { moves: MarketMove[] }) {
   return (
     <ul className="surface-card divide-y divide-ink-100 overflow-hidden">
@@ -20,7 +20,7 @@ export function BiggestMoves({ moves }: { moves: MarketMove[] }) {
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-sm font-semibold text-ink-900">{market.question}</span>
                 <span className="block text-xs tabular-nums text-ink-500">
-                  {market.startup.name} · YES allocation {formatShare(from)} to {formatShare(to)}
+                  {market.startup.name} · Market probability {formatShare(from)} to {formatShare(to)}
                 </span>
               </span>
               <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-ink-100 px-2.5 py-1 text-xs font-semibold tabular-nums text-ink-800 transition-transform duration-200 group-hover:translate-x-0.5">

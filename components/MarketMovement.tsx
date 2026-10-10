@@ -2,7 +2,7 @@ import { ArrowDownRight, ArrowRight, ArrowUpRight } from "lucide-react";
 import { formatPointChange } from "@/lib/market-view/format";
 import { cn } from "@/components/ui/cn";
 
-/** Change in YES allocation share over a window. Direction carries no judgment. */
+/** Change in market probability over a window. Direction carries no judgment. */
 export function MarketMovement({
   movement,
   className,

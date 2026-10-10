@@ -3,7 +3,7 @@ import type { HistoryPoint, MarketDetail, MarketSummary } from "./types";
 
 const DAY = 86_400_000;
 
-/** The YES allocation share in effect at `time` (last snapshot at or before it), or null. */
+/** The market probability in effect at `time` (last snapshot at or before it), or null. */
 export function shareAt(history: HistoryPoint[], time: number): number | null {
   let value: number | null = null;
   for (const point of plottable(history)) {
@@ -14,7 +14,7 @@ export function shareAt(history: HistoryPoint[], time: number): number | null {
 }
 
 /**
- * How the allocation share moved around a dated event (for example a news
+ * How the market probability moved around a dated event (for example a news
  * story): the share just before it and `days` later (or at `end` if sooner).
  */
 export function eventImpact(
@@ -37,7 +37,7 @@ export interface MarketMove {
   delta: number;
 }
 
-/** Largest absolute allocation changes first, ignoring moves smaller than `min`. */
+/** Largest absolute probability changes first, ignoring moves smaller than `min`. */
 export function rankMoves(
   rows: { market: MarketSummary; from: number | null }[],
   limit: number,
@@ -45,7 +45,7 @@ export function rankMoves(
 ): MarketMove[] {
   return rows
     .flatMap(({ market, from }) => {
-      const to = market.allocation.share;
+      const to = market.probability;
       if (from === null || to === null) return [];
       return [{ market, from, to, delta: to - from }];
     })

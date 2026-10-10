@@ -17,7 +17,7 @@ const summaryRow = {
   noCredits: 400,
   forecastCount: 14,
   startup: { slug: "acme", name: "Acme", industry: "Fintech", logoUrl: null },
-  snapshots: [{ calibratedProbability: 0.52, forecasterCount: 12, recordedAt: new Date("2026-10-09T00:00:00Z") }],
+  snapshots: [{ calibratedProbability: 0.52, generalEstimate: 0.57, forecasterCount: 12, recordedAt: new Date("2026-10-09T00:00:00Z") }],
   resolution: null,
 };
 
@@ -74,6 +74,7 @@ describe("toMarketSummary", () => {
     const summary = toMarketSummary(summaryRow);
     expect(summary.openingBaseline).toBe(0.35);
     expect(summary.allocation.share).toBe(0.6);
+    expect(summary.probability).toBe(0.57);
     expect(summary.calibratedProbability).toBe(0.52);
     expect(summary.forecasterCount).toBe(12);
     expect(summary.allocation.forecastCount).toBe(14);
@@ -82,6 +83,8 @@ describe("toMarketSummary", () => {
   it("handles markets without snapshots or credits", () => {
     const summary = toMarketSummary({ ...summaryRow, yesCredits: 0, noCredits: 0, snapshots: [] });
     expect(summary.allocation.share).toBeNull();
+    // No snapshot, but trades exist: filled in by replaying them (queries.ts).
+    expect(summary.probability).toBeNull();
     expect(summary.calibratedProbability).toBeNull();
     expect(summary.updatedAt).toBeNull();
   });
