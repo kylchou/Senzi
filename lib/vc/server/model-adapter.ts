@@ -26,7 +26,7 @@ const MODEL_SERVICE = { kind: "service" as const, serviceId: "model-service" };
 export function createModelGateway(store: ModelStore = new FileModelStore()): ModelGateway {
   return {
     metricsFor(startup) {
-      return modelMetricsFor(store, startup).map((m) => ({ id: m.id, label: m.label, unit: m.unit, kind: m.kind, hasPublicData: m.hasPublicData }));
+      return modelMetricsFor(store, startup);
     },
 
     async estimate(input) {

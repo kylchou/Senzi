@@ -10,7 +10,7 @@ import { StatusBadge, VisibilityBadge } from "@/components/vc/StatusBadge";
 import { TransitionControls } from "@/components/vc/TransitionControls";
 import { ThreeLineChart } from "@/components/vc/ThreeLineChart";
 import { describeFreshness, describeUncertainty, resolveBaseline } from "@/lib/vc/estimates";
-import { STATUS_LABELS, VISIBILITY_LABELS, formatDate, formatDateTime } from "@/lib/vc/format";
+import { STATUS_LABELS, formatDate, formatDateTime } from "@/lib/vc/format";
 import { studyModelEvidence } from "@/lib/vc/server/company-model";
 import { getVcDeps, getVcServices } from "@/lib/vc/server/container";
 import { orNotFound, requirePageContext } from "@/lib/vc/server/page";
@@ -203,8 +203,22 @@ export default async function StudyPage({ params }: { params: Promise<{ studyId:
               </div>
             )}
             <div>
-              <dt className="font-medium">Visibility</dt>
-              <dd className="text-slate-700 dark:text-slate-300">{VISIBILITY_LABELS[study.visibility].description}</dd>
+              <dt className="font-medium">Who can trade</dt>
+              <dd className="text-slate-700 dark:text-slate-300">
+                {study.openToPublic && study.openToVerified
+                  ? "Any retail trader, and traders verified as users of the product"
+                  : study.openToVerified
+                    ? "Only traders verified as users of the product"
+                    : "Any retail trader"}
+              </dd>
+            </div>
+            <div>
+              <dt className="font-medium">Prize pool</dt>
+              <dd className="text-slate-700 dark:text-slate-300">
+                {study.prizePoolCredits > 0
+                  ? `${study.prizePoolCredits.toLocaleString("en-US")} credits, split among traders who gain on this market${study.prizeDistributedAt ? ` (paid ${formatDate(study.prizeDistributedAt)})` : ""}`
+                  : "None"}
+              </dd>
             </div>
           </dl>
         </Section>

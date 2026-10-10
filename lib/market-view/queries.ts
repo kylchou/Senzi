@@ -131,3 +131,12 @@ export async function listBiggestMoves(now: number, limit = 4): Promise<{ days: 
   }
   return { days: 7, moves: [] };
 }
+
+/** The prize pool a firm attached to this market's question, if any (0 when none). */
+export async function getMarketPrizePool(marketId: string): Promise<{ credits: number; paid: boolean }> {
+  const study = await db.researchStudy.findUnique({
+    where: { marketId },
+    select: { prizePoolCredits: true, prizeDistributedAt: true },
+  });
+  return { credits: study?.prizePoolCredits ?? 0, paid: !!study?.prizeDistributedAt };
+}

@@ -195,7 +195,18 @@ export function createOpeningLineService(deps: VcDeps, assistantModel: Assistant
     return { checked, published };
   }
 
-  return { estimateFor, save, preview, refreshOpenMarkets, metricsFor: (s: StartupSummary) => model.metricsFor(s) };
+  /**
+   * Startups a question can be asked about: those with at least one outcome the
+   * model has public data for, so an opening price is always possible.
+   */
+  async function questionCatalog(): Promise<{ startup: StartupSummary; metrics: OpeningLineMetric[] }[]> {
+    const startups = await platform.searchStartups("", 500);
+    return startups
+      .map((startup) => ({ startup, metrics: model.metricsFor(startup).filter((m) => m.hasPublicData) }))
+      .filter((entry) => entry.metrics.length > 0);
+  }
+
+  return { estimateFor, save, preview, refreshOpenMarkets, questionCatalog, metricsFor: (s: StartupSummary) => model.metricsFor(s) };
 }
 
 export type OpeningLineService = ReturnType<typeof createOpeningLineService>;

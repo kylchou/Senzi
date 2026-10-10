@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { io } from "next/cache";
 import { CalendarClock, ChevronRight, ShieldCheck } from "lucide-react";
 import { ForecastPanel } from "@/components/ForecastPanel";
+import { TraderOnly } from "@/components/TraderOnly";
 import { VerifiedUserNote, VerifiedUsersGate } from "@/components/verify/VerifiedUsersGate";
 import { getCurrentUser } from "@/lib/auth";
 import { isVerifiedUserOfSlug } from "@/lib/product-verification";
@@ -27,7 +28,7 @@ import {
 } from "@/lib/market-view/format";
 import { timelineSteps } from "@/lib/market-view/insights";
 import { requestOrigin } from "@/lib/market-view/origin";
-import { getMarket, getMarketHistory } from "@/lib/market-view/queries";
+import { getMarket, getMarketHistory, getMarketPrizePool } from "@/lib/market-view/queries";
 import { breadcrumbs, JsonLd } from "@/components/ui/JsonLd";
 import { MarketTimeline } from "@/components/ui/MarketTimeline";
 import { MarketTour } from "@/components/ui/MarketTour";
@@ -74,7 +75,7 @@ async function MarketView({ params }: Pick<PageProps<"/markets/[slug]">, "params
   const market = await getMarket(slug);
   if (!market) notFound();
 
-  const history = await getMarketHistory(market.id);
+  const [history, prize] = await Promise.all([getMarketHistory(market.id), getMarketPrizePool(market.id)]);
   const now = requestTime();
   const isOpen = market.status === "OPEN" && !isPastDeadline(market.closesAt, new Date(now));
   const viewer = market.verifiedUsersOnly ? await getCurrentUser() : null;
@@ -139,14 +140,27 @@ async function MarketView({ params }: Pick<PageProps<"/markets/[slug]">, "params
         </div>
 
         <aside className="lg:sticky lg:top-6 lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:self-start">
-          {unlocked ? (
-            <>
-              {market.verifiedUsersOnly && <VerifiedUserNote startupName={market.startup.name} />}
-              <ForecastPanel marketId={market.id} isOpen={isOpen} />
-            </>
-          ) : (
-            <VerifiedUsersGate startup={market.startup} marketSlug={market.slug} />
+          {prize.credits > 0 && (
+            <div className="surface-card mb-3 p-4 text-sm">
+              <p className="font-semibold text-ink-900">Prize pool: {prize.credits.toLocaleString("en-US")} credits</p>
+              <p className="mt-1 text-ink-600">
+                {prize.paid
+                  ? "Paid out to the traders who gained credits on this market."
+                  : "Split among the traders who gain credits on this market, in proportion to what they gain, once it settles."}
+              </p>
+            </div>
           )}
+          {/* VC accounts never trade, so they see that note rather than the verify prompt. */}
+          <TraderOnly>
+            {unlocked ? (
+              <>
+                {market.verifiedUsersOnly && <VerifiedUserNote startupName={market.startup.name} />}
+                <ForecastPanel marketId={market.id} isOpen={isOpen} />
+              </>
+            ) : (
+              <VerifiedUsersGate startup={market.startup} marketSlug={market.slug} />
+            )}
+          </TraderOnly>
           <p className="mt-3 px-1 text-xs leading-relaxed text-ink-500">
             Forecasts are research signals, not guarantees or investment advice.
           </p>

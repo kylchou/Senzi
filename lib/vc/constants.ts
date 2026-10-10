@@ -69,3 +69,6 @@ export const ACTIVE_ORG_COOKIE = "vc_org";
 export const DEMO_ORG_ID = "demo_org_vc";
 export const DEMO_ORG_NAME = "Demo Ventures";
 export const DEMO_ORG_SLUG = "demo-ventures";
+
+/** Largest prize pool a firm can attach to one question (matches the database check). */
+export const MAX_PRIZE_POOL_CREDITS = 10_000_000;

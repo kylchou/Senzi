@@ -5,6 +5,8 @@ export interface Me {
   displayName: string;
   creditBalance: number;
   memberships: unknown[];
+  /** "VC" accounts sponsor questions and never trade. */
+  accountType: "VC" | "TRADER" | null;
 }
 
 let request: Promise<Me | null> | null = null;
