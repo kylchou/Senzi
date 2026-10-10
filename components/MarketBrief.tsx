@@ -80,17 +80,17 @@ export function MarketBrief({ market }: { market: MarketDetail }) {
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <Stat
             tour="allocation"
-            label="YES allocation"
-            value={<AnimatedNumber value={allocation.share} kind="share" />}
+            label="Market probability"
+            value={<AnimatedNumber value={market.probability} kind="share" />}
             note={market.updatedAt ? `Updated ${formatRelative(market.updatedAt)}` : "No forecasts yet"}
-            tip="Share of virtual credits placed on YES. Shows where forecasters put credits. Not a probability."
+            tip="The price of a YES share, set by trading. Buying YES pushes it up and buying NO pulls it down. Each winning share pays 1 credit."
           />
           <Stat
             tour="calibrated"
             label="Calibrated"
             value={formatShare(market.calibratedProbability)}
             note={market.calibratedProbability === null ? "Not yet available" : "From the forecasting engine"}
-            tip="Probability of YES from the forecasting engine, shown only once its calibration report supports it. Separate from the community allocation."
+            tip="Probability of YES from the forecasting engine, shown only once its calibration report supports it. Separate from the market probability."
           />
           <Stat
             tour="baseline"

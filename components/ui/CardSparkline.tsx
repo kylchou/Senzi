@@ -34,7 +34,7 @@ export function sparklinePoints(history: HistoryPoint[], width: number, height: 
 }
 
 /**
- * Tiny allocation trend that loads the first time the pointer enters the card
+ * Tiny market-probability trend that loads the first time the pointer enters the card
  * and fades in on hover. Touch devices never load it.
  */
 export function CardSparkline({ slug }: { slug: string }) {

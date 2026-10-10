@@ -1,4 +1,5 @@
 import type { Prisma } from "@/generated/prisma/client";
+import { openingPrice } from "./probability";
 import type {
   HistoryPoint,
   MarketDetail,
@@ -18,7 +19,7 @@ export const startupRefSelect = {
 const latestSnapshot = {
   orderBy: { sequence: "desc" },
   take: 1,
-  select: { calibratedProbability: true, forecasterCount: true, recordedAt: true },
+  select: { calibratedProbability: true, generalEstimate: true, forecasterCount: true, recordedAt: true },
 } satisfies Prisma.Market$snapshotsArgs;
 
 export const marketSummarySelect = {
@@ -108,6 +109,9 @@ export function toMarketSummary(row: SummaryRow): MarketSummary {
     verifiedUsersOnly: row.verifiedUsersOnly,
     startup: toStartupRef(row.startup),
     openingBaseline: cleanShare(row.openingBaseline),
+    // Stored by the engine on each trade. With no trades yet, the market sits at its opening price.
+    // Older snapshots without it are filled in by lib/market-view/queries.ts.
+    probability: cleanShare(snapshot?.generalEstimate) ?? (row.forecastCount === 0 ? openingPrice(row.openingBaseline) : null),
     allocation: {
       share: allocationShare(row.yesCredits, row.noCredits),
       yesCredits: row.yesCredits,

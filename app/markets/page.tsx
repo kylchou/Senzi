@@ -19,7 +19,7 @@ import { PageTransition, StreamIn } from "@/components/ui/Transitions";
 export const metadata: Metadata = {
   title: "Markets",
   description:
-    "YES or NO questions on measurable startup milestones, with community allocation shares, opening baselines, and deadlines.",
+    "YES or NO questions on measurable startup milestones, with market probabilities, opening baselines, and deadlines.",
 };
 
 const statusOptions = [
