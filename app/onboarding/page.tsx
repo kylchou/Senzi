@@ -11,6 +11,13 @@ import { homePathFor, requireUserPage } from "@/lib/auth";
 import { latestVcVerification } from "@/lib/verification";
 import { bypassVerificationAction, chooseAccountTypeAction, switchToTraderAction } from "./actions";
 
+/** Messages for ?bypass= after a demo-code attempt (see bypassVerificationAction). */
+const BYPASS_MESSAGES: Record<string, string> = {
+  invalid: "That code isn't right.",
+  rate_limited: "Too many tries. Wait an hour and try again.",
+  error: "Something went wrong skipping review. Try again, or wait for an admin to approve you.",
+};
+
 export const metadata: Metadata = { title: "Set up your account", robots: { index: false } };
 
 /** Every sign-in lands here. Sends verified people on; otherwise finishes setup. */
@@ -44,8 +51,8 @@ async function Setup({ searchParams }: { searchParams: Promise<{ bypass?: string
 
   // Trader accounts are verified on choice, so only VCs reach this point.
   const latest = await latestVcVerification(user.id);
-  const bypassEnabled = !!process.env.DEMO_VC_BYPASS_CODE;
-  const bypassInvalid = (await searchParams).bypass === "invalid";
+  const bypassEnabled = !!process.env.DEMO_VC_BYPASS_CODE?.trim();
+  const bypassMessage = BYPASS_MESSAGES[(await searchParams).bypass ?? ""];
   return (
     <div className="mx-auto max-w-2xl space-y-6">
       {latest?.status === "PENDING" ? (
@@ -76,9 +83,9 @@ async function Setup({ searchParams }: { searchParams: Promise<{ bypass?: string
                   Skip review
                 </Button>
               </div>
-              {bypassInvalid && (
+              {bypassMessage && (
                 <p role="status" className="text-sm text-red-700">
-                  That code isn&apos;t right.
+                  {bypassMessage}
                 </p>
               )}
             </form>
