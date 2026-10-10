@@ -117,7 +117,7 @@ describe('series', () => {
 describe('questions', () => {
   it('spells out the window', () => {
     expect(questionText('supabase', 'npm_downloads:@supabase/supabase-js', 2_500_000, '2026-11-08')).toBe(
-      'Will npm downloads of @supabase/supabase-js in the 7 days ending November 8, 2026 (UTC) be at least 2,500,000?',
+      "Will Supabase's npm downloads reach 2.5M in the 7 days ending Nov 8?",
     );
   });
 

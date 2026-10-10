@@ -24,13 +24,14 @@ describe("validation", () => {
     expect(typed).not.toHaveProperty("baselineMethodology");
   });
 
-  it("checks the model link: real dates, a positive threshold, figures for real periods", () => {
+  it("checks the model link: real dates and a positive threshold; firm figures are never taken from the payload", () => {
     const link = validStudyInput().modelLink!;
     const parse = (modelLink: object) => createStudyInput.safeParse({ ...validStudyInput(), modelLink }).success;
     expect(parse(link)).toBe(true);
     expect(parse({ ...link, targetDate: "2027-02-30" })).toBe(false);
     expect(parse({ ...link, threshold: 0 })).toBe(false);
-    expect(parse({ ...link, observations: [{ metricId: "x", value: 1, periodStart: "2026-09-02", periodEnd: "2026-09-01" }] })).toBe(false);
+    const parsed = createStudyInput.parse({ ...validStudyInput(), modelLink: { ...link, observations: [{ metricId: "x", value: 1 }] } });
+    expect(parsed.modelLink).not.toHaveProperty("observations");
     expect(createStudyInput.safeParse({ ...validStudyInput(), modelLink: null }).success).toBe(true);
   });
 

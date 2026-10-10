@@ -4,7 +4,7 @@ Private research workspace for venture capital firms: research studies, watchlis
 
 Owned paths: `app/vc/**`, `components/vc/**`, `lib/vc/**`, `app/api/studies/**`, `app/api/vc/**`.
 
-VentureCast estimates are research signals from virtual-credit forecasts. They are not guaranteed predictions or investment advice. No real money is involved.
+Senzi estimates are research signals from virtual-credit forecasts. They are not guaranteed predictions or investment advice. No real money is involved.
 
 ## Architecture
 
@@ -51,8 +51,8 @@ These three values are always shown separately and labelled:
 
 Firms type any YES/NO question. Nobody types odds: the opening price comes from the baseline model (`lib/model`, `computeDirectBaseline`).
 
-1. **Link the question to a metric.** In the study form, "Estimate opening line" calls `POST /api/vc/opening-line`. If the firm hasn't picked a metric, the AI (Tyche's Meta model, `assistant/suggest-metric.ts`) proposes one of the startup's metrics, a threshold and a date. It only proposes: every field is checked against the metrics that exist, and the firm confirms with "Use this measurement". A linked question and its YES/NO criteria are reworded to exactly what the model priced, so it resolves the same way.
-2. **Firm figures (optional).** For metrics without public data (ARR, MRR, users) the firm can enter its own dated figures. They're stored on `StudyModelEstimate.observations`, visible only to the owning firm, never written to market tables (`publicInputs()`), and never resolve the question.
+1. **Link the question to a metric.** In the study form, "Estimate opening line" calls `POST /api/vc/opening-line`. If the firm hasn't picked a metric, the AI (Tyche's Meta model, `assistant/suggest-metric.ts`) proposes one of the startup's metrics, a threshold and a date. It only proposes: every field is checked against the metrics that exist, and the firm confirms with "Use this measurement". A linked question and its YES/NO criteria are reworded to exactly what the model priced, and its public resolution source is added to the study's sources. Only metrics with an independent public resolution source can be linked (today, weekly npm/PyPI downloads); a question about ARR or other firm-only KPIs gets "Not enough data".
+2. **Firm figures (optional).** The firm enters its own figures once per company on the company page (`/vc/companies/[slug]`, `server/company-model.ts`, stored as sponsor-provided `ModelDataPoint` rows for that organization). Figures for the linked metric fill weeks public data doesn't cover. The ones used are recorded on `StudyModelEstimate.observations`. They're visible only to the owning firm, never written to market tables (`publicInputs()`), and never resolve the question.
 3. **Not enough data.** If no metric measures the question, or there's too little history, the study is saved with `NOT_MEASURABLE` or `INSUFFICIENT_DATA`. It can be submitted and approved, but **opening is blocked** until the model can estimate it.
 4. **Opening.** `open` re-runs the model with current data. The market is created at the model's probability (`lib/admin.ts createMarketForStudy`, which now requires the `model` block): the opening price, the first point of the model line, and a `ModelBaselineSnapshot` whose confidence sets the starting liquidity (low confidence → early forecasts move the price more).
 5. **Refresh.** The cron (`openingLine.refreshOpenMarkets`) re-runs the model for open study markets and publishes changed estimates through the forecasting engine's `recordModelValue`. Before the first forecast this also moves the opening price; after it, only the model line moves.
@@ -168,7 +168,7 @@ The design is in [`AI_RESEARCH_ASSISTANT.md`](./AI_RESEARCH_ASSISTANT.md). The f
 
 ## Environment variables
 
-`SENZI_AI_ASSISTANT_API_KEY` (needed for Tyche): the Meta Model API key, in `.env.local` and the Vercel project settings. `SENZI_AI_ASSISTANT_MODEL` (optional) overrides the model. `VC_ASSISTANT_DATA_TIER` (optional): `standard` (default) or `extended`. Set it to `extended` only after the team approves sending restricted studies and private notes to an AI provider. Otherwise there are no new variables. `GET /api/vc/cron` uses the existing `CRON_SECRET`; without it the endpoint always returns `401`. The cron runs every 15 minutes (see `vercel.json`).
+`SENZI_AI_ASSISTANT_API_KEY` (needed for Tyche): the Meta Model API key, in `.env.local` and the Vercel project settings. `SENZI_AI_ASSISTANT_MODEL` (optional) overrides the model. `VC_ASSISTANT_DATA_TIER` (optional): `standard` (default) or `extended`. Set it to `extended` only after the team approves sending restricted studies and private notes to an AI provider. Otherwise there are no new variables. `GET /api/vc/cron` uses the existing `CRON_SECRET`; without it the endpoint always returns `401`. It runs every 15 minutes from `.github/workflows/cron.yml`, with a daily Vercel backup at 06:00 UTC (see `vercel.json`).
 
 ## Tests
 

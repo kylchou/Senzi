@@ -3,13 +3,12 @@
 import { useState } from "react";
 import { VcApiError, fieldErrors, vcFetch } from "@/lib/vc/client";
 import type { OpeningLinePreview } from "@/lib/vc/services/opening-line";
-import type { FirmObservation, MetricLink, OpeningLineMetric } from "@/lib/vc/types";
+import type { MetricLink, OpeningLineMetric } from "@/lib/vc/types";
 import { buttonPrimary, buttonSecondary, errorClass, hintClass, inputClass, labelClass } from "./styles";
 
 /** What the form saves: the confirmed measurable form of the question, or none. */
 export interface OpeningLineValue {
   link: MetricLink | null;
-  observations: FirmObservation[];
 }
 
 /** The wording the model priced, adopted by the form when the firm confirms a link. */
@@ -32,7 +31,6 @@ interface Props {
 }
 
 const pct = (v: number | null | undefined) => (v == null ? "—" : `${Math.round(v * 100)}%`);
-const addDays = (day: string, n: number) => new Date(Date.parse(`${day}T00:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);
 
 function Callout({ tone, title, children }: { tone: "ok" | "warn"; title: string; children?: React.ReactNode }) {
   const cls =
@@ -56,7 +54,6 @@ function Callout({ tone, title, children }: { tone: "ok" | "warn"; title: string
 export function OpeningLinePanel({ startupId, question, deadline, value, savedMetricLabel, onChange, error }: Props) {
   const [preview, setPreview] = useState<OpeningLinePreview | null>(null);
   const [draft, setDraft] = useState<MetricLink | null>(value.link);
-  const [observations, setObservations] = useState<FirmObservation[]>(value.observations);
   const [loading, setLoading] = useState(false);
   const [requestError, setRequestError] = useState<string | null>(null);
   const [fieldError, setFieldError] = useState<Record<string, string>>({});
@@ -67,15 +64,14 @@ export function OpeningLinePanel({ startupId, question, deadline, value, savedMe
   const metrics: OpeningLineMetric[] = preview?.metrics ?? [];
   const metric = metrics.find((m) => m.id === draft?.metricId) ?? null;
   const estimate = preview?.estimate ?? null;
-  const current = JSON.stringify([draft, observations.filter((o) => o.metricId === draft?.metricId)]);
+  const current = JSON.stringify(draft);
   const stale = !!preview && ranWith !== current;
   const confirmed =
     !!value.link &&
     !!draft &&
     value.link.metricId === draft.metricId &&
     value.link.threshold === draft.threshold &&
-    value.link.targetDate === draft.targetDate &&
-    JSON.stringify(value.observations) === JSON.stringify(observations);
+    value.link.targetDate === draft.targetDate;
 
   async function run(link: MetricLink | null) {
     if (!ready) return;
@@ -90,13 +86,12 @@ export function OpeningLinePanel({ startupId, question, deadline, value, savedMe
           question,
           deadline: new Date(deadline).toISOString(),
           link,
-          observations: link ? observations.filter((o) => o.metricId === link.metricId) : [],
         },
       });
       setPreview(result);
       const ranLink = result.estimate.link ?? link;
       setDraft(ranLink);
-      setRanWith(JSON.stringify([ranLink, link ? observations.filter((o) => o.metricId === link.metricId) : []]));
+      setRanWith(JSON.stringify(ranLink));
     } catch (err) {
       setFieldError(fieldErrors(err));
       setRequestError(err instanceof VcApiError ? err.message : "Couldn't reach the model. Try again.");
@@ -107,9 +102,8 @@ export function OpeningLinePanel({ startupId, question, deadline, value, savedMe
 
   function confirm() {
     if (!draft || !estimate?.question || stale) return;
-    const kept = observations.filter((o) => o.metricId === draft.metricId);
     onChange(
-      { link: draft, observations: kept },
+      { link: draft },
       { question: estimate.question, yesCriteria: estimate.yesCriteria!, noCriteria: estimate.noCriteria! },
     );
   }
@@ -117,17 +111,7 @@ export function OpeningLinePanel({ startupId, question, deadline, value, savedMe
   function unlink() {
     setDraft(null);
     setPreview(null);
-    onChange({ link: null, observations: [] }, null);
-  }
-
-  function setObservation(i: number, patch: Partial<FirmObservation>) {
-    setObservations((all) => all.map((o, j) => (j === i ? { ...o, ...patch } : o)));
-  }
-
-  function addObservation() {
-    if (!draft) return;
-    const today = new Date().toISOString().slice(0, 10);
-    setObservations((all) => [...all, { metricId: draft.metricId, value: 0, periodStart: today, periodEnd: today, note: "" }]);
+    onChange({ link: null }, null);
   }
 
   return (
@@ -243,56 +227,17 @@ export function OpeningLinePanel({ startupId, question, deadline, value, savedMe
           )}
 
           {draft && metric && (
-            <div className="space-y-2">
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Your firm&apos;s figures (optional, private)</p>
-              <p className={hintClass}>
-                {metric.hasPublicData
-                  ? "Public data already feeds this metric. Add weeks it doesn't cover, if you have them."
-                  : "This metric has no public data. Add at least three dated figures spanning four weeks."}{" "}
-                Only your firm sees these; they never resolve the question.
-              </p>
-              {observations
-                .map((o, i) => ({ o, i }))
-                .filter(({ o }) => o.metricId === draft.metricId)
-                .map(({ o, i }) => (
-                  <div key={i} className="grid gap-2 sm:grid-cols-[10rem_10rem_1fr_auto]">
-                    <input
-                      aria-label={`Figure ${i + 1} date`}
-                      type="date"
-                      className={inputClass}
-                      value={o.periodEnd}
-                      onChange={(e) =>
-                        setObservation(i, {
-                          periodEnd: e.target.value,
-                          periodStart: metric.kind === "weekly_total" && e.target.value ? addDays(e.target.value, -6) : e.target.value,
-                        })
-                      }
-                    />
-                    <input
-                      aria-label={`Figure ${i + 1} value`}
-                      type="number"
-                      min={0}
-                      step="any"
-                      className={inputClass}
-                      value={o.value || ""}
-                      onChange={(e) => setObservation(i, { value: Number(e.target.value) })}
-                    />
-                    <input
-                      aria-label={`Figure ${i + 1} note`}
-                      placeholder="Source note (optional)"
-                      className={inputClass}
-                      value={o.note}
-                      onChange={(e) => setObservation(i, { note: e.target.value })}
-                    />
-                    <button type="button" className={buttonSecondary} onClick={() => setObservations((all) => all.filter((_, j) => j !== i))}>
-                      Remove
-                    </button>
-                  </div>
-                ))}
-              <button type="button" className={buttonSecondary} onClick={addObservation}>
-                Add a figure
-              </button>
-            </div>
+            <p className={hintClass}>
+              {preview.firmFigureCount > 0
+                ? `Includes ${preview.firmFigureCount} of your firm's own figures for this metric. `
+                : metric.hasPublicData
+                  ? "Uses public data. "
+                  : "This metric has no public history yet; the model needs your firm's figures. "}
+              <a href={preview.companyPath} className="underline" target="_blank" rel="noreferrer">
+                Add or correct your firm&apos;s figures
+              </a>{" "}
+              on the company page. Only your firm sees them, and they never resolve the question.
+            </p>
           )}
 
           {estimate?.status === "OK" && draft && (

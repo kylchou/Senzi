@@ -235,6 +235,8 @@ export interface VcRepository {
   findModelEstimates(studyIds: string[]): Promise<StudyModelEstimate[]>;
   /** Replaces the study's stored opening line. */
   saveModelEstimate(estimate: StudyModelEstimate): Promise<void>;
+  /** Figures this firm entered for the startup on its company page (sponsor-provided ModelDataPoint rows). */
+  listFirmFigures(organizationId: string, startupId: string): Promise<FirmObservation[]>;
 
   createReport(data: Omit<SavedReport, "id" | "createdAt">): Promise<SavedReport>;
   listReports(organizationId: string, options: { studyId?: string; limit: number }): Promise<SavedReport[]>;
@@ -253,7 +255,10 @@ export interface IndicatorGateway {
 export interface ModelGateway {
   /** Metrics the model can forecast for this startup. */
   metricsFor(startup: { id: string; name: string; slug: string }): OpeningLineMetric[];
-  /** Runs the model. Never throws for missing data: returns INSUFFICIENT_DATA with notes instead. */
+  /**
+   * Runs the model with public history plus the firm's figures for the linked
+   * metric. Never throws for missing data: returns INSUFFICIENT_DATA with notes.
+   */
   estimate(input: {
     startup: { id: string; name: string; slug: string };
     link: MetricLink;

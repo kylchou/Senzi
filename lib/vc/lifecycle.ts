@@ -66,6 +66,7 @@ export function getTransitionIssues(action: StudyAction, study: Study, now: Date
   // The opening line isn't checked here: the model sets it when forecasting
   // opens, and the study service blocks opening when it has too little data.
   if (action === "submit" || action === "approve" || action === "open") {
+    if (!study.sources.length) issues.push("A named third-party resolution source is required.");
     if (study.visibility === "RESTRICTED" && study.participantIds.length === 0) {
       issues.push("Restricted studies need at least one invited participant.");
     }

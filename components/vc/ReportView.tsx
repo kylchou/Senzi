@@ -54,7 +54,7 @@ export function ReportView({ report }: { report: StudyReport }) {
             {formatShare(r.baseline.value)}
             {r.baseline.methodology && <p className="text-xs text-slate-500">Method: {r.baseline.methodology}</p>}
           </Row>
-          <Row label="Community YES allocation share">
+          <Row label={r.communityEstimate?.label ?? "General LMSR price"}>
             {r.communityEstimate ? (
               <>
                 {formatShare(r.communityEstimate.yesAllocationShare, 1)}

@@ -235,3 +235,44 @@ export async function verifyLedgerIntegrity(userId: string): Promise<LedgerInteg
       (latestBalanceAfter ?? 0) === user.creditBalance,
   };
 }
+
+/**
+ * Every user whose cached balance doesn't match their ledger, or whose ledger
+ * rows don't chain. Run by the cron job; should always come back empty.
+ */
+export async function findLedgerMismatches(limit = 50): Promise<LedgerIntegrityReport[]> {
+  const rows = await db.$queryRaw<
+    { userId: string; cachedBalance: number; ledgerSum: bigint; latestBalanceAfter: number | null; brokenLinks: bigint }[]
+  >`
+    WITH chain AS (
+      SELECT "userId", "amount", "balanceAfter", "sequence",
+             lag("balanceAfter", 1, 0) OVER (PARTITION BY "userId" ORDER BY "sequence") AS "previous"
+      FROM "CreditTransaction"
+    ), per_user AS (
+      SELECT "userId",
+             sum("amount") AS "ledgerSum",
+             (array_agg("balanceAfter" ORDER BY "sequence" DESC))[1] AS "latestBalanceAfter",
+             count(*) FILTER (WHERE "balanceAfter" <> "previous" + "amount") AS "brokenLinks"
+      FROM chain
+      GROUP BY "userId"
+    )
+    SELECT u."id" AS "userId", u."creditBalance" AS "cachedBalance",
+           coalesce(p."ledgerSum", 0) AS "ledgerSum", p."latestBalanceAfter",
+           coalesce(p."brokenLinks", 0) AS "brokenLinks"
+    FROM "User" u
+    LEFT JOIN per_user p ON p."userId" = u."id"
+    WHERE coalesce(p."brokenLinks", 0) > 0
+       OR coalesce(p."ledgerSum", 0) <> u."creditBalance"
+       OR coalesce(p."latestBalanceAfter", 0) <> u."creditBalance"
+    ORDER BY u."id"
+    LIMIT ${limit}`;
+
+  return rows.map((r) => ({
+    userId: r.userId,
+    cachedBalance: r.cachedBalance,
+    ledgerSum: Number(r.ledgerSum),
+    latestBalanceAfter: r.latestBalanceAfter,
+    brokenLinks: Number(r.brokenLinks),
+    ok: false,
+  }));
+}

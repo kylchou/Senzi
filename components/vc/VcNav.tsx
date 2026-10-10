@@ -39,7 +39,7 @@ export function VcNav({
     <div className="border-b border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950">
       <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-6 gap-y-2 px-4 py-3">
         <Link href="/vc" className="text-sm font-semibold text-slate-900 dark:text-slate-50">
-          VentureCast <span className="font-normal text-slate-500">Intelligence</span>
+          Senzi <span className="font-normal text-slate-500">Intelligence</span>
         </Link>
         <nav aria-label="VC Intelligence" className="-mx-1 flex flex-1 gap-1 overflow-x-auto">
           {links.map((l) => {

@@ -39,7 +39,7 @@ const SLUGS: Record<string, string> = { startup_1: "acme", startup_2: "globex" }
 
 /** A link the fake model prices (see createFakeModel): weekly downloads, after the default deadline. */
 export function modelLinkFor(startupId = "startup_1", overrides: Partial<NonNullable<CreateStudyInput["modelLink"]>> = {}) {
-  return { metricId: `downloads:${SLUGS[startupId]}`, threshold: 50_000, targetDate: "2027-01-15", observations: [], ...overrides };
+  return { metricId: `downloads:${SLUGS[startupId]}`, threshold: 50_000, targetDate: "2027-01-15", ...overrides };
 }
 
 export function validStudyInput(overrides: Partial<CreateStudyInput> = {}): CreateStudyInput {

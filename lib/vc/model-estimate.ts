@@ -17,7 +17,7 @@ export function companyFor(startup: { slug: string; name: string }) {
   return COMPANIES.find((c) => c.id === startup.slug) ?? COMPANIES.find((c) => c.name.toLowerCase() === name) ?? null;
 }
 
-/** The firm's figures as model data points. availableAt is the period end, so the inputs hash is stable across runs. */
+/** The firm's figures as model data points. Entry time is stored, so the inputs hash is stable across runs. */
 function firmPoints(companyId: string, observations: FirmObservation[]): DataPoint[] {
   return observations.map((o) =>
     sponsorPoint({
@@ -26,18 +26,27 @@ function firmPoints(companyId: string, observations: FirmObservation[]): DataPoi
       value: o.value,
       periodStart: o.periodStart,
       periodEnd: o.periodEnd,
-      enteredAt: `${o.periodEnd}T23:59:59.999Z`,
-      simulated: false,
+      enteredAt: o.availableAt ?? `${o.periodEnd}T23:59:59.999Z`,
+      simulated: o.simulated ?? false,
       ...(o.note ? { note: o.note } : {}),
     }),
   );
+}
+
+/**
+ * Metrics a question can be linked to: only those an independent public source
+ * resolves (today, weekly package downloads). Firm-only KPIs such as ARR can
+ * inform the company page but never price or resolve a market.
+ */
+function resolvableMetrics(startup: { slug: string; name: string }): IntakeMetric[] {
+  return intakeMetrics(startup).filter((m) => m.sourceUrl !== null);
 }
 
 /** Metrics the model can forecast for a startup, and whether public data feeds each. */
 export function modelMetricsFor(store: ModelStore, startup: { slug: string; name: string }): (OpeningLineMetric & { metric: IntakeMetric })[] {
   const company = companyFor(startup);
   const publicIds = new Set(company ? store.readPoints(company.id).map((p) => p.metricId) : []);
-  return intakeMetrics(startup).map((metric) => ({
+  return resolvableMetrics(startup).map((metric) => ({
     id: metric.id,
     label: metric.label,
     unit: metric.unit,
@@ -53,7 +62,7 @@ export function estimateWithModel(
 ): ModelEstimate {
   const company = companyFor(startup);
   const companyId = company?.id ?? startup.slug;
-  const metric = intakeMetrics(startup).find((m) => m.id === link.metricId);
+  const metric = resolvableMetrics(startup).find((m) => m.id === link.metricId);
   const base: ModelEstimate = {
     status: "INSUFFICIENT_DATA",
     link,
@@ -70,12 +79,15 @@ export function estimateWithModel(
     question: null,
     yesCriteria: null,
     noCriteria: null,
+    resolutionSource: null,
     asOf,
   };
-  if (!metric) return { ...base, notes: [`The model has no metric "${link.metricId}" for ${startup.name}.`] };
+  if (!metric) return { ...base, notes: [`No metric "${link.metricId}" with a public resolution source exists for ${startup.name}.`] };
 
   const question = { metricId: link.metricId, threshold: link.threshold, targetDate: link.targetDate };
+  const resolutionUrl = resolutionUrlFor(metric, question);
   const wording = {
+    resolutionSource: resolutionUrl ? { url: resolutionUrl, title: `Resolution: ${metric.label}` } : null,
     question: questionTextFor(startup.name, metric, question),
     ...criteriaFor({
       startupName: startup.name,
@@ -84,7 +96,7 @@ export function estimateWithModel(
       kind: metric.kind,
       threshold: link.threshold,
       targetDate: link.targetDate,
-      resolutionUrl: resolutionUrlFor(metric, question),
+      resolutionUrl,
     }),
   };
 

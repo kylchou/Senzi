@@ -23,19 +23,6 @@ const day = z
   .regex(/^\d{4}-\d{2}-\d{2}$/, "Use YYYY-MM-DD")
   .refine((v) => new Date(`${v}T00:00:00Z`).toISOString().slice(0, 10) === v, "Enter a real calendar date");
 
-/** One figure the firm reports for the linked metric. Private to the firm. */
-export const firmObservationInput = z
-  .object({
-    metricId: z.string().trim().min(1).max(200),
-    value: z.number().finite().min(0).max(1e15),
-    periodStart: day,
-    periodEnd: day,
-    note: z.string().trim().max(500).default(""),
-  })
-  .refine((v) => v.periodStart <= v.periodEnd, { message: "The period can't end before it starts", path: ["periodEnd"] });
-
-export const MAX_FIRM_OBSERVATIONS = 100;
-
 const metricLinkFields = {
   metricId: z.string().trim().min(1).max(200),
   threshold: z.number().finite().positive("Threshold must be more than 0").max(1e15),
@@ -43,14 +30,11 @@ const metricLinkFields = {
 };
 
 /**
- * The measurable form of a study question that the model prices, plus the
- * firm's own history for that metric. Null means no metric measures the
- * question, so the model has no opening line for it.
+ * The measurable form of a study question that the model prices. The firm's
+ * own figures come from its company page, never from this payload. Null
+ * means no metric measures the question, so the model has no opening line.
  */
-export const modelLinkInput = z.object({
-  ...metricLinkFields,
-  observations: z.array(firmObservationInput).max(MAX_FIRM_OBSERVATIONS).default([]),
-});
+export const modelLinkInput = z.object(metricLinkFields);
 export type ModelLinkInput = z.infer<typeof modelLinkInput>;
 
 const studyFields = {
@@ -181,6 +165,5 @@ export const openingLinePreviewInput = z.object({
   deadline: z.coerce.date(),
   /** Omit to have the AI suggest a measurable form of the question. */
   link: z.object(metricLinkFields).nullish(),
-  observations: z.array(firmObservationInput).max(MAX_FIRM_OBSERVATIONS).default([]),
 });
 export type OpeningLinePreviewInput = z.infer<typeof openingLinePreviewInput>;

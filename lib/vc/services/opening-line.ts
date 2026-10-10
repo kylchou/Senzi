@@ -30,6 +30,10 @@ export interface OpeningLinePreview {
   /** Shown when no metric fits, e.g. "Funding rounds aren't in the model's data." */
   suggestionNote: string | null;
   estimate: EstimateView;
+  /** How many of the firm's own figures fed this estimate (entered on the company page). */
+  firmFigureCount: number;
+  /** Where the firm adds its own figures for this startup. */
+  companyPath: string;
 }
 
 export function toEstimateView(estimate: ModelEstimate): EstimateView {
@@ -55,6 +59,7 @@ export function notMeasurable(asOf: Date, note: string): ModelEstimate {
     question: null,
     yesCriteria: null,
     noCriteria: null,
+    resolutionSource: null,
     asOf,
   };
 }
@@ -76,10 +81,9 @@ export function createOpeningLineService(deps: VcDeps, assistantModel: Assistant
   }
 
   /** Rejects links the model can't price as asked; returns the field errors as VALIDATION_ERROR. */
-  function assertValidLink(startup: StartupSummary, link: MetricLink, observations: FirmObservation[], deadline: Date, path = "modelLink") {
-    const metric = model.metricsFor(startup).find((m) => m.id === link.metricId);
-    if (!metric) {
-      throw new VcError("VALIDATION_ERROR", `The model has no metric "${link.metricId}" for ${startup.name}`, [
+  function assertValidLink(startup: StartupSummary, link: MetricLink, deadline: Date, path = "modelLink") {
+    if (!model.metricsFor(startup).some((m) => m.id === link.metricId)) {
+      throw new VcError("VALIDATION_ERROR", `No metric "${link.metricId}" with a public resolution source exists for ${startup.name}`, [
         { path: `${path}.metricId`, message: "Choose one of the listed metrics" },
       ]);
     }
@@ -88,28 +92,31 @@ export function createOpeningLineService(deps: VcDeps, assistantModel: Assistant
         { path: `${path}.targetDate`, message: "Must be after the forecasting deadline" },
       ]);
     }
-    const stray = observations.findIndex((o) => o.metricId !== link.metricId);
-    if (stray >= 0) {
-      throw new VcError("VALIDATION_ERROR", "Your figures must be for the linked metric", [
-        { path: `${path}.observations.${stray}.metricId`, message: `Only ${metric.label} figures affect this estimate` },
-      ]);
-    }
   }
 
-  /** Runs the model for a study's question. Null link: not measurable. */
+  /** The firm's own figures for the linked metric, from its company page. */
+  async function firmFigures(organizationId: string, startupId: string, link: MetricLink): Promise<FirmObservation[]> {
+    return (await repo.listFirmFigures(organizationId, startupId)).filter((o) => o.metricId === link.metricId);
+  }
+
+  /**
+   * Runs the model for a firm's study question with its company-page figures.
+   * Null link: not measurable. Returns the figures used, for the record.
+   */
   async function estimateFor(
+    organizationId: string,
     startup: StartupSummary,
     link: MetricLink | null,
-    observations: FirmObservation[],
     deadline: Date,
-  ): Promise<ModelEstimate> {
-    if (!link) return notMeasurable(now(), NOT_MEASURABLE_NOTE);
-    assertValidLink(startup, link, observations, deadline);
-    return model.estimate({ startup, link, observations, asOf: now() });
+  ): Promise<{ estimate: ModelEstimate; figures: FirmObservation[] }> {
+    if (!link) return { estimate: notMeasurable(now(), NOT_MEASURABLE_NOTE), figures: [] };
+    assertValidLink(startup, link, deadline);
+    const figures = await firmFigures(organizationId, startup.id, link);
+    return { estimate: await model.estimate({ startup, link, observations: figures, asOf: now() }), figures };
   }
 
-  async function save(study: Pick<Study, "id">, estimate: ModelEstimate, observations: FirmObservation[], actorId: string | null) {
-    const stored: StudyModelEstimate = { ...estimate, studyId: study.id, observations, calculatedById: actorId };
+  async function save(study: Pick<Study, "id">, estimate: ModelEstimate, figures: FirmObservation[], actorId: string | null) {
+    const stored: StudyModelEstimate = { ...estimate, studyId: study.id, observations: figures, calculatedById: actorId };
     await repo.saveModelEstimate(stored);
     return stored;
   }
@@ -118,8 +125,10 @@ export function createOpeningLineService(deps: VcDeps, assistantModel: Assistant
   async function preview(ctx: VcContext, input: OpeningLinePreviewInput): Promise<OpeningLinePreview> {
     if (!ctx.activeOrg) throw forbidden("Select a VC organization first");
     if (!canProposeInActiveOrg(ctx)) throw forbidden("Your role cannot propose studies");
+    const organizationId = ctx.activeOrg.organizationId;
     const startup = await startupOrThrow(input.startupId);
     const metrics = model.metricsFor(startup);
+    const companyPath = `/vc/companies/${startup.slug}`;
 
     let suggestion: MetricSuggestion | null = null;
     let suggestionNote: string | null = null;
@@ -150,10 +159,14 @@ export function createOpeningLineService(deps: VcDeps, assistantModel: Assistant
       }
     }
 
-    if (!link) return { metrics, suggestion, suggestionNote, estimate: toEstimateView(notMeasurable(now(), NOT_MEASURABLE_NOTE)) };
-    assertValidLink(startup, link, input.observations, input.deadline, "link");
-    const estimate = await model.estimate({ startup, link, observations: input.observations, asOf: now() });
-    return { metrics, suggestion, suggestionNote, estimate: toEstimateView(estimate) };
+    if (!link) {
+      const estimate = toEstimateView(notMeasurable(now(), NOT_MEASURABLE_NOTE));
+      return { metrics, suggestion, suggestionNote, estimate, firmFigureCount: 0, companyPath };
+    }
+    assertValidLink(startup, link, input.deadline, "link");
+    const figures = await firmFigures(organizationId, startup.id, link);
+    const estimate = await model.estimate({ startup, link, observations: figures, asOf: now() });
+    return { metrics, suggestion, suggestionNote, estimate: toEstimateView(estimate), firmFigureCount: figures.length, companyPath };
   }
 
   /**
@@ -172,10 +185,12 @@ export function createOpeningLineService(deps: VcDeps, assistantModel: Assistant
       const startup = startups.get(study.startupId);
       if (!current?.link || !startup || !study.marketId) continue;
       checked++;
-      const next = await model.estimate({ startup, link: current.link, observations: current.observations, asOf: now() });
+      // Picks up new public data and anything the firm added on its company page since.
+      const figures = await firmFigures(study.organizationId, startup.id, current.link);
+      const next = await model.estimate({ startup, link: current.link, observations: figures, asOf: now() });
       if (next.status !== "OK" || next.inputsHash === current.inputsHash) continue;
       if (await model.publishUpdate(study.marketId, next)) published++;
-      await save(study, next, current.observations, null);
+      await save(study, next, figures, null);
     }
     return { checked, published };
   }

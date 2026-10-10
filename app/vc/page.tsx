@@ -96,7 +96,7 @@ export default async function VcDashboardPage() {
         <Section
           id="movements"
           title="Meaningful movements (7 days)"
-          description="Changes in YES allocation share of 5+ points with at least 3 participants."
+          description="Changes in General LMSR price of 5+ points with at least 3 participants."
         >
           {d.movements.length === 0 ? (
             <p className="text-sm text-slate-500 dark:text-slate-400">No significant movements this week.</p>
@@ -109,7 +109,7 @@ export default async function VcDashboardPage() {
                   </Link>
                   <span className="whitespace-nowrap text-right tabular-nums">
                     <span className="font-semibold">{formatPointChange(r.change7d)}</span>
-                    <span className="block text-xs text-slate-500">now {formatShare(r.estimate?.allocation.yesShare)}</span>
+                    <span className="block text-xs text-slate-500">now {formatShare(r.estimate?.generalPrice)}</span>
                   </span>
                 </li>
               ))}

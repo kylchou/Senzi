@@ -1,6 +1,7 @@
 import "dotenv/config";
 import { createHash } from "node:crypto";
 import {
+  AccountType,
   CreditTransactionType,
   ForecastSide,
   MarketStatus,
@@ -60,6 +61,8 @@ async function main() {
     return;
   }
   const random = rng(20261001);
+  // Northstar's members are VC accounts; everyone else trades.
+  const VC_HANDLES = new Set(["maya", "theo", "priya"]);
 
   // --- Users (seed accounts cannot sign in; their authIds are placeholders) ---
   const userIds = new Map<string, string>();
@@ -71,6 +74,8 @@ async function main() {
         username: u.handle,
         displayName: u.displayName,
         platformRole: u.role === "ADMIN" ? PlatformRole.ADMIN : PlatformRole.USER,
+        accountType: VC_HANDLES.has(u.handle) ? AccountType.VC : AccountType.TRADER,
+        accountVerifiedAt: new Date(),
       },
     });
     await db.$transaction((tx) => grantSignupCredits(tx, user.id));
@@ -90,6 +95,8 @@ async function main() {
         email: demoEmail,
         displayName: demoEmail.split("@")[0]!,
         platformRole: PlatformRole.ADMIN,
+        accountType: AccountType.VC,
+        accountVerifiedAt: new Date(),
       },
     });
     demoUserId = demo.id;
@@ -471,7 +478,8 @@ async function main() {
       submittedAt: daysFrom(-3),
       approvedAt: daysFrom(-1),
       version: 3,
-      sources: { create: [{ url: "https://www.npmjs.com/package/@supabase/supabase-js", title: "@supabase/supabase-js on npm" }] },
+      // The public source the question resolves from, as the app adds it for linked questions.
+      sources: { create: [{ url: supabaseLine.resolutionSource!.url, title: supabaseLine.resolutionSource!.title, publisher: "Public data source" }] },
       events: {
         create: studyEvents("theo", [
           [null, StudyStatus.DRAFT, "create", -4],

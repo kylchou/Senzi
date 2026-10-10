@@ -5,7 +5,7 @@ import { useState, type FormEvent } from "react";
 import { MAX_SOURCES } from "@/lib/vc/constants";
 import { VcApiError, fieldErrors, vcFetch } from "@/lib/vc/client";
 import { VISIBILITY_LABELS } from "@/lib/vc/format";
-import { STUDY_VISIBILITIES, type FirmObservation, type MetricLink, type StudyVisibility } from "@/lib/vc/types";
+import { STUDY_VISIBILITIES, type MetricLink, type StudyVisibility } from "@/lib/vc/types";
 import { OpeningLinePanel, type OpeningLineValue, type PricedWording } from "./OpeningLinePanel";
 import { StartupPicker } from "./StartupPicker";
 import { buttonPrimary, buttonSecondary, errorClass, hintClass, inputClass, labelClass } from "./styles";
@@ -18,8 +18,8 @@ export interface StudyFormInitial {
   yesCriteria: string;
   noCriteria: string;
   context: string | null;
-  /** The saved link to the model, with the firm's figures and the metric's label. */
-  openingLine: { link: MetricLink | null; observations: FirmObservation[]; metricLabel: string | null };
+  /** The saved link to the model and the metric's label. */
+  openingLine: { link: MetricLink | null; metricLabel: string | null };
   deadline: Date | string;
   visibility: StudyVisibility;
   sources: { url: string; title: string; publisher: string | null; publishedAt: Date | string | null }[];
@@ -47,10 +47,7 @@ export function StudyForm({ initial }: { initial?: StudyFormInitial }) {
   const [yesCriteria, setYes] = useState(initial?.yesCriteria ?? "");
   const [noCriteria, setNo] = useState(initial?.noCriteria ?? "");
   const [context, setContext] = useState(initial?.context ?? "");
-  const [openingLine, setOpeningLine] = useState<OpeningLineValue>({
-    link: initial?.openingLine.link ?? null,
-    observations: initial?.openingLine.observations ?? [],
-  });
+  const [openingLine, setOpeningLine] = useState<OpeningLineValue>({ link: initial?.openingLine.link ?? null });
   const linked = !!openingLine.link;
   const [deadline, setDeadline] = useState(toLocalInput(initial?.deadline));
   const [visibility, setVisibility] = useState<StudyVisibility>(initial?.visibility ?? "ORGANIZATION");
@@ -81,7 +78,7 @@ export function StudyForm({ initial }: { initial?: StudyFormInitial }) {
       noCriteria,
       context: context.trim() || null,
       // The server prices the link again on save; it never accepts a typed baseline.
-      modelLink: openingLine.link ? { ...openingLine.link, observations: openingLine.observations } : null,
+      modelLink: openingLine.link,
       deadline: deadline ? new Date(deadline).toISOString() : "",
       visibility,
       sources: sources
