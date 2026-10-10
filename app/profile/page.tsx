@@ -104,7 +104,8 @@ async function Profile() {
     open: p.active.map(row),
     awaiting: p.awaitingResolution.map(row),
     settled: [...p.resolved, ...p.cancelled].map(row),
-    activity: p.history.map((h) => ({
+    // The portfolio lists history newest first; the dashboard wants it oldest first.
+    activity: [...p.history].reverse().map((h) => ({
       id: h.ledgerTransactionId,
       label: ACTIVITY[h.reason] ?? h.reason.replace(/_/g, " "),
       question: h.question,

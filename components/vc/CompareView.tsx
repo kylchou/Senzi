@@ -37,7 +37,7 @@ function QuestionLine({ q }: { q: CompareQuestion }) {
       <div className="text-sm">{title}</div>
       <div className="mt-0.5 flex flex-wrap gap-x-2 text-xs text-slate-500 dark:text-slate-400">
         {q.kind === "study" && <span className="font-medium text-slate-600 dark:text-slate-300">Study</span>}
-        <span title={ALLOCATION_SHARE_LABEL}>{formatShare(q.allocationShare)} YES alloc.</span>
+        <span title={ALLOCATION_SHARE_LABEL}>{formatShare(q.allocationShare)} crowd price</span>
         <span>baseline {formatShare(q.openingBaseline)}</span>
         {q.calibratedProbability != null && <span>calibrated {formatShare(q.calibratedProbability)}</span>}
         {q.change7d != null && <span>{formatPointChange(q.change7d)} 7d</span>}
@@ -93,7 +93,7 @@ export function CompareView({ comparison }: { comparison: StartupComparison }) {
           <tbody>
             <Row
               label="Open questions"
-              hint="Allocation share, opening baseline, and calibrated probability are separate measures."
+              hint="Crowd price, opening baseline, and calibrated probability are separate measures."
               columns={columns}
               render={(c) => <QuestionList items={c.open} empty="No open questions." />}
             />

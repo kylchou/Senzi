@@ -68,13 +68,26 @@ async function request(url: string, init?: RequestInit): Promise<Response> {
   }
 }
 
-/** Current balance from GET /api/users/me. Throws UNAUTHENTICATED when signed out. */
-export async function fetchBalance(signal?: AbortSignal): Promise<number> {
+export interface TraderAccount {
+  balance: number;
+  /** Null until they finish onboarding. VC accounts can't trade. */
+  accountType: "VC" | "TRADER" | null;
+}
+
+/** Balance and account type from GET /api/users/me. Throws UNAUTHENTICATED when signed out. */
+export async function fetchAccount(signal?: AbortSignal): Promise<TraderAccount> {
   const response = await request("/api/users/me", { signal });
   if (!response.ok) throw await toError(response);
-  const body = z.object({ data: z.object({ creditBalance: z.number() }) }).safeParse(await response.json().catch(() => null));
+  const body = z
+    .object({ data: z.object({ creditBalance: z.number(), accountType: z.enum(["VC", "TRADER"]).nullish() }) })
+    .safeParse(await response.json().catch(() => null));
   if (!body.success) throw new ForecastError("UNKNOWN", "");
-  return body.data.data.creditBalance;
+  return { balance: body.data.data.creditBalance, accountType: body.data.data.accountType ?? null };
+}
+
+/** Current balance from GET /api/users/me. Throws UNAUTHENTICATED when signed out. */
+export async function fetchBalance(signal?: AbortSignal): Promise<number> {
+  return (await fetchAccount(signal)).balance;
 }
 
 /** Body matches forecastSubmissionSchema in lib/validation.ts. */

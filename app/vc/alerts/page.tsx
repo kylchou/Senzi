@@ -33,8 +33,8 @@ export default async function AlertsPage({ searchParams }: PageProps<"/vc/alerts
       <header>
         <h1 className="text-2xl font-semibold">Alerts</h1>
         <p className="text-sm text-slate-500 dark:text-slate-400">
-          Alerts only include studies you are allowed to see. Movement alerts describe changes in community credit
-          allocation, not calibrated probabilities. New alerts also appear in your notifications.
+          Alerts only include studies you are allowed to see. Movement alerts describe changes in the crowd price
+          (the market maker&apos;s YES price), not calibrated probabilities. New alerts also appear in your notifications.
         </p>
       </header>
       <nav aria-label="Filter alerts" className="flex flex-wrap gap-1.5 text-xs">
