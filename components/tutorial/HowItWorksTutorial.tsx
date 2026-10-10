@@ -73,6 +73,15 @@ export function HowItWorksTutorial() {
   const [practice, setPractice] = useState<Practice>(initialPractice);
   const sectionRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
+  // Height of the pinned instructions, reserved below the practice market so its last steps can scroll clear of them.
+  const [guideHeight, setGuideHeight] = useState(0);
+  useEffect(() => {
+    const panel = panelRef.current;
+    if (!panel) return;
+    const observer = new ResizeObserver(([entry]) => setGuideHeight(Math.ceil(entry.borderBoxSize[0]?.blockSize ?? 0)));
+    observer.observe(panel);
+    return () => observer.disconnect();
+  }, []);
   const titleId = useId();
 
   const step = TUTORIAL_STEPS[stepIndex]!;
@@ -136,9 +145,17 @@ export function HowItWorksTutorial() {
     panelRef.current?.focus({ preventScroll: true });
     if (stepIndex === 0) return;
     const target = step.target && sectionRef.current?.querySelector(`[data-spot="${step.target}"]`);
+    if (!(target instanceof HTMLElement)) return;
     // On small screens the guide is a bottom sheet, so keep the target near the top.
-    const narrow = window.matchMedia("(max-width: 1023px)").matches;
-    if (target instanceof HTMLElement) target.scrollIntoView({ behavior: "smooth", block: narrow ? "start" : "center" });
+    if (window.matchMedia("(max-width: 1023px)").matches) {
+      target.scrollIntoView({ behavior: "smooth", block: "start" });
+      return;
+    }
+    // On large screens the guide is pinned 16px from the top, so center the target in the space below it.
+    const pinnedBottom = 16 + (panelRef.current?.offsetHeight ?? 0);
+    const rect = target.getBoundingClientRect();
+    const gap = Math.max(16, (window.innerHeight - pinnedBottom - rect.height) / 2);
+    window.scrollTo({ top: window.scrollY + rect.top - pinnedBottom - gap, behavior: "smooth" });
   }, [started, step.target, stepIndex]);
 
   const update = (patch: Partial<Practice>) => setPractice((p) => ({ ...p, ...patch }));
@@ -164,9 +181,118 @@ export function HowItWorksTutorial() {
 
   return (
     <div ref={sectionRef} id="tutorial" className={cn("scroll-mt-6", started && "max-lg:pb-[46vh]")}>
-      <div className="grid gap-6 lg:grid-cols-[1.35fr_1fr] lg:items-start">
-        {/* Practice market */}
-        <div className="relative">
+      <div
+        className={cn("mx-auto flex max-w-3xl flex-col gap-4", started && "lg:pb-[var(--guide-height)]")}
+        style={{ "--guide-height": `${guideHeight}px` } as React.CSSProperties}
+      >
+        {/* Guide: pinned above the practice market on large screens, a bottom sheet on small ones. */}
+        <div
+          ref={panelRef}
+          tabIndex={-1}
+          role="region"
+          aria-labelledby={titleId}
+          className={cn(
+            "surface-card p-5 text-ink-900 outline-none sm:p-6",
+            started && "lg:sticky lg:top-4 lg:z-20 lg:shadow-[var(--shadow-lift)]",
+            // On small screens the guide becomes a bottom sheet so it stays next to what you're tapping.
+            started &&
+              "max-lg:fixed max-lg:inset-x-3 max-lg:bottom-3 max-lg:z-30 max-lg:max-h-[42vh] max-lg:overflow-y-auto max-lg:p-5 max-md:bottom-[calc(max(0.75rem,env(safe-area-inset-bottom))+4.25rem)] max-md:max-h-[38vh]",
+          )}
+        >
+          {started ? (
+            <>
+              <div className="flex items-center gap-4">
+                <p className={cn("shrink-0 text-xs font-semibold uppercase tracking-[0.14em] tabular-nums", RED_TEXT)}>
+                  Step {stepIndex + 1} of {TUTORIAL_STEPS.length}
+                </p>
+                <div
+                  className="h-1.5 flex-1 overflow-hidden rounded-full bg-ink-100"
+                  role="progressbar"
+                  aria-valuemin={1}
+                  aria-valuemax={TUTORIAL_STEPS.length}
+                  aria-valuenow={stepIndex + 1}
+                  aria-label="Walkthrough progress"
+                >
+                  <div className="h-full rounded-full bg-red-500 transition-all duration-500" style={{ width: `${((stepIndex + 1) / TUTORIAL_STEPS.length) * 100}%` }} />
+                </div>
+                <button type="button" onClick={exit} className="-mr-1.5 rounded-full p-1.5 text-ink-500 hover:bg-ink-100 hover:text-ink-900" aria-label="Exit walkthrough">
+                  <X className="size-4" aria-hidden />
+                </button>
+              </div>
+
+              <div className="mt-4 flex items-start justify-between gap-2">
+                <h3 id={titleId} className="text-xl font-bold sm:text-2xl">
+                  {isLast && <PartyPopper className="mr-2 inline size-6 text-red-500" aria-hidden />}
+                  {step.title}
+                </h3>
+                <ReadAloud key={step.id} targetId={[titleId, `${titleId}-body`]} label="this step" className="-mr-1.5" />
+              </div>
+              <p id={`${titleId}-body`} className="mt-1.5 max-w-2xl text-ink-600">
+                {step.body}
+              </p>
+
+              {step.id === "numbers" && <NumbersQuiz answer={practice.quizAnswer} onAnswer={(quizAnswer) => update({ quizAnswer })} />}
+
+              <div aria-live="polite" className="mt-3 min-h-6 text-sm">
+                <StepFeedback step={step} practice={practice} complete={complete} />
+              </div>
+
+              {isLast ? (
+                <div className="mt-4 flex flex-wrap gap-3">
+                  <ButtonLink href="/markets" variant="accent">
+                    Explore real markets <ArrowRight className="size-4" aria-hidden />
+                  </ButtonLink>
+                  <Button variant="outline" onClick={start}>
+                    <RotateCcw className="size-4" aria-hidden /> Restart
+                  </Button>
+                </div>
+              ) : (
+                <div className="mt-4 flex items-center justify-between gap-3">
+                  <Button variant="outline" size="sm" onClick={back} disabled={stepIndex === 0}>
+                    <ArrowLeft className="size-4" aria-hidden /> Back
+                  </Button>
+                  <div className="flex items-center gap-2">
+                    <button type="button" onClick={start} className="text-xs font-semibold text-ink-500 hover:text-ink-900">
+                      Restart
+                    </button>
+                    <Button variant="accent" size="sm" onClick={next} disabled={!complete}>
+                      Next <ArrowRight className="size-4" aria-hidden />
+                    </Button>
+                  </div>
+                </div>
+              )}
+              <p className="mt-3 border-t border-hairline pt-3 text-xs text-ink-500 lg:hidden">
+                Practice mode: nothing here changes your real credits or places a real forecast.
+              </p>
+            </>
+          ) : (
+            <>
+              <h3 id={titleId} className="text-xl font-bold sm:text-2xl">Learn by doing</h3>
+              <ol className="mt-4 grid gap-3 text-sm text-ink-600 sm:grid-cols-3">
+                {["Read a YES/NO question and how it resolves", "Pick a side and allocate practice credits", "Watch the market resolve and pay out"].map((t, i) => (
+                  <li key={t} className="flex gap-3 sm:flex-col sm:gap-1">
+                    <span className={cn("font-display font-extrabold tabular-nums", RED_TEXT)}>{String(i + 1).padStart(2, "0")}</span>
+                    {t}
+                  </li>
+                ))}
+              </ol>
+              <div className="mt-5 flex flex-wrap items-center gap-x-4 gap-y-3">
+                <Button variant="accent" onClick={start}>
+                  Start the walkthrough <ArrowRight className="size-4" aria-hidden />
+                </Button>
+                <p className="text-sm text-ink-500">{`Two minutes, a made-up startup, and ${PRACTICE_BALANCE} practice credits.`}</p>
+              </div>
+              <p className="mt-3 text-xs text-ink-500">
+                Or skip ahead and <Link href="/markets" className="underline hover:text-ink-900">browse real markets</Link>.
+              </p>
+            </>
+          )}
+        </div>
+
+        {/* Practice market. Before the walkthrough starts, a short fading preview. */}
+        <div
+          className={cn("relative", !started && "max-h-80 overflow-hidden [mask-image:linear-gradient(to_bottom,black_35%,transparent)]")}
+        >
           <div
             className={cn(
               "relative rounded-[var(--radius-card)] bg-surface p-5 shadow-[var(--shadow-lift)] ring-1 ring-hairline transition sm:p-6",
@@ -390,115 +516,13 @@ export function HowItWorksTutorial() {
             </Spot>
           </div>
 
-          {!started && (
-            <div className="absolute inset-0 grid place-items-center rounded-[var(--radius-card)] bg-page/60 backdrop-blur-[2px]">
-              <Button variant="accent" size="lg" className="shadow-[var(--shadow-lift)]" onClick={start}>
-                Start the walkthrough <ArrowRight className="size-4" aria-hidden />
-              </Button>
-            </div>
-          )}
         </div>
+        {started && (
+          <p className="px-1 text-xs text-ink-500 max-lg:hidden">
+            Practice mode: nothing here changes your real credits or places a real forecast. Press Esc to exit.
+          </p>
+        )}
 
-        {/* Guide */}
-        <div
-          ref={panelRef}
-          tabIndex={-1}
-          role="region"
-          aria-labelledby={titleId}
-          className={cn(
-            "surface-card p-6 text-ink-900 outline-none lg:sticky lg:top-6",
-            // On small screens the guide becomes a bottom sheet so it stays next to what you're tapping.
-            started &&
-              "max-lg:fixed max-lg:inset-x-3 max-lg:bottom-3 max-lg:z-30 max-lg:max-h-[42vh] max-lg:overflow-y-auto max-lg:p-5 max-md:bottom-[calc(max(0.75rem,env(safe-area-inset-bottom))+4.25rem)] max-md:max-h-[38vh]",
-          )}
-        >
-          {started ? (
-            <>
-              <div className="flex items-center justify-between gap-3">
-                <p className={cn("text-xs font-semibold uppercase tracking-[0.14em]", RED_TEXT)}>
-                  Step {stepIndex + 1} of {TUTORIAL_STEPS.length}
-                </p>
-                <button type="button" onClick={exit} className="rounded-full p-1.5 text-ink-500 hover:bg-ink-100 hover:text-ink-900" aria-label="Exit walkthrough">
-                  <X className="size-4" aria-hidden />
-                </button>
-              </div>
-              <div
-                className="mt-3 h-1.5 overflow-hidden rounded-full bg-ink-100"
-                role="progressbar"
-                aria-valuemin={1}
-                aria-valuemax={TUTORIAL_STEPS.length}
-                aria-valuenow={stepIndex + 1}
-                aria-label="Walkthrough progress"
-              >
-                <div className="h-full rounded-full bg-red-500 transition-all duration-500" style={{ width: `${((stepIndex + 1) / TUTORIAL_STEPS.length) * 100}%` }} />
-              </div>
-
-              <div className="mt-5 flex items-start justify-between gap-2">
-                <h3 id={titleId} className="text-2xl font-bold">
-                  {isLast && <PartyPopper className="mr-2 inline size-6 text-red-500" aria-hidden />}
-                  {step.title}
-                </h3>
-                <ReadAloud key={step.id} targetId={[titleId, `${titleId}-body`]} label="this step" className="-mr-1.5 mt-0.5" />
-              </div>
-              <p id={`${titleId}-body`} className="mt-2 text-ink-600">
-                {step.body}
-              </p>
-
-              {step.id === "numbers" && <NumbersQuiz answer={practice.quizAnswer} onAnswer={(quizAnswer) => update({ quizAnswer })} />}
-
-              <div aria-live="polite" className="mt-4 min-h-6 text-sm">
-                <StepFeedback step={step} practice={practice} complete={complete} />
-              </div>
-
-              {isLast ? (
-                <div className="mt-6 flex flex-wrap gap-3">
-                  <ButtonLink href="/markets" variant="accent">
-                    Explore real markets <ArrowRight className="size-4" aria-hidden />
-                  </ButtonLink>
-                  <Button variant="outline" onClick={start}>
-                    <RotateCcw className="size-4" aria-hidden /> Restart
-                  </Button>
-                </div>
-              ) : (
-                <div className="mt-6 flex items-center justify-between gap-3">
-                  <Button variant="outline" size="sm" onClick={back} disabled={stepIndex === 0}>
-                    <ArrowLeft className="size-4" aria-hidden /> Back
-                  </Button>
-                  <div className="flex items-center gap-2">
-                    <button type="button" onClick={start} className="text-xs font-semibold text-ink-500 hover:text-ink-900">
-                      Restart
-                    </button>
-                    <Button variant="accent" size="sm" onClick={next} disabled={!complete}>
-                      Next <ArrowRight className="size-4" aria-hidden />
-                    </Button>
-                  </div>
-                </div>
-              )}
-              <p className="mt-5 border-t border-hairline pt-4 text-xs text-ink-500 max-lg:mt-3 max-lg:pt-3">
-                Practice mode: nothing here changes your real credits or places a real forecast.
-                <span className="max-lg:hidden"> Press Esc to exit.</span>
-              </p>
-            </>
-          ) : (
-            <>
-              <h3 id={titleId} className="text-2xl font-bold">Learn by doing</h3>
-              <ol className="mt-4 space-y-3 text-sm text-ink-600">
-                {["Read a YES/NO question and how it resolves", "Pick a side and allocate practice credits", "Watch the market resolve and pay out"].map((t, i) => (
-                  <li key={t} className="flex gap-3">
-                    <span className={cn("font-display font-extrabold tabular-nums", RED_TEXT)}>{String(i + 1).padStart(2, "0")}</span>
-                    {t}
-                  </li>
-                ))}
-              </ol>
-              <p className="mt-5 text-sm text-ink-500">
-                {`Two minutes, a made-up startup, and ${PRACTICE_BALANCE} practice credits. Nothing touches your account.`}
-              </p>
-              <p className="mt-4 text-xs text-ink-500">
-                Or skip ahead and <Link href="/markets" className="underline hover:text-ink-900">browse real markets</Link>.
-              </p>
-            </>
-          )}
-        </div>
       </div>
     </div>
   );

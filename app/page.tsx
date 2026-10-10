@@ -37,8 +37,7 @@ export default function HomePage() {
               Forecast what startups do <span className="text-red-500">next.</span>
             </h1>
             <p className="mt-5 max-w-xl text-base text-ink-600 sm:text-lg motion-safe:animate-[home-rise_900ms_120ms_cubic-bezier(0.2,0.8,0.2,1)_both]">
-              Allocate virtual credits on measurable startup milestones and see where the community stands. No real
-              money, ever.
+              Allocate virtual credits on measurable startup milestones and see where the community stands.
             </p>
             <div className="mt-8 flex flex-wrap justify-center gap-3 motion-safe:animate-[home-rise_900ms_220ms_cubic-bezier(0.2,0.8,0.2,1)_both]">
               <ButtonLink href="/markets" variant="accent" size="lg">
