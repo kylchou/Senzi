@@ -1,5 +1,5 @@
 import type { Prisma } from "@/generated/prisma/client";
-import { MarketStatus, MarketVisibility, OrgRole } from "@/generated/prisma/enums";
+import { DataProvenance, MarketStatus, MarketVisibility, OrgRole } from "@/generated/prisma/enums";
 import { forbidden, notFound } from "@/lib/api-response";
 import { db } from "@/lib/db";
 import { ORG_ROLE_RANK, type SessionUser } from "@/lib/types";
@@ -131,4 +131,23 @@ export async function canViewMarket(userId: string | null, marketId: string): Pr
 /** Throws NOT_FOUND unless the user can see the market. */
 export async function requireMarketVisible(userId: string | null, marketId: string) {
   if (!(await canViewMarket(userId, marketId))) throw notFound("Market");
+}
+
+// ---------------------------------------------------------------------------
+// Baseline model data
+// ---------------------------------------------------------------------------
+
+/**
+ * Model data points a user may read: every scraped point, plus sponsor-provided
+ * points from organizations the user belongs to. Sponsor data never resolves a
+ * market, so resolution code should filter on provenance SCRAPED instead.
+ */
+export function visibleModelDataPointsWhere(userId: string | null): Prisma.ModelDataPointWhereInput {
+  if (!userId) return { provenance: DataProvenance.SCRAPED };
+  return {
+    OR: [
+      { provenance: DataProvenance.SCRAPED },
+      { provenance: DataProvenance.SPONSOR_PROVIDED, organization: { memberships: { some: { userId } } } },
+    ],
+  };
 }
