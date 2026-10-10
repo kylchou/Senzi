@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { httpUrlSchema, idSchema } from "@/lib/validation";
-import { MAX_PARTICIPANTS, MAX_SOURCES } from "./constants";
+import { MAX_PARTICIPANTS, MAX_PRIZE_POOL_CREDITS, MAX_SOURCES } from "./constants";
 import { ALERT_TYPES, STUDY_STATUSES, STUDY_VISIBILITIES } from "./types";
 
 /*
@@ -51,16 +51,31 @@ const studyFields = {
   /** The opening line comes from the model, never from the firm: link the question to a metric instead. */
   modelLink: modelLinkInput.nullish(),
   deadline: z.coerce.date(),
-  visibility: z.enum(STUDY_VISIBILITIES),
+  /** Legacy and API use only; the form sets the audiences below and the visibility follows from them. */
+  visibility: z.enum(STUDY_VISIBILITIES).optional(),
+  /** Any retail trader may trade. */
+  openToPublic: z.boolean().default(true),
+  /** Only traders verified as users of the startup's product may trade and see the line. */
+  openToVerified: z.boolean().default(false),
+  /** Credits split among traders by what they gained once the market settles. */
+  prizePoolCredits: z.number().int("Whole credits only").min(0).max(MAX_PRIZE_POOL_CREDITS).default(0),
   sources: z.array(studySourceInput).max(MAX_SOURCES).optional(),
 };
 const studyObject = z.object(studyFields);
 
-export const createStudyInput = studyObject;
-export type CreateStudyInput = z.infer<typeof createStudyInput>;
+const AUDIENCE_REQUIRED = { message: "Open the question to the public, to verified users, or both", path: ["openToPublic"] };
+
+export const createStudyInput = studyObject.refine((v) => v.openToPublic || v.openToVerified, AUDIENCE_REQUIRED);
+type ParsedCreateStudy = z.output<typeof createStudyInput>;
+/** What callers send; the audience and prize default to public, not verified-only, no prize. */
+export type CreateStudyInput = Omit<ParsedCreateStudy, "openToPublic" | "openToVerified" | "prizePoolCredits"> &
+  Partial<Pick<ParsedCreateStudy, "openToPublic" | "openToVerified" | "prizePoolCredits">>;
 
 /** Partial edit of a DRAFT study. Omitted fields are left unchanged. */
 export const updateStudyInput = studyObject.partial().extend({
+  openToPublic: z.boolean().optional(),
+  openToVerified: z.boolean().optional(),
+  prizePoolCredits: z.number().int("Whole credits only").min(0).max(MAX_PRIZE_POOL_CREDITS).optional(),
   expectedVersion: z.number().int().positive(),
 });
 export type UpdateStudyInput = z.infer<typeof updateStudyInput>;
@@ -101,8 +116,6 @@ export const studyListQuery = z.object({
   scope: z.enum(["organization", "public", "participating"]).default("organization"),
   status: z.enum(STUDY_STATUSES).optional(),
 });
-
-export const createWatchlistInput = z.object({ name: z.string().trim().min(1).max(80) });
 
 export const watchlistItemInput = z.discriminatedUnion("type", [
   z.object({ type: z.literal("STARTUP"), startupId: id }),

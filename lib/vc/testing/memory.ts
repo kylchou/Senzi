@@ -15,6 +15,7 @@ import type {
   VcRepository,
 } from "../ports";
 import { OPENING_LINE_MODEL_NAME, criteriaFor } from "../opening-line";
+import { splitPrizePool } from "../prize-pool";
 import type {
   CompareIndicators,
   StartupFactView,
@@ -101,6 +102,7 @@ export function createMemoryRepository(now: () => Date = () => new Date()): VcRe
         closedAt: null,
         resolvedAt: null,
         resolvedOutcome: null,
+        prizeDistributedAt: null,
         version: 1,
         createdAt: at,
         updatedAt: at,
@@ -288,6 +290,9 @@ export interface FakePlatformState {
   startups: (StartupSummary & { isPublished?: boolean })[];
   markets: (MarketSummary & { visibility: string; studyId?: string })[];
   createdMarkets: { studyId: string; marketId: string; input: CreateMarketForStudyInput }[];
+  /** Markets whose settlement has completed, with each trader's net gain. */
+  settledGains: Map<string, { userId: string; gain: number }[]>;
+  prizePayouts: { studyId: string; userId: string; amount: number }[];
   closedMarketStudyIds: string[];
   notifications: (PersonalNotification & { readAt: Date | null })[];
   facts: StartupFactView[];
@@ -311,6 +316,8 @@ export function createFakePlatform(state: Partial<FakePlatformState> = {}): Plat
     startups: [],
     markets: [],
     createdMarkets: [],
+    settledGains: new Map(),
+    prizePayouts: [],
     closedMarketStudyIds: [],
     notifications: [],
     facts: [],
@@ -352,7 +359,17 @@ export function createFakePlatform(state: Partial<FakePlatformState> = {}): Plat
       s.createdMarkets.push({ studyId: input.studyId, marketId, input: structuredClone(input) });
       return { marketId };
     },
-    async getStartupEvidence(startupIds) {
+    async payPrizePool({ studyId, marketId, credits }) {
+      const gains = s.settledGains.get(marketId);
+      if (!gains) return { state: "pending" as const };
+      const shares = splitPrizePool(credits, gains);
+      for (const share of shares) {
+        // Idempotent like the ledger: one payout per study and trader.
+        if (!s.prizePayouts.some((p) => p.studyId === studyId && p.userId === share.userId)) s.prizePayouts.push({ studyId, ...share });
+      }
+      return { state: "done" as const, winners: shares.length, paid: shares.reduce((sum, x) => sum + x.amount, 0) };
+    },
+        async getStartupEvidence(startupIds) {
       const published = new Set(s.startups.filter((x) => x.isPublished !== false).map((x) => x.id));
       const ok = (id: string) => startupIds.includes(id) && published.has(id);
       return {
@@ -430,7 +447,15 @@ export function createFakeModel(): ModelGateway & {
   const dataVersion = { value: 1 };
   const published: { marketId: string; probability: number; inputsHash: string }[] = [];
   const metricsFor = (startup: { slug: string }) => [
-    { id: `downloads:${startup.slug}`, label: "weekly downloads", unit: "downloads", kind: "weekly_total" as const, hasPublicData: !noPublicData.has(startup.slug) },
+    {
+      id: `downloads:${startup.slug}`,
+      label: "weekly downloads",
+      unit: "downloads",
+      kind: "weekly_total" as const,
+      hasPublicData: !noPublicData.has(startup.slug),
+      thresholdLabel: "At least",
+      dateLabel: "Week ending",
+    },
   ];
   const fake = {
     insufficient,

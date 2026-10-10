@@ -58,7 +58,7 @@ Error codes the panel handles: `UNAUTHENTICATED` (sign-in prompt), `INSUFFICIENT
 
 Each simulated forecast goes through the LMSR rule like a real one (fill, General Users and Verified Users estimates per snapshot) and debits the ledger, so ledgers verify and Replay has real lines on every market. Seeding takes about 10 seconds.
 
-Market charts draw a smooth monotone line through each snapshot (`smoothPath` in `lib/market-view/chart.ts`). The YES allocation line starts once 15 forecasters have taken part, because the first few forecasts swing the share between 0% and 100%; the data table lists every point.
+Market charts draw straight segments between snapshots with an axis zoomed to the data (`lib/market-view/chart.ts`). The YES allocation line starts once 15 forecasters have taken part (`settledPoints`), because the first few forecasts swing the share between 0% and 100%; the data table lists every point.
 
 ## Market Replay
 

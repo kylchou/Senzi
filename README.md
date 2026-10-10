@@ -20,6 +20,8 @@ Credits are virtual. They can't be bought, cashed out, or withdrawn, and forecas
 5. **Wait for the outcome.** After the deadline, one admin proposes the result with evidence and a second admin has to approve it. Then each winning share pays 1 credit. If a question turns out to be broken, it's voided and everyone gets back what they spent.
 6. **Track how you did.** `/profile` shows your balance, lifetime profit or loss, open and settled positions, and every credit movement. You can rearrange it however you like.
 
+**Markets for verified users.** Some markets are only for people who actually use the product, like "verified Stripe users only". You prove it at `/verify/<startup>` with an access code (instant) or a screenshot of your account (an admin checks it). Verified users can trade on those markets, and their forecasts on any of that startup's markets make up the Verified Users line. For a demo, use the code `STRIPE-DEMO` at `/verify/stripe`.
+
 The public pages also include a startup directory, news, and search. They work in eight languages and come with accessibility options like read-aloud, dyslexia-friendly text, high contrast, color-blind-friendly charts, and reduced motion.
 
 ### For VC firms

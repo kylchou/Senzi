@@ -57,10 +57,9 @@ describe("unpublished startups", () => {
     await expect(s.services.studies.create(users.analystA, validStudyInput({ startupId: "hidden" }))).rejects.toSatisfy(
       (e: unknown) => e instanceof VcError && e.code === "VALIDATION_ERROR",
     );
-    const wl = await s.services.watchlists.create(users.analystA, "Core");
-    await expect(
-      s.services.watchlists.addItem(users.analystA, wl.id, { type: "STARTUP", startupId: "hidden" }),
-    ).rejects.toSatisfy((e: unknown) => e instanceof VcError && e.code === "NOT_FOUND");
+    await expect(s.services.watchlists.follow(users.analystA, { type: "STARTUP", startupId: "hidden" })).rejects.toSatisfy(
+      (e: unknown) => e instanceof VcError && e.code === "NOT_FOUND",
+    );
   });
 });
 
@@ -73,26 +72,22 @@ describe("watched startups", () => {
       { id: theirs.marketId!, studyId: theirs.id, startupId: "startup_1", question: theirs.question, status: "OPEN", closesAt: null, visibility: "PUBLIC" },
       { id: "plain", startupId: "startup_1", question: "Plain public market?", status: "OPEN", closesAt: null, visibility: "PUBLIC" },
     );
-    const wl = await s.services.watchlists.create(users.analystB, "B list");
-    await s.services.watchlists.addItem(users.analystB, wl.id, { type: "STARTUP", startupId: "startup_1" });
+    await s.services.watchlists.follow(users.analystB, { type: "STARTUP", startupId: "startup_1" });
 
-    const [detail] = await s.services.watchlists.list(users.analystB);
-    const entry = detail.entries[0];
-    if (entry.kind !== "STARTUP") throw new Error("expected a startup entry");
-    expect(entry.markets.map((m) => m.market.id)).toEqual(["plain"]);
-    expect(entry.studies.map((x) => x.study.id)).toEqual([theirs.id]);
-    expect(entry.studies[0].study.viewLevel).toBe("limited");
+    const [entry] = (await s.services.watchlists.overview(users.analystB)).followed;
+    const markets = entry!.openMarkets.filter((m) => m.kind === "market").map((m) => (m.kind === "market" ? m.market.id : ""));
+    const studies = entry!.openMarkets.flatMap((m) => (m.kind === "study" ? [m.study] : []));
+    expect(markets).toEqual(["plain"]);
+    expect(studies.map((x) => x.id)).toEqual([theirs.id]);
+    expect(studies[0]!.viewLevel).toBe("limited");
   });
 
   it("never shows another firm's private study", async () => {
     const s = setup();
     await openStudy(s, { visibility: "ORGANIZATION" });
-    const wl = await s.services.watchlists.create(users.analystB, "B list");
-    await s.services.watchlists.addItem(users.analystB, wl.id, { type: "STARTUP", startupId: "startup_1" });
-    const [detail] = await s.services.watchlists.list(users.analystB);
-    const entry = detail.entries[0];
-    if (entry.kind !== "STARTUP") throw new Error("expected a startup entry");
-    expect(entry.studies).toEqual([]);
+    await s.services.watchlists.follow(users.analystB, { type: "STARTUP", startupId: "startup_1" });
+    const [entry] = (await s.services.watchlists.overview(users.analystB)).followed;
+    expect(entry!.openMarkets.filter((m) => m.kind === "study")).toEqual([]);
   });
 });
 

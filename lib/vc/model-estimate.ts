@@ -3,7 +3,8 @@
  * measurable question. Pure apart from reading the model's data files, so the
  * app (server/model-adapter.ts) and the demo seed price questions identically.
  */
-import { COMPANIES, type ModelStore } from "@/lib/model";
+import { COMPANIES, metricIds, type ModelStore } from "@/lib/model";
+import { baselineFor, fundingQuestion, hiringQuestion, trafficQuestion } from "@/lib/model/question-kinds";
 import { computeDirectBaseline } from "@/lib/model/direct-baseline";
 import { intakeMetrics, questionTextFor, resolutionUrlFor, type IntakeMetric } from "@/lib/model/intake";
 import { sponsorPoint } from "@/lib/model/sponsor";
@@ -42,18 +43,109 @@ function resolvableMetrics(startup: { slug: string; name: string }): IntakeMetri
   return intakeMetrics(startup).filter((m) => m.sourceUrl !== null);
 }
 
-/** Metrics the model can forecast for a startup, and whether public data feeds each. */
-export function modelMetricsFor(store: ModelStore, startup: { slug: string; name: string }): (OpeningLineMetric & { metric: IntakeMetric })[] {
+/**
+ * Outcomes the model can price for a startup: weekly package downloads, plus
+ * Felix's other question kinds (lib/model/question-kinds.ts) when the company
+ * has the matching public source: web traffic rank, open jobs, and new SEC
+ * Form D filings. Each resolves from a named public source.
+ */
+export function modelMetricsFor(store: ModelStore, startup: { slug: string; name: string }): OpeningLineMetric[] {
   const company = companyFor(startup);
   const publicIds = new Set(company ? store.readPoints(company.id).map((p) => p.metricId) : []);
-  return resolvableMetrics(startup).map((metric) => ({
+  const downloads: OpeningLineMetric[] = resolvableMetrics(startup).map((metric) => ({
     id: metric.id,
-    label: metric.label,
+    label: metric.label.replace(/^(npm|PyPI) downloads: /, "Weekly $1 downloads of "),
     unit: metric.unit,
-    kind: metric.kind,
+    kind: "weekly_total",
     hasPublicData: publicIds.has(metric.id),
-    metric,
+    thresholdLabel: "At least (downloads in the week)",
+    dateLabel: "Week ending",
   }));
+  if (!company) return downloads;
+  const kinds: OpeningLineMetric[] = [
+    {
+      id: metricIds.trancoRank,
+      label: `Web traffic rank of ${company.domain} (7-day average)`,
+      unit: "rank",
+      kind: "rank_average",
+      hasPublicData: publicIds.has(metricIds.trancoRank),
+      thresholdLabel: "Rank at or better than (e.g. 5000 = top 5,000)",
+      dateLabel: "Week ending",
+    },
+    ...(company.jobBoard
+      ? [
+          {
+            id: metricIds.openJobs,
+            label: "Open job postings on a date",
+            unit: "postings",
+            kind: "count_on_day" as const,
+            hasPublicData: publicIds.has(metricIds.openJobs),
+            thresholdLabel: "At least (open postings)",
+            dateLabel: "Checked on",
+          },
+        ]
+      : []),
+    ...(company.secCik
+      ? [
+          {
+            id: metricIds.formDAmountSold,
+            label: "Files a new SEC Form D (signals a fundraise)",
+            unit: "filing",
+            kind: "event_by_date" as const,
+            hasPublicData: publicIds.has(metricIds.formDAmountSold),
+            thresholdLabel: null,
+            dateLabel: "Filed by",
+          },
+        ]
+      : []),
+  ];
+  return [...downloads, ...kinds];
+}
+
+/** Prices one of Felix's non-download question kinds with his model. */
+function estimateQuestionKind(
+  store: ModelStore,
+  company: NonNullable<ReturnType<typeof companyFor>>,
+  link: MetricLink,
+  base: ModelEstimate,
+  asOf: Date,
+): ModelEstimate {
+  const opensAt = asOf.toISOString();
+  const q =
+    link.metricId === metricIds.trancoRank
+      ? trafficQuestion(company.id, link.threshold, link.targetDate, opensAt)
+      : link.metricId === metricIds.openJobs
+        ? hiringQuestion(company.id, link.threshold, link.targetDate, opensAt)
+        : fundingQuestion(company.id, link.targetDate, opensAt);
+  if (!q) return { ...base, notes: [`${company.name} has no public source for this outcome.`] };
+  const wording = {
+    question: q.text,
+    yesCriteria: q.yesCriteria,
+    noCriteria: q.noCriteria,
+    resolutionSource: { url: q.resolutionUrl, title: q.resolutionTitle },
+  };
+  const result = baselineFor(q, store.readPoints(company.id), asOf);
+  const shared = {
+    ...base,
+    ...wording,
+    modelVersion: result.method.version,
+    inputsHash: result.method.details.inputsHash,
+    notes: [...result.notes, ...result.missing],
+    inputsUsed: result.inputsUsed.map((i) => ({ ...i })),
+  };
+  if (result.status !== "ok" || result.probability == null || result.low == null || result.high == null) return shared;
+  const probability = clampProbability(result.probability);
+  const low = Math.min(clampProbability(result.low), probability);
+  const high = Math.max(clampProbability(result.high), probability);
+  return {
+    ...shared,
+    status: "OK",
+    probability,
+    low,
+    high,
+    confidence: result.confidence ?? "low",
+    methodology: `${result.method.description} Model uncertainty band ${Math.round(low * 100)}–${Math.round(high * 100)}%. As of ${result.asOf}.`.slice(0, 1000),
+  };
 }
 
 export function estimateWithModel(
@@ -82,7 +174,11 @@ export function estimateWithModel(
     resolutionSource: null,
     asOf,
   };
-  if (!metric) return { ...base, notes: [`No metric "${link.metricId}" with a public resolution source exists for ${startup.name}.`] };
+  if (!metric) {
+    const kind = company && modelMetricsFor(store, startup).find((m) => m.id === link.metricId && m.kind !== "weekly_total");
+    if (kind) return estimateQuestionKind(store, company, link, base, asOf);
+    return { ...base, notes: [`No metric "${link.metricId}" with a public resolution source exists for ${startup.name}.`] };
+  }
 
   const question = { metricId: link.metricId, threshold: link.threshold, targetDate: link.targetDate };
   const resolutionUrl = resolutionUrlFor(metric, question);

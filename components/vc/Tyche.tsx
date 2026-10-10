@@ -232,12 +232,12 @@ export function Tyche({ enabled }: { enabled: boolean }) {
         type="button"
         onClick={() => setOpen(true)}
         aria-label="Open Tyche, the AI research assistant"
-        className={`fixed ${CORNER} z-50 flex items-center gap-2 rounded-full bg-indigo-600 py-2.5 pl-3 pr-4 text-white shadow-lg ring-1 ring-indigo-700/50 transition hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 print:hidden`}
+        className={`fixed ${CORNER} z-50 flex items-center gap-2 rounded-full bg-red-600 py-2.5 pl-3 pr-4 text-white shadow-lg ring-1 ring-red-700/50 transition hover:bg-red-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-600 print:hidden`}
       >
         <TycheIcon className="h-5 w-5" />
         <span className="text-left leading-tight">
           <span className="block text-sm font-semibold">Ask Tyche</span>
-          <span className="block text-[10px] font-medium uppercase tracking-wider text-indigo-100">AI assistant</span>
+          <span className="block text-[10px] font-medium uppercase tracking-wider text-red-100">AI assistant</span>
         </span>
       </button>
     );
@@ -249,14 +249,14 @@ export function Tyche({ enabled }: { enabled: boolean }) {
       aria-labelledby={titleId}
       className={`fixed ${CORNER} z-50 flex h-[min(560px,calc(100dvh_-_7rem))] md:h-[min(560px,calc(100dvh_-_2rem))] w-[min(380px,calc(100vw-2rem))] flex-col overflow-hidden rounded-xl border border-slate-200 bg-white text-slate-900 shadow-2xl dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 print:hidden`}
     >
-      <header className="flex items-start gap-2 border-b border-slate-200 bg-indigo-600 px-3 py-2.5 text-white dark:border-slate-700">
+      <header className="flex items-start gap-2 border-b border-slate-200 bg-red-600 px-3 py-2.5 text-white dark:border-slate-700">
         <TycheIcon className="mt-0.5 h-5 w-5 shrink-0" />
         <div className="min-w-0 flex-1">
           <h2 id={titleId} className="flex items-center gap-1.5 text-sm font-semibold">
             Tyche
             <span className="rounded bg-white/20 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider">AI assistant</span>
           </h2>
-          <p className="truncate text-xs text-indigo-100" title={lastSubjectLabel ?? undefined}>
+          <p className="truncate text-xs text-red-100" title={lastSubjectLabel ?? undefined}>
             {subject ? lastSubjectLabel ?? (subject.scope.kind === "study" ? "About this study" : "About this comparison") : "No study open"}
           </p>
         </div>
@@ -264,7 +264,7 @@ export function Tyche({ enabled }: { enabled: boolean }) {
           type="button"
           onClick={close}
           aria-label="Close Tyche"
-          className="rounded p-1 text-indigo-100 hover:bg-white/15 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-white"
+          className="rounded p-1 text-red-100 hover:bg-white/15 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-white"
         >
           <svg viewBox="0 0 20 20" aria-hidden className="h-4 w-4" fill="currentColor">
             <path d="M5.3 4.2a.75.75 0 0 0-1.1 1.1L8.94 10l-4.7 4.7a.75.75 0 1 0 1.06 1.06L10 11.06l4.7 4.7a.75.75 0 1 0 1.06-1.06L11.06 10l4.7-4.7a.75.75 0 0 0-1.06-1.06L10 8.94 5.3 4.2Z" />
@@ -308,9 +308,9 @@ export function Tyche({ enabled }: { enabled: boolean }) {
         {pending && (
           <p className="flex items-center gap-2 text-slate-500">
             <span className="inline-flex gap-1" aria-hidden>
-              <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-indigo-500 [animation-delay:-0.3s]" />
-              <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-indigo-500 [animation-delay:-0.15s]" />
-              <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-indigo-500" />
+              <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-red-500 [animation-delay:-0.3s]" />
+              <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-red-500 [animation-delay:-0.15s]" />
+              <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-red-500" />
             </span>
             Tyche is reading the evidence…
           </p>
@@ -327,7 +327,7 @@ export function Tyche({ enabled }: { enabled: boolean }) {
                 type="button"
                 disabled={pending}
                 onClick={() => void ask(a.prompt)}
-                className="rounded-full border border-indigo-200 px-2.5 py-1 text-xs text-indigo-700 hover:bg-indigo-50 disabled:opacity-50 dark:border-indigo-800 dark:text-indigo-300 dark:hover:bg-indigo-950"
+                className="rounded-full border border-red-200 px-2.5 py-1 text-xs text-red-700 hover:bg-red-50 disabled:opacity-50 dark:border-red-800 dark:text-red-300 dark:hover:bg-red-950"
               >
                 {a.label}
               </button>
@@ -348,12 +348,12 @@ export function Tyche({ enabled }: { enabled: boolean }) {
             onKeyDown={onKeyDown}
             disabled={!enabled || !subject || pending}
             placeholder={subject ? "Ask about this data…" : "Open a study to ask Tyche"}
-            className="min-h-[2.5rem] flex-1 resize-none rounded-md border border-slate-300 bg-white px-2.5 py-1.5 text-sm placeholder:text-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-400/40 disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900"
+            className="min-h-[2.5rem] flex-1 resize-none rounded-md border border-slate-300 bg-white px-2.5 py-1.5 text-sm placeholder:text-slate-400 focus:border-red-500 focus:outline-none focus:ring-2 focus:ring-red-400/40 disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900"
           />
           <button
             type="submit"
             disabled={!enabled || !subject || pending || !input.trim()}
-            className="rounded-md bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
+            className="rounded-md bg-red-600 px-3 py-2 text-sm font-medium text-white hover:bg-red-500 disabled:cursor-not-allowed disabled:opacity-50"
           >
             Send
           </button>

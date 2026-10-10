@@ -37,6 +37,8 @@ export interface MarketSummary {
   question: string;
   status: PublicMarketStatus;
   closesAt: string;
+  /** Only verified users of the startup's product can trade. */
+  verifiedUsersOnly: boolean;
   startup: StartupRef;
   /** Null when no baseline was set. */
   openingBaseline: number | null;

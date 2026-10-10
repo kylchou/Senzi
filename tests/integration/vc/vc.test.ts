@@ -319,7 +319,7 @@ describe("adapters", () => {
     expect((await deps.platform.getStartups([w.startup.id]))[0]).toMatchObject({ id: w.startup.id, industry: "Testing" });
   });
 
-  it("dedupes alerts and keeps watchlist names unique per firm", async () => {
+  it("dedupes alerts and keeps each firm's watchlist to itself", async () => {
     const w = await world();
     const alert = { organizationId: w.orgA.id, type: "DEADLINE_APPROACHING" as const, title: "t", body: "b", dedupeKey: "k1" };
     expect(await deps.repo.createAlerts([alert])).toHaveLength(1);
@@ -328,9 +328,11 @@ describe("adapters", () => {
     expect(await services.alerts.unreadCount(w.ctx.analystA)).toBe(0);
     expect(await services.alerts.unreadCount(w.ctx.ownerA)).toBe(1);
 
-    await services.watchlists.create(w.ctx.analystA, "Core");
-    await expectCode(services.watchlists.create(w.ctx.analystA, "Core"), "CONFLICT");
-    expect(await services.watchlists.list(w.ctx.ownerB)).toEqual([]);
+    await services.watchlists.follow(w.ctx.analystA, { type: "STARTUP", startupId: w.startup.id });
+    await services.watchlists.follow(w.ctx.ownerA, { type: "STARTUP", startupId: w.startup.id });
+    expect(await db.watchlistItem.count()).toBe(1);
+    expect((await services.watchlists.overview(w.ctx.analystA)).followed.map((x) => x.startup.id)).toEqual([w.startup.id]);
+    expect((await services.watchlists.overview(w.ctx.ownerB)).followed).toEqual([]);
   });
 });
 
@@ -409,5 +411,54 @@ describe("assistant context against the database", () => {
     const w = await world();
     const study = await openStudy(w, "RESTRICTED");
     await expectCode(services.assistantContext.forStudy(w.ctx.analystA, study.id), "FORBIDDEN");
+  });
+});
+
+describe("prize pools and who can trade", () => {
+  it("splits a study's prize pool by traders' gains through the credit ledger, once", async () => {
+    const w = await world();
+    const study = await openStudy(w, "ORGANIZATION");
+    await db.researchStudy.update({ where: { id: study.id }, data: { prizePoolCredits: 600 } });
+    const [winner, loser] = await Promise.all([makeUser({ credits: true }), makeUser({ credits: true })]);
+    await placeForecast(winner, study.marketId!, 100);
+    await placeForecast(loser, study.marketId!, 100);
+
+    await resolveMarket(w.admin, study.marketId!, {
+      outcome: "YES",
+      evidenceSummary: "The public npm downloads API reported the threshold was met.",
+      evidenceUrls: ["https://example.com/npm"],
+    });
+    await services.studies.syncWithMarkets();
+    // Not settled yet: nothing is paid.
+    expect(await services.studies.payPrizePools()).toMatchObject({ paid: 0, pending: 1 });
+
+    // Settlement pays the winner 250 credits (a 150 gain); the loser ends 100 down.
+    const { applyCreditTransaction } = await import("@/lib/credits");
+    await db.$transaction((tx) =>
+      applyCreditTransaction(tx, { userId: winner.id, amount: 250, type: "SETTLEMENT_PAYOUT", idempotencyKey: `test-settle:${study.marketId}`, marketId: study.marketId }),
+    );
+    await db.resolution.update({ where: { marketId: study.marketId! }, data: { settlementStatus: "COMPLETED" } });
+
+    expect(await services.studies.payPrizePools()).toMatchObject({ paid: 1, pending: 0, failed: 0 });
+    const prizes = await db.creditTransaction.findMany({ where: { type: "PRIZE_POOL_PAYOUT", marketId: study.marketId! } });
+    expect(prizes.map((p) => [p.userId, p.amount])).toEqual([[winner.id, 600]]);
+    expect((await db.researchStudy.findUniqueOrThrow({ where: { id: study.id } })).prizeDistributedAt).not.toBeNull();
+
+    // Running again pays nothing more.
+    expect(await services.studies.payPrizePools()).toMatchObject({ paid: 0 });
+    expect(await db.creditTransaction.count({ where: { type: "PRIZE_POOL_PAYOUT" } })).toBe(1);
+  });
+
+  it("refuses forecasts and quotes from VC accounts", async () => {
+    const admin = await makeAdmin();
+    const market = await makeMarket(admin);
+    const vc = await makeUser({ accountType: "VC", credits: true });
+    const { assertCanTrade, submitForecastForUser } = await import("@/lib/forecasting/server/api");
+    await expect(
+      submitForecastForUser(vc, { marketId: market.id, side: "YES", credits: 10, idempotencyKey: "vc-try-1" }),
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
+    expect(() => assertCanTrade(vc)).toThrow(/VC accounts can't trade/);
+    expect(() => assertCanTrade(null)).not.toThrow();
+    expect(await db.forecast.count({ where: { userId: vc.id } })).toBe(0);
   });
 });
