@@ -132,7 +132,7 @@ export default function HomePage() {
             </StreamIn>
           </div>
           <div>
-            <SectionHeading title="News" />
+            <SectionHeading title="News" href="/news" />
             <StreamIn fallback={<Skeleton className="h-96 rounded-[var(--radius-card)]" />}>
               <LatestNews />
             </StreamIn>

@@ -11,10 +11,12 @@ import { Container } from "@/components/ui/Container";
 import { NotificationsBell } from "@/components/ui/NotificationsBell";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { cn } from "@/components/ui/cn";
+import { useRememberedHref } from "@/components/ui/remembered-filters";
 
 const links = [
   { href: "/markets", label: "Markets" },
   { href: "/startups", label: "Startups" },
+  { href: "/news", label: "News" },
 ];
 
 function isActive(pathname: string | null, href: string) {
@@ -76,10 +78,15 @@ function RoutedNavLinks() {
 }
 
 function NavLinks({ pathname }: { pathname: string | null }) {
-  return links.map((link) => (
+  return links.map((link) => <NavLink key={link.href} link={link} pathname={pathname} />);
+}
+
+/** Opens the listing with its last-used filters. */
+function NavLink({ link, pathname }: { link: (typeof links)[number]; pathname: string | null }) {
+  const href = useRememberedHref(link.href);
+  return (
     <Link
-      key={link.href}
-      href={link.href}
+      href={href}
       aria-current={isActive(pathname, link.href) ? "page" : undefined}
       className={cn(
         "relative rounded-full px-3 py-1.5 text-sm font-medium text-mist-300 transition-colors hover:text-white",
@@ -89,5 +96,5 @@ function NavLinks({ pathname }: { pathname: string | null }) {
     >
       {link.label}
     </Link>
-  ));
+  );
 }

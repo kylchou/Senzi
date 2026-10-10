@@ -7,6 +7,7 @@ import { SignInButton, UserButton, useAuth } from "@clerk/nextjs";
 import { Building2, Home, LineChart, Search, User } from "lucide-react";
 import { cn } from "./cn";
 import { openCommandPalette } from "./CommandPalette";
+import { useRememberedHref } from "./remembered-filters";
 
 const tabs = [
   { href: "/", label: "Home", Icon: Home, exact: true },
@@ -47,23 +48,28 @@ function RoutedTabs() {
 }
 
 function Tabs({ pathname }: { pathname: string | null }) {
-  return tabs.map(({ href, label, Icon, exact }) => {
-    const active = pathname !== null && (exact ? pathname === href : pathname === href || pathname.startsWith(`${href}/`));
-    return (
-      <Link
-        key={href}
-        href={href}
-        aria-current={active ? "page" : undefined}
-        className={cn(itemClass, active ? "text-white" : "hover:text-white")}
-      >
-        <span className="relative">
-          <Icon className="size-5" aria-hidden />
-          {active && <span aria-hidden className="absolute -bottom-1.5 left-1/2 size-1 -translate-x-1/2 rounded-full bg-red-500" />}
-        </span>
-        {label}
-      </Link>
-    );
-  });
+  return tabs.map((tab) => <Tab key={tab.href} tab={tab} pathname={pathname} />);
+}
+
+function Tab({ tab: { href, label, Icon, exact }, pathname }: { tab: (typeof tabs)[number]; pathname: string | null }) {
+  const remembered = useRememberedHref(href);
+  const active =
+    pathname !== null && (exact ? pathname === href : pathname === href || pathname.startsWith(`${href}/`));
+  return (
+    <Link
+      href={exact ? href : remembered}
+      aria-current={active ? "page" : undefined}
+      className={cn(itemClass, active ? "text-white" : "hover:text-white")}
+    >
+      <span className="relative">
+        <Icon className="size-5" aria-hidden />
+        {active && (
+          <span aria-hidden className="absolute -bottom-1.5 left-1/2 size-1 -translate-x-1/2 rounded-full bg-red-500" />
+        )}
+      </span>
+      {label}
+    </Link>
+  );
 }
 
 function AccountTab() {

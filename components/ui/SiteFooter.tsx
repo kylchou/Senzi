@@ -15,6 +15,7 @@ export function SiteFooter() {
         <nav aria-label="Footer" className="flex gap-8 text-sm">
           <Link href="/markets" className="hover:text-white">Markets</Link>
           <Link href="/startups" className="hover:text-white">Startups</Link>
+          <Link href="/news" className="hover:text-white">News</Link>
           <Link href="/search" className="hover:text-white">Search</Link>
         </nav>
       </Container>

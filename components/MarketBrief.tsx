@@ -6,9 +6,22 @@ import { InfoTip } from "@/components/ui/InfoTip";
 import { formatCredits, formatDate, formatRelative, formatShare } from "@/lib/market-view/format";
 import type { MarketDetail } from "@/lib/market-view/types";
 
-function Stat({ label, tip, value, note }: { label: string; tip: React.ReactNode; value: React.ReactNode; note: string }) {
+function Stat({
+  label,
+  tip,
+  value,
+  note,
+  tour,
+}: {
+  label: string;
+  tip: React.ReactNode;
+  value: React.ReactNode;
+  note: string;
+  /** Target name for the first-visit tour (MarketTour). */
+  tour?: string;
+}) {
   return (
-    <div className="bg-surface p-5">
+    <div className="bg-surface p-5" data-tour={tour}>
       <div className="flex items-center gap-1 text-xs font-medium text-ink-600">
         {label}
         <InfoTip label={`About ${label.toLowerCase()}`}>{tip}</InfoTip>
@@ -61,18 +74,21 @@ export function MarketBrief({ market }: { market: MarketDetail }) {
         {/* 1px gaps over an ink background draw the dividers at every breakpoint. */}
         <div className="grid grid-cols-2 gap-px bg-ink-100 sm:grid-cols-4">
           <Stat
+            tour="allocation"
             label="YES allocation"
             value={<AnimatedNumber value={allocation.share} kind="share" />}
             note={market.updatedAt ? `Updated ${formatRelative(market.updatedAt)}` : "No forecasts yet"}
             tip="Share of virtual credits placed on YES. Shows where forecasters put credits. Not a probability."
           />
           <Stat
+            tour="calibrated"
             label="Calibrated"
             value={formatShare(market.calibratedProbability)}
             note={market.calibratedProbability === null ? "Not yet available" : "From the forecasting engine"}
             tip="Probability of YES from the forecasting engine, shown only once its calibration report supports it. Separate from the community allocation."
           />
           <Stat
+            tour="baseline"
             label="Opening baseline"
             value={formatShare(market.openingBaseline)}
             note={market.openingBaseline === null ? "Not set" : "Set at open"}
