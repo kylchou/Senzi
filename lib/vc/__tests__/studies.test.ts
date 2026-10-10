@@ -72,7 +72,7 @@ describe("full lifecycle", () => {
 
     // Deadline passes → system closes.
     s.setNow(new Date(opened.deadline.getTime() + 1000));
-    expect(await s.services.studies.syncWithMarkets()).toEqual({ closed: 1, resolved: 0, failed: 0 });
+    expect(await s.services.studies.syncWithMarkets()).toEqual({ closed: 1, resolved: 0, corrected: 0, failed: 0 });
     expect((await s.repo.findStudy(opened.id))!.status).toBe("CLOSED");
 
     // Market resolved, system mirrors it.
@@ -83,12 +83,12 @@ describe("full lifecycle", () => {
         resolution: { outcome: "YES", resolvedAt: s.deps.now(), evidenceUrls: ["https://example.com/pr"], evidenceSummary: "Press release" },
       }),
     );
-    expect(await s.services.studies.syncWithMarkets()).toEqual({ closed: 0, resolved: 1, failed: 0 });
+    expect(await s.services.studies.syncWithMarkets()).toEqual({ closed: 0, resolved: 1, corrected: 0, failed: 0 });
     const resolved = (await s.repo.findStudy(opened.id))!;
     expect(resolved).toMatchObject({ status: "RESOLVED", resolvedOutcome: "YES" });
 
     // Re-running is a no-op.
-    expect(await s.services.studies.syncWithMarkets()).toEqual({ closed: 0, resolved: 0, failed: 0 });
+    expect(await s.services.studies.syncWithMarkets()).toEqual({ closed: 0, resolved: 0, corrected: 0, failed: 0 });
     const actions = s.repo.events.filter((e) => e.studyId === opened.id).map((e) => e.action);
     expect(actions).toEqual(["create", "submit", "approve", "open", "close", "resolve"]);
     expect(s.repo.events.find((e) => e.action === "close")!.actorId).toBeNull();
