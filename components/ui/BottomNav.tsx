@@ -16,17 +16,17 @@ const tabs = [
 ];
 
 const itemClass =
-  "flex min-h-14 flex-1 flex-col items-center justify-center gap-0.5 text-[11px] font-medium transition-colors active:scale-95";
+  "flex min-h-14 flex-1 flex-col items-center justify-center gap-0.5 text-[11px] font-medium transition-[color,transform] duration-150 active:scale-90";
 
 /** Thumb-reachable tab bar on small screens. Hidden from md up. */
 export function BottomNav() {
   return (
     <>
       {/* Spacer so the fixed bar never covers the end of the page. */}
-      <div aria-hidden className="h-16 md:hidden" />
+      <div aria-hidden className="h-24 md:hidden" />
       <nav
         aria-label="Primary"
-        className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-night/95 pb-[env(safe-area-inset-bottom)] text-mist-300 backdrop-blur md:hidden"
+        className="fixed inset-x-3 bottom-[max(0.75rem,env(safe-area-inset-bottom))] z-40 rounded-full bg-night px-2 text-mist-300 shadow-[0_14px_36px_-14px_rgb(0_0_0/0.6)] ring-1 ring-white/5 md:hidden"
       >
         <div className="mx-auto flex max-w-md items-stretch">
           <Suspense fallback={<Tabs pathname={null} />}>

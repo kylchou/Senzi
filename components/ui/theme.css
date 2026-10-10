@@ -14,9 +14,11 @@
   --font-display: var(--font-montserrat), var(--font-inter), ui-sans-serif, sans-serif;
 
   --color-white: #ffffff;
-  /* Page background and raised surfaces (cards, inputs, panels). */
-  --color-page: #ffffff;
+  /* Warm off-white page with white raised surfaces, so cards read by contrast
+     and soft shadow rather than heavy borders. */
+  --color-page: #f4f4f2;
   --color-surface: #ffffff;
+  --color-hairline: rgb(37 40 43 / 0.07);
 
   /* Fixed brand surfaces and the text that sits on them. */
   --color-night: #25282b;
@@ -43,9 +45,10 @@
   --color-red-100: #ffe1e1;
   --color-red-50: #fff3f3;
 
-  --radius-card: 14px;
-  --shadow-card: 0 1px 2px rgb(37 40 43 / 0.04), 0 4px 16px -8px rgb(37 40 43 / 0.08);
-  --shadow-lift: 0 2px 4px rgb(37 40 43 / 0.05), 0 12px 32px -12px rgb(37 40 43 / 0.18);
+  --radius-card: 20px;
+  --radius-hero: 28px;
+  --shadow-card: 0 1px 2px rgb(37 40 43 / 0.03), 0 10px 30px -18px rgb(37 40 43 / 0.16);
+  --shadow-lift: 0 2px 6px rgb(37 40 43 / 0.04), 0 22px 44px -20px rgb(37 40 43 / 0.28);
 
   --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
 }
@@ -59,8 +62,9 @@
 .dark {
   color-scheme: dark;
 
-  --color-page: #121416;
+  --color-page: #111315;
   --color-surface: #1b1e21;
+  --color-hairline: #2a2e33;
 
   --color-ink-950: #f7f8f9;
   --color-ink-900: #eceef0;
@@ -112,6 +116,34 @@
     outline: 2px solid var(--color-red-500);
     outline-offset: 2px;
   }
+}
+
+/* Shared card surface: white (or dark) panel, hairline border, soft shadow. */
+@utility surface-card {
+  border-radius: var(--radius-card);
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-hairline);
+  box-shadow: var(--shadow-card);
+}
+
+/* Interactive card: lifts slightly on hover and presses on click. */
+@utility card-hover {
+  transition:
+    transform 220ms var(--ease-out-soft),
+    box-shadow 220ms var(--ease-out-soft);
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-lift);
+  }
+  &:active {
+    transform: translateY(0) scale(0.995);
+  }
+}
+
+/* Dot grid decoration (brand surfaces and headers). */
+@utility dot-grid {
+  background-image: radial-gradient(currentColor 1px, transparent 1.4px);
+  background-size: 14px 14px;
 }
 
 /* Motion */
