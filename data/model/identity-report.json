@@ -1,5 +1,5 @@
 {
-  "checkedAt": "2026-10-10T04:06:03.518Z",
+  "checkedAt": "2026-10-10T20:31:40.693Z",
   "identities": [
     {
       "companyId": "supabase",
@@ -7,7 +7,7 @@
       "package": "@supabase/supabase-js",
       "repository": "https://github.com/supabase/supabase-js.git",
       "sourceUrl": "https://registry.npmjs.org/%40supabase%2Fsupabase-js/latest",
-      "checkedAt": "2026-10-10T04:06:03.518Z"
+      "checkedAt": "2026-10-10T20:31:40.693Z"
     },
     {
       "companyId": "supabase",
@@ -21,22 +21,14 @@
         ""
       ],
       "sourceUrl": "https://pypi.org/pypi/supabase/json",
-      "checkedAt": "2026-10-10T04:06:03.518Z"
+      "checkedAt": "2026-10-10T20:31:40.693Z"
     },
     {
       "companyId": "supabase",
       "kind": "github",
       "repository": "supabase/supabase",
       "sourceUrl": "https://github.com/supabase/supabase",
-      "checkedAt": "2026-10-10T04:06:03.518Z"
-    },
-    {
-      "companyId": "supabase",
-      "kind": "sec",
-      "cik": "0001829334",
-      "legalName": "Supabase, Inc.",
-      "sourceUrl": "https://data.sec.gov/submissions/CIK0001829334.json",
-      "checkedAt": "2026-10-10T04:06:03.518Z"
+      "checkedAt": "2026-10-10T20:31:40.693Z"
     },
     {
       "companyId": "vercel",
@@ -44,7 +36,7 @@
       "package": "vercel",
       "repository": "git+https://github.com/vercel/vercel.git",
       "sourceUrl": "https://registry.npmjs.org/vercel/latest",
-      "checkedAt": "2026-10-10T04:06:03.518Z"
+      "checkedAt": "2026-10-10T20:31:40.693Z"
     },
     {
       "companyId": "vercel",
@@ -52,22 +44,14 @@
       "package": "next",
       "repository": "git+https://github.com/vercel/next.js.git",
       "sourceUrl": "https://registry.npmjs.org/next/latest",
-      "checkedAt": "2026-10-10T04:06:03.518Z"
+      "checkedAt": "2026-10-10T20:31:40.693Z"
     },
     {
       "companyId": "vercel",
       "kind": "github",
       "repository": "vercel/next.js",
       "sourceUrl": "https://github.com/vercel/next.js",
-      "checkedAt": "2026-10-10T04:06:03.518Z"
-    },
-    {
-      "companyId": "vercel",
-      "kind": "sec",
-      "cik": "0001893137",
-      "legalName": "Vercel Inc.",
-      "sourceUrl": "https://data.sec.gov/submissions/CIK0001893137.json",
-      "checkedAt": "2026-10-10T04:06:03.518Z"
+      "checkedAt": "2026-10-10T20:31:40.693Z"
     },
     {
       "companyId": "stripe",
@@ -75,7 +59,7 @@
       "package": "stripe",
       "repository": "git+https://github.com/stripe/stripe-node.git",
       "sourceUrl": "https://registry.npmjs.org/stripe/latest",
-      "checkedAt": "2026-10-10T04:06:03.518Z"
+      "checkedAt": "2026-10-10T20:31:40.693Z"
     },
     {
       "companyId": "stripe",
@@ -90,22 +74,14 @@
         ""
       ],
       "sourceUrl": "https://pypi.org/pypi/stripe/json",
-      "checkedAt": "2026-10-10T04:06:03.518Z"
+      "checkedAt": "2026-10-10T20:31:40.693Z"
     },
     {
       "companyId": "stripe",
       "kind": "github",
       "repository": "stripe/stripe-node",
       "sourceUrl": "https://github.com/stripe/stripe-node",
-      "checkedAt": "2026-10-10T04:06:03.518Z"
-    },
-    {
-      "companyId": "stripe",
-      "kind": "sec",
-      "cik": "0001691342",
-      "legalName": "Stripe, Inc.",
-      "sourceUrl": "https://data.sec.gov/submissions/CIK0001691342.json",
-      "checkedAt": "2026-10-10T04:06:03.518Z"
+      "checkedAt": "2026-10-10T20:31:40.693Z"
     },
     {
       "companyId": "resend",
@@ -113,7 +89,7 @@
       "package": "resend",
       "repository": "git+https://github.com/resend/resend-node.git",
       "sourceUrl": "https://registry.npmjs.org/resend/latest",
-      "checkedAt": "2026-10-10T04:06:03.518Z"
+      "checkedAt": "2026-10-10T20:31:40.693Z"
     },
     {
       "companyId": "resend",
@@ -124,14 +100,14 @@
         "https://github.com/resendlabs/resend-python"
       ],
       "sourceUrl": "https://pypi.org/pypi/resend/json",
-      "checkedAt": "2026-10-10T04:06:03.518Z"
+      "checkedAt": "2026-10-10T20:31:40.693Z"
     },
     {
       "companyId": "resend",
       "kind": "github",
       "repository": "resend/resend-node",
       "sourceUrl": "https://github.com/resend/resend-node",
-      "checkedAt": "2026-10-10T04:06:03.518Z"
+      "checkedAt": "2026-10-10T20:31:40.693Z"
     },
     {
       "companyId": "convex",
@@ -139,14 +115,14 @@
       "package": "convex",
       "repository": "git+https://github.com/get-convex/convex-backend.git",
       "sourceUrl": "https://registry.npmjs.org/convex/latest",
-      "checkedAt": "2026-10-10T04:06:03.518Z"
+      "checkedAt": "2026-10-10T20:31:40.693Z"
     },
     {
       "companyId": "convex",
       "kind": "github",
       "repository": "get-convex/convex-js",
       "sourceUrl": "https://github.com/get-convex/convex-js",
-      "checkedAt": "2026-10-10T04:06:03.518Z"
+      "checkedAt": "2026-10-10T20:31:40.693Z"
     },
     {
       "companyId": "posthog",
@@ -154,7 +130,7 @@
       "package": "posthog-js",
       "repository": "https://github.com/PostHog/posthog-js",
       "sourceUrl": "https://registry.npmjs.org/posthog-js/latest",
-      "checkedAt": "2026-10-10T04:06:03.518Z"
+      "checkedAt": "2026-10-10T20:31:40.693Z"
     },
     {
       "companyId": "posthog",
@@ -166,14 +142,652 @@
         "https://github.com/posthog/posthog-python"
       ],
       "sourceUrl": "https://pypi.org/pypi/posthog/json",
-      "checkedAt": "2026-10-10T04:06:03.518Z"
+      "checkedAt": "2026-10-10T20:31:40.693Z"
     },
     {
       "companyId": "posthog",
       "kind": "github",
       "repository": "PostHog/posthog",
       "sourceUrl": "https://github.com/PostHog/posthog",
-      "checkedAt": "2026-10-10T04:06:03.518Z"
+      "checkedAt": "2026-10-10T20:31:40.693Z"
+    },
+    {
+      "companyId": "openai",
+      "kind": "npm",
+      "package": "openai",
+      "repository": "git+https://github.com/openai/openai-node.git",
+      "sourceUrl": "https://registry.npmjs.org/openai/latest",
+      "checkedAt": "2026-10-10T20:31:40.693Z"
+    },
+    {
+      "companyId": "openai",
+      "kind": "pypi",
+      "package": "openai",
+      "links": [
+        "https://github.com/openai/openai-python",
+        "https://github.com/openai/openai-python",
+        ""
+      ],
+      "sourceUrl": "https://pypi.org/pypi/openai/json",
+      "checkedAt": "2026-10-10T20:31:40.693Z"
+    },
+    {
+      "companyId": "openai",
+      "kind": "github",
+      "repository": "openai/openai-node",
+      "sourceUrl": "https://github.com/openai/openai-node",
+      "checkedAt": "2026-10-10T20:31:40.693Z"
+    },
+    {
+      "companyId": "anthropic",
+      "kind": "npm",
+      "package": "@anthropic-ai/sdk",
+      "repository": "git+https://github.com/anthropics/anthropic-sdk-typescript.git",
+      "sourceUrl": "https://registry.npmjs.org/%40anthropic-ai%2Fsdk/latest",
+      "checkedAt": "2026-10-10T20:31:40.693Z"
+    },
+    {
+      "companyId": "anthropic",
+      "kind": "pypi",
+      "package": "anthropic",
+      "links": [
+        "https://github.com/anthropics/anthropic-sdk-python",
+        "https://github.com/anthropics/anthropic-sdk-python",
+        ""
+      ],
+      "sourceUrl": "https://pypi.org/pypi/anthropic/json",
+      "checkedAt": "2026-10-10T20:31:40.693Z"
+    },
+    {
+      "companyId": "anthropic",
+      "kind": "github",
+      "repository": "anthropics/anthropic-sdk-typescript",
+      "sourceUrl": "https://github.com/anthropics/anthropic-sdk-typescript",
+      "checkedAt": "2026-10-10T20:31:40.693Z"
+    },
+    {
+      "companyId": "sentry",
+      "kind": "npm",
+      "package": "@sentry/node",
+      "repository": "git://github.com/getsentry/sentry-javascript.git",
+      "sourceUrl": "https://registry.npmjs.org/%40sentry%2Fnode/latest",
+      "checkedAt": "2026-10-10T20:31:40.693Z"
+    },
+    {
+      "companyId": "sentry",
+      "kind": "pypi",
+      "package": "sentry-sdk",
+      "links": [
+        "https://github.com/getsentry/sentry-python/blob/master/CHANGELOG.md",
+        "https://docs.sentry.io/platforms/python/",
+        "https://github.com/getsentry/sentry-python",
+        "https://github.com/getsentry/sentry-python"
+      ],
+      "sourceUrl": "https://pypi.org/pypi/sentry-sdk/json",
+      "checkedAt": "2026-10-10T20:31:40.693Z"
+    },
+    {
+      "companyId": "sentry",
+      "kind": "github",
+      "repository": "getsentry/sentry-javascript",
+      "sourceUrl": "https://github.com/getsentry/sentry-javascript",
+      "checkedAt": "2026-10-10T20:31:40.693Z"
+    },
+    {
+      "companyId": "clickhouse",
+      "kind": "npm",
+      "package": "@clickhouse/client",
+      "repository": "git+https://github.com/ClickHouse/clickhouse-js.git",
+      "sourceUrl": "https://registry.npmjs.org/%40clickhouse%2Fclient/latest",
+      "checkedAt": "2026-10-10T20:31:40.693Z"
+    },
+    {
+      "companyId": "clickhouse",
+      "kind": "pypi",
+      "package": "clickhouse-connect",
+      "links": [
+        "https://github.com/ClickHouse/clickhouse-connect",
+        "https://github.com/ClickHouse/clickhouse-connect"
+      ],
+      "sourceUrl": "https://pypi.org/pypi/clickhouse-connect/json",
+      "checkedAt": "2026-10-10T20:31:40.693Z"
+    },
+    {
+      "companyId": "clickhouse",
+      "kind": "github",
+      "repository": "ClickHouse/ClickHouse",
+      "sourceUrl": "https://github.com/ClickHouse/ClickHouse",
+      "checkedAt": "2026-10-10T20:31:40.693Z"
+    },
+    {
+      "companyId": "linear",
+      "kind": "npm",
+      "package": "@linear/sdk",
+      "repository": "https://github.com/linear/linear",
+      "sourceUrl": "https://registry.npmjs.org/%40linear%2Fsdk/latest",
+      "checkedAt": "2026-10-10T20:31:40.693Z"
+    },
+    {
+      "companyId": "linear",
+      "kind": "github",
+      "repository": "linear/linear",
+      "sourceUrl": "https://github.com/linear/linear",
+      "checkedAt": "2026-10-10T20:31:40.693Z"
+    },
+    {
+      "companyId": "clerk",
+      "kind": "npm",
+      "package": "@clerk/nextjs",
+      "repository": "git+https://github.com/clerk/javascript.git",
+      "sourceUrl": "https://registry.npmjs.org/%40clerk%2Fnextjs/latest",
+      "checkedAt": "2026-10-10T20:31:40.693Z"
+    },
+    {
+      "companyId": "clerk",
+      "kind": "pypi",
+      "package": "clerk-backend-api",
+      "links": [
+        "https://github.com/clerk/clerk-sdk-python.git",
+        ""
+      ],
+      "sourceUrl": "https://pypi.org/pypi/clerk-backend-api/json",
+      "checkedAt": "2026-10-10T20:31:40.693Z"
+    },
+    {
+      "companyId": "clerk",
+      "kind": "github",
+      "repository": "clerk/javascript",
+      "sourceUrl": "https://github.com/clerk/javascript",
+      "checkedAt": "2026-10-10T20:31:40.693Z"
+    },
+    {
+      "companyId": "pinecone",
+      "kind": "npm",
+      "package": "@pinecone-database/pinecone",
+      "repository": "git+https://github.com/pinecone-io/pinecone-ts-client.git",
+      "sourceUrl": "https://registry.npmjs.org/%40pinecone-database%2Fpinecone/latest",
+      "checkedAt": "2026-10-10T20:31:40.693Z"
+    },
+    {
+      "companyId": "pinecone",
+      "kind": "pypi",
+      "package": "pinecone",
+      "links": [
+        "https://sdk.pinecone.io/python/migration/v10-migration.html",
+        "https://docs.pinecone.io",
+        "https://www.pinecone.io",
+        "https://github.com/pinecone-io/python-sdk/issues",
+        "https://github.com/pinecone-io/python-sdk",
+        ""
+      ],
+      "sourceUrl": "https://pypi.org/pypi/pinecone/json",
+      "checkedAt": "2026-10-10T20:31:40.693Z"
+    },
+    {
+      "companyId": "pinecone",
+      "kind": "github",
+      "repository": "pinecone-io/pinecone-ts-client",
+      "sourceUrl": "https://github.com/pinecone-io/pinecone-ts-client",
+      "checkedAt": "2026-10-10T20:31:40.693Z"
+    },
+    {
+      "companyId": "temporal",
+      "kind": "npm",
+      "package": "@temporalio/client",
+      "repository": "git+https://github.com/temporalio/sdk-typescript.git",
+      "sourceUrl": "https://registry.npmjs.org/%40temporalio%2Fclient/latest",
+      "checkedAt": "2026-10-10T20:31:40.693Z"
+    },
+    {
+      "companyId": "temporal",
+      "kind": "pypi",
+      "package": "temporalio",
+      "links": [
+        "https://github.com/temporalio/sdk-python/issues",
+        "https://docs.temporal.io/docs/python",
+        "https://github.com/temporalio/sdk-python",
+        "https://github.com/temporalio/sdk-python",
+        ""
+      ],
+      "sourceUrl": "https://pypi.org/pypi/temporalio/json",
+      "checkedAt": "2026-10-10T20:31:40.693Z"
+    },
+    {
+      "companyId": "temporal",
+      "kind": "github",
+      "repository": "temporalio/temporal",
+      "sourceUrl": "https://github.com/temporalio/temporal",
+      "checkedAt": "2026-10-10T20:31:40.693Z"
+    },
+    {
+      "companyId": "planetscale",
+      "kind": "npm",
+      "package": "@planetscale/database",
+      "repository": "git+https://github.com/planetscale/database-js.git",
+      "sourceUrl": "https://registry.npmjs.org/%40planetscale%2Fdatabase/latest",
+      "checkedAt": "2026-10-10T20:31:40.693Z"
+    },
+    {
+      "companyId": "planetscale",
+      "kind": "github",
+      "repository": "planetscale/database-js",
+      "sourceUrl": "https://github.com/planetscale/database-js",
+      "checkedAt": "2026-10-10T20:31:40.693Z"
+    },
+    {
+      "companyId": "workos",
+      "kind": "npm",
+      "package": "@workos-inc/node",
+      "repository": "git+https://github.com/workos/workos-node.git",
+      "sourceUrl": "https://registry.npmjs.org/%40workos-inc%2Fnode/latest",
+      "checkedAt": "2026-10-10T20:31:40.693Z"
+    },
+    {
+      "companyId": "workos",
+      "kind": "pypi",
+      "package": "workos",
+      "links": [
+        "https://workos.com/docs/sdks/python",
+        "https://workos.com/docs/reference",
+        "https://workos.com/docs/sdks/python",
+        ""
+      ],
+      "sourceUrl": "https://pypi.org/pypi/workos/json",
+      "checkedAt": "2026-10-10T20:31:40.693Z"
+    },
+    {
+      "companyId": "workos",
+      "kind": "github",
+      "repository": "workos/workos-node",
+      "sourceUrl": "https://github.com/workos/workos-node",
+      "checkedAt": "2026-10-10T20:31:40.693Z"
+    },
+    {
+      "companyId": "inngest",
+      "kind": "npm",
+      "package": "inngest",
+      "repository": "git+https://github.com/inngest/inngest-js.git",
+      "sourceUrl": "https://registry.npmjs.org/inngest/latest",
+      "checkedAt": "2026-10-10T20:31:40.693Z"
+    },
+    {
+      "companyId": "inngest",
+      "kind": "pypi",
+      "package": "inngest",
+      "links": [
+        "https://github.com/inngest/inngest-py/issues",
+        "https://github.com/inngest/inngest-py",
+        ""
+      ],
+      "sourceUrl": "https://pypi.org/pypi/inngest/json",
+      "checkedAt": "2026-10-10T20:31:40.693Z"
+    },
+    {
+      "companyId": "inngest",
+      "kind": "github",
+      "repository": "inngest/inngest",
+      "sourceUrl": "https://github.com/inngest/inngest",
+      "checkedAt": "2026-10-10T20:31:40.693Z"
+    },
+    {
+      "companyId": "e2b",
+      "kind": "npm",
+      "package": "e2b",
+      "repository": "git+https://github.com/e2b-dev/e2b.git",
+      "sourceUrl": "https://registry.npmjs.org/e2b/latest",
+      "checkedAt": "2026-10-10T20:31:40.693Z"
+    },
+    {
+      "companyId": "e2b",
+      "kind": "pypi",
+      "package": "e2b",
+      "links": [
+        "https://github.com/e2b-dev/e2b/issues",
+        "https://e2b.dev/?utm_source=pypi&utm_medium=referral&utm_campaign=package_homepage&utm_content=e2b",
+        "https://github.com/e2b-dev/e2b/tree/main/packages/python-sdk",
+        ""
+      ],
+      "sourceUrl": "https://pypi.org/pypi/e2b/json",
+      "checkedAt": "2026-10-10T20:31:40.693Z"
+    },
+    {
+      "companyId": "e2b",
+      "kind": "github",
+      "repository": "e2b-dev/E2B",
+      "sourceUrl": "https://github.com/e2b-dev/E2B",
+      "checkedAt": "2026-10-10T20:31:40.693Z"
+    },
+    {
+      "companyId": "exa",
+      "kind": "npm",
+      "package": "exa-js",
+      "repository": "git+https://github.com/exa-labs/exa-js.git",
+      "sourceUrl": "https://registry.npmjs.org/exa-js/latest",
+      "checkedAt": "2026-10-10T20:31:40.693Z"
+    },
+    {
+      "companyId": "exa",
+      "kind": "github",
+      "repository": "exa-labs/exa-js",
+      "sourceUrl": "https://github.com/exa-labs/exa-js",
+      "checkedAt": "2026-10-10T20:31:40.693Z"
+    },
+    {
+      "companyId": "langchain",
+      "kind": "npm",
+      "package": "langchain",
+      "repository": "git+ssh://git@github.com/langchain-ai/langchainjs.git",
+      "sourceUrl": "https://registry.npmjs.org/langchain/latest",
+      "checkedAt": "2026-10-10T20:31:40.693Z"
+    },
+    {
+      "companyId": "langchain",
+      "kind": "pypi",
+      "package": "langchain",
+      "links": [
+        "https://github.com/langchain-ai/langchain/releases?q=tag%3A%22langchain%3D%3D1%22",
+        "https://reference.langchain.com/python/langchain/langchain/",
+        "https://docs.langchain.com/",
+        "https://github.com/langchain-ai/langchain/issues",
+        "https://www.reddit.com/r/LangChain/",
+        "https://github.com/langchain-ai/langchain",
+        "https://www.langchain.com/join-community",
+        "https://x.com/langchain_oss",
+        ""
+      ],
+      "sourceUrl": "https://pypi.org/pypi/langchain/json",
+      "checkedAt": "2026-10-10T20:31:40.693Z"
+    },
+    {
+      "companyId": "langchain",
+      "kind": "github",
+      "repository": "langchain-ai/langchainjs",
+      "sourceUrl": "https://github.com/langchain-ai/langchainjs",
+      "checkedAt": "2026-10-10T20:31:40.693Z"
+    },
+    {
+      "companyId": "llamaindex",
+      "kind": "npm",
+      "package": "llamaindex",
+      "repository": "git+https://github.com/run-llama/LlamaIndexTS.git",
+      "sourceUrl": "https://registry.npmjs.org/llamaindex/latest",
+      "checkedAt": "2026-10-10T20:31:40.693Z"
+    },
+    {
+      "companyId": "llamaindex",
+      "kind": "pypi",
+      "package": "llama-index",
+      "links": [
+        "https://docs.llamaindex.ai/en/stable/",
+        "https://llamaindex.ai",
+        "https://github.com/run-llama/llama_index",
+        ""
+      ],
+      "sourceUrl": "https://pypi.org/pypi/llama-index/json",
+      "checkedAt": "2026-10-10T20:31:40.693Z"
+    },
+    {
+      "companyId": "llamaindex",
+      "kind": "github",
+      "repository": "run-llama/llama_index",
+      "sourceUrl": "https://github.com/run-llama/llama_index",
+      "checkedAt": "2026-10-10T20:31:40.693Z"
+    },
+    {
+      "companyId": "chroma",
+      "kind": "npm",
+      "package": "chromadb",
+      "repository": "",
+      "sourceUrl": "https://registry.npmjs.org/chromadb/latest",
+      "checkedAt": "2026-10-10T20:31:40.693Z"
+    },
+    {
+      "companyId": "chroma",
+      "kind": "pypi",
+      "package": "chromadb",
+      "links": [
+        "https://github.com/chroma-core/chroma/issues",
+        "https://github.com/chroma-core/chroma",
+        ""
+      ],
+      "sourceUrl": "https://pypi.org/pypi/chromadb/json",
+      "checkedAt": "2026-10-10T20:31:40.693Z"
+    },
+    {
+      "companyId": "chroma",
+      "kind": "github",
+      "repository": "chroma-core/chroma",
+      "sourceUrl": "https://github.com/chroma-core/chroma",
+      "checkedAt": "2026-10-10T20:31:40.693Z"
+    },
+    {
+      "companyId": "cohere",
+      "kind": "npm",
+      "package": "cohere-ai",
+      "repository": "git+https://github.com/cohere-ai/cohere-typescript.git",
+      "sourceUrl": "https://registry.npmjs.org/cohere-ai/latest",
+      "checkedAt": "2026-10-10T20:31:40.693Z"
+    },
+    {
+      "companyId": "cohere",
+      "kind": "pypi",
+      "package": "cohere",
+      "links": [
+        "https://github.com/cohere-ai/cohere-python",
+        ""
+      ],
+      "sourceUrl": "https://pypi.org/pypi/cohere/json",
+      "checkedAt": "2026-10-10T20:31:40.693Z"
+    },
+    {
+      "companyId": "cohere",
+      "kind": "github",
+      "repository": "cohere-ai/cohere-typescript",
+      "sourceUrl": "https://github.com/cohere-ai/cohere-typescript",
+      "checkedAt": "2026-10-10T20:31:40.693Z"
+    },
+    {
+      "companyId": "huggingface",
+      "kind": "npm",
+      "package": "@huggingface/transformers",
+      "repository": "git+https://github.com/huggingface/transformers.js.git",
+      "sourceUrl": "https://registry.npmjs.org/%40huggingface%2Ftransformers/latest",
+      "checkedAt": "2026-10-10T20:31:40.693Z"
+    },
+    {
+      "companyId": "huggingface",
+      "kind": "pypi",
+      "package": "huggingface-hub",
+      "links": [
+        "https://github.com/huggingface/huggingface_hub",
+        "https://github.com/huggingface/huggingface_hub"
+      ],
+      "sourceUrl": "https://pypi.org/pypi/huggingface-hub/json",
+      "checkedAt": "2026-10-10T20:31:40.693Z"
+    },
+    {
+      "companyId": "huggingface",
+      "kind": "github",
+      "repository": "huggingface/transformers",
+      "sourceUrl": "https://github.com/huggingface/transformers",
+      "checkedAt": "2026-10-10T20:31:40.693Z"
+    },
+    {
+      "companyId": "elevenlabs",
+      "kind": "npm",
+      "package": "@elevenlabs/elevenlabs-js",
+      "repository": "git+https://github.com/elevenlabs/elevenlabs-js.git",
+      "sourceUrl": "https://registry.npmjs.org/%40elevenlabs%2Felevenlabs-js/latest",
+      "checkedAt": "2026-10-10T20:31:40.693Z"
+    },
+    {
+      "companyId": "elevenlabs",
+      "kind": "pypi",
+      "package": "elevenlabs",
+      "links": [
+        "https://github.com/elevenlabs/elevenlabs-python",
+        ""
+      ],
+      "sourceUrl": "https://pypi.org/pypi/elevenlabs/json",
+      "checkedAt": "2026-10-10T20:31:40.693Z"
+    },
+    {
+      "companyId": "elevenlabs",
+      "kind": "github",
+      "repository": "elevenlabs/elevenlabs-js",
+      "sourceUrl": "https://github.com/elevenlabs/elevenlabs-js",
+      "checkedAt": "2026-10-10T20:31:40.693Z"
+    },
+    {
+      "companyId": "plaid",
+      "kind": "npm",
+      "package": "plaid",
+      "repository": "git+ssh://git@github.com/plaid/plaid-node.git",
+      "sourceUrl": "https://registry.npmjs.org/plaid/latest",
+      "checkedAt": "2026-10-10T20:31:40.693Z"
+    },
+    {
+      "companyId": "plaid",
+      "kind": "pypi",
+      "package": "plaid-python",
+      "links": [
+        "https://github.com/plaid/plaid-python/tarball/v45.0.0",
+        "https://github.com/plaid/plaid-python",
+        "https://github.com/plaid/plaid-python"
+      ],
+      "sourceUrl": "https://pypi.org/pypi/plaid-python/json",
+      "checkedAt": "2026-10-10T20:31:40.693Z"
+    },
+    {
+      "companyId": "plaid",
+      "kind": "github",
+      "repository": "plaid/plaid-node",
+      "sourceUrl": "https://github.com/plaid/plaid-node",
+      "checkedAt": "2026-10-10T20:31:40.693Z"
+    },
+    {
+      "companyId": "together",
+      "kind": "npm",
+      "package": "together-ai",
+      "repository": "git+https://github.com/togethercomputer/together-typescript.git",
+      "sourceUrl": "https://registry.npmjs.org/together-ai/latest",
+      "checkedAt": "2026-10-10T20:31:40.693Z"
+    },
+    {
+      "companyId": "together",
+      "kind": "pypi",
+      "package": "together",
+      "links": [
+        "https://github.com/togethercomputer/together-py/blob/main/CHANGELOG.md",
+        "https://docs.together.ai/",
+        "https://github.com/togethercomputer/together-py",
+        "https://github.com/togethercomputer/together-py",
+        ""
+      ],
+      "sourceUrl": "https://pypi.org/pypi/together/json",
+      "checkedAt": "2026-10-10T20:31:40.693Z"
+    },
+    {
+      "companyId": "together",
+      "kind": "github",
+      "repository": "togethercomputer/together-typescript",
+      "sourceUrl": "https://github.com/togethercomputer/together-typescript",
+      "checkedAt": "2026-10-10T20:31:40.693Z"
+    },
+    {
+      "companyId": "browserbase",
+      "kind": "npm",
+      "package": "@browserbasehq/sdk",
+      "repository": "git+https://github.com/browserbase/sdk-node.git",
+      "sourceUrl": "https://registry.npmjs.org/%40browserbasehq%2Fsdk/latest",
+      "checkedAt": "2026-10-10T20:31:40.693Z"
+    },
+    {
+      "companyId": "browserbase",
+      "kind": "pypi",
+      "package": "browserbase",
+      "links": [
+        "https://github.com/browserbase/sdk-python",
+        "https://github.com/browserbase/sdk-python",
+        ""
+      ],
+      "sourceUrl": "https://pypi.org/pypi/browserbase/json",
+      "checkedAt": "2026-10-10T20:31:40.693Z"
+    },
+    {
+      "companyId": "browserbase",
+      "kind": "github",
+      "repository": "browserbase/stagehand",
+      "sourceUrl": "https://github.com/browserbase/stagehand",
+      "checkedAt": "2026-10-10T20:31:40.693Z"
+    },
+    {
+      "companyId": "openrouter",
+      "kind": "npm",
+      "package": "@openrouter/ai-sdk-provider",
+      "repository": "git+https://github.com/OpenRouterTeam/ai-sdk-provider.git",
+      "sourceUrl": "https://registry.npmjs.org/%40openrouter%2Fai-sdk-provider/latest",
+      "checkedAt": "2026-10-10T20:31:40.693Z"
+    },
+    {
+      "companyId": "openrouter",
+      "kind": "github",
+      "repository": "OpenRouterTeam/ai-sdk-provider",
+      "sourceUrl": "https://github.com/OpenRouterTeam/ai-sdk-provider",
+      "checkedAt": "2026-10-10T20:31:40.693Z"
+    },
+    {
+      "companyId": "mistral",
+      "kind": "npm",
+      "package": "@mistralai/mistralai",
+      "repository": "git+https://github.com/mistralai/client-ts.git",
+      "sourceUrl": "https://registry.npmjs.org/%40mistralai%2Fmistralai/latest",
+      "checkedAt": "2026-10-10T20:31:40.693Z"
+    },
+    {
+      "companyId": "mistral",
+      "kind": "pypi",
+      "package": "mistralai",
+      "links": [
+        "https://github.com/mistralai/client-python.git",
+        ""
+      ],
+      "sourceUrl": "https://pypi.org/pypi/mistralai/json",
+      "checkedAt": "2026-10-10T20:31:40.693Z"
+    },
+    {
+      "companyId": "mistral",
+      "kind": "github",
+      "repository": "mistralai/client-ts",
+      "sourceUrl": "https://github.com/mistralai/client-ts",
+      "checkedAt": "2026-10-10T20:31:40.693Z"
+    },
+    {
+      "companyId": "fal",
+      "kind": "npm",
+      "package": "@fal-ai/client",
+      "repository": "git+https://github.com/fal-ai/fal-js.git",
+      "sourceUrl": "https://registry.npmjs.org/%40fal-ai%2Fclient/latest",
+      "checkedAt": "2026-10-10T20:31:40.693Z"
+    },
+    {
+      "companyId": "fal",
+      "kind": "pypi",
+      "package": "fal-client",
+      "links": [
+        "https://fal.ai",
+        "https://github.com/fal-ai/fal",
+        ""
+      ],
+      "sourceUrl": "https://pypi.org/pypi/fal-client/json",
+      "checkedAt": "2026-10-10T20:31:40.693Z"
+    },
+    {
+      "companyId": "fal",
+      "kind": "github",
+      "repository": "fal-ai/fal-js",
+      "sourceUrl": "https://github.com/fal-ai/fal-js",
+      "checkedAt": "2026-10-10T20:31:40.693Z"
     }
   ]
 }

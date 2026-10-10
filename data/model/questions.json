@@ -7,7 +7,7 @@
     "windowEnd": "2026-11-08",
     "opensAt": "2026-10-10T00:00:00.000Z",
     "windowDays": 7,
-    "text": "Will npm downloads of @supabase/supabase-js in the 7 days ending November 8, 2026 (UTC) be at least 35,000,000?",
+    "text": "Will Supabase's npm downloads reach 35M in the 7 days ending Nov 8?",
     "resolutionSource": {
       "source": "npm",
       "url": "https://api.npmjs.org/downloads/range/2026-11-02:2026-11-08/@supabase/supabase-js",
@@ -22,7 +22,7 @@
     "windowEnd": "2026-11-08",
     "opensAt": "2026-10-10T00:00:00.000Z",
     "windowDays": 7,
-    "text": "Will npm downloads of vercel in the 7 days ending November 8, 2026 (UTC) be at least 5,000,000?",
+    "text": "Will Vercel's npm downloads reach 5M in the 7 days ending Nov 8?",
     "resolutionSource": {
       "source": "npm",
       "url": "https://api.npmjs.org/downloads/range/2026-11-02:2026-11-08/vercel",
@@ -37,7 +37,7 @@
     "windowEnd": "2026-11-08",
     "opensAt": "2026-10-10T00:00:00.000Z",
     "windowDays": 7,
-    "text": "Will npm downloads of stripe in the 7 days ending November 8, 2026 (UTC) be at least 25,000,000?",
+    "text": "Will Stripe's npm downloads reach 25M in the 7 days ending Nov 8?",
     "resolutionSource": {
       "source": "npm",
       "url": "https://api.npmjs.org/downloads/range/2026-11-02:2026-11-08/stripe",
@@ -52,7 +52,7 @@
     "windowEnd": "2026-11-08",
     "opensAt": "2026-10-10T00:00:00.000Z",
     "windowDays": 7,
-    "text": "Will npm downloads of resend in the 7 days ending November 8, 2026 (UTC) be at least 16,000,000?",
+    "text": "Will Resend's npm downloads reach 16M in the 7 days ending Nov 8?",
     "resolutionSource": {
       "source": "npm",
       "url": "https://api.npmjs.org/downloads/range/2026-11-02:2026-11-08/resend",
@@ -67,7 +67,7 @@
     "windowEnd": "2026-11-08",
     "opensAt": "2026-10-10T00:00:00.000Z",
     "windowDays": 7,
-    "text": "Will npm downloads of convex in the 7 days ending November 8, 2026 (UTC) be at least 2,000,000?",
+    "text": "Will Convex's npm downloads reach 2M in the 7 days ending Nov 8?",
     "resolutionSource": {
       "source": "npm",
       "url": "https://api.npmjs.org/downloads/range/2026-11-02:2026-11-08/convex",
@@ -82,7 +82,7 @@
     "windowEnd": "2026-11-08",
     "opensAt": "2026-10-10T00:00:00.000Z",
     "windowDays": 7,
-    "text": "Will npm downloads of posthog-js in the 7 days ending November 8, 2026 (UTC) be at least 17,000,000?",
+    "text": "Will PostHog's npm downloads reach 17M in the 7 days ending Nov 8?",
     "resolutionSource": {
       "source": "npm",
       "url": "https://api.npmjs.org/downloads/range/2026-11-02:2026-11-08/posthog-js",
@@ -98,7 +98,7 @@
     "opensAt": "2026-09-06T00:00:00.000Z",
     "note": "Demo of a past question resolved live from real data. Baseline computed as of opensAt.",
     "windowDays": 7,
-    "text": "Will npm downloads of @supabase/supabase-js in the 7 days ending October 4, 2026 (UTC) be at least 27,500,000?",
+    "text": "Will Supabase's npm downloads reach 27.5M in the 7 days ending Oct 4?",
     "resolutionSource": {
       "source": "npm",
       "url": "https://api.npmjs.org/downloads/range/2026-09-28:2026-10-04/@supabase/supabase-js",
