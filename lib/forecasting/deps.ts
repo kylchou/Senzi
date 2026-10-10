@@ -1,5 +1,5 @@
-import type { EngineConfig } from './config.js';
-import { ForecastingError } from './errors.js';
+import type { EngineConfig } from './config';
+import { ForecastingError } from './errors';
 import type {
   AuthContext,
   Clock,
@@ -11,7 +11,7 @@ import type {
   SettlementAuthorizer,
   SettlementModel,
   TraderDirectory,
-} from './ports.js';
+} from './ports';
 
 export interface EngineDeps {
   repo: ForecastRepository;
@@ -25,6 +25,12 @@ export interface EngineDeps {
   estimateRule?: CommunityEstimateRule;
   /** Unset until the settlement model is agreed; YES/NO settlement fails with NOT_CONFIGURED. */
   settlementModel?: SettlementModel;
+  /**
+   * Ledger account (a system user) that receives stakes and pays winners, so the
+   * ledger balances. Unset until Ky's ledger accepts the market-maker reasons;
+   * then stakes and payouts touch only traders' balances.
+   */
+  marketMakerAccountId?: string;
   /** Service ids allowed to push model values (the model component). */
   modelServiceIds: readonly string[];
   config: EngineConfig;
@@ -40,7 +46,7 @@ export function requireRule(deps: EngineDeps): CommunityEstimateRule {
   return deps.estimateRule;
 }
 
-export function requireSettlementModel(deps: EngineDeps): SettlementModel {
+export function requireSettlementModel(deps: Pick<EngineDeps, 'settlementModel'>): SettlementModel {
   if (!deps.settlementModel) {
     throw new ForecastingError(
       'NOT_CONFIGURED',

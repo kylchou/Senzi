@@ -8,3 +8,43 @@
 @theme inline {
   --font-mono: var(--font-geist-mono);
 }
+
+/* Homepage: smooth in-page navigation and gentle motion. */
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
+}
+
+@keyframes home-rise {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes home-glow {
+  0%, 100% { opacity: 0.8; transform: translateX(-50%) scale(1); }
+  50% { opacity: 1; transform: translateX(-50%) scale(1.08); }
+}
+
+@keyframes tutorial-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes tutorial-pop {
+  0% { opacity: 0; transform: translateY(-50%) scale(0.85); }
+  70% { transform: translateY(-50%) scale(1.04); }
+  100% { opacity: 1; transform: translateY(-50%) scale(1); }
+}
+
+/* Sections fade up as they scroll into view. Browsers without scroll-driven
+   animations (or with reduced motion) just show the content. */
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .home-reveal {
+      animation: home-rise linear both;
+      animation-timeline: view();
+      animation-range: entry 0% entry 35%;
+    }
+  }
+}

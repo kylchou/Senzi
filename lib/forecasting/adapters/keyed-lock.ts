@@ -1,4 +1,4 @@
-import type { LockManager } from '../ports.js';
+import type { LockManager } from '../ports';
 
 /**
  * In-process keyed mutex. Stand-in for database row locks; only correct within

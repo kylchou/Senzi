@@ -98,6 +98,8 @@ test.describe("pages", () => {
     await expect(page).toHaveURL(/\/startups\/.+/);
     await expect(page.getByRole("heading", { name: "Details" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Public information" })).toBeVisible();
+    // Metadata streams in after client navigation; scan once the title lands.
+    await expect(page).toHaveTitle(/\S/);
     await expectAccessible(page);
   });
 
@@ -124,6 +126,96 @@ test.describe("pages", () => {
   });
 });
 
+test.describe("market replay", () => {
+  test("opens as a dialog, plays or explains missing history, and returns focus on Escape", async ({ page }) => {
+    await page.goto(await firstMarketHref(page));
+    const launcher = page.getByRole("button", { name: "Replay" });
+    await launcher.click();
+    const dialog = page.getByRole("dialog");
+    await expect(dialog).toBeVisible();
+    await expect(dialog.getByRole("heading", { level: 2 })).toBeVisible();
+
+    const slider = dialog.getByRole("slider", { name: "Replay position" });
+    const empty = dialog.getByText("Not enough history to replay yet.");
+    await expect(slider.or(empty)).toBeVisible();
+    await expect(dialog.getByText("NaN")).toHaveCount(0);
+
+    if (await slider.isVisible()) {
+      await expect(dialog.getByRole("button", { name: /^(Play|Replay from start)$/ })).toBeFocused();
+      await slider.focus();
+      await page.keyboard.press("Home");
+      const first = await slider.getAttribute("aria-valuetext");
+      await page.keyboard.press("End");
+      expect(await slider.getAttribute("aria-valuetext")).not.toBe(first);
+      await expect(dialog.getByRole("radio", { name: "1x" })).toHaveAttribute("aria-checked", "true");
+    }
+    await expectAccessible(page);
+
+    await page.keyboard.press("Escape");
+    await expect(dialog).toBeHidden();
+    await expect(launcher).toBeFocused();
+  });
+});
+
+test.describe("accessibility center", () => {
+  const html = (page: Page) => page.locator("html");
+
+  test("settings apply instantly, persist, and reset", async ({ page }) => {
+    await page.goto(await firstMarketHref(page));
+    const button = page.getByRole("button", { name: /^Accessibility/ });
+    await button.click();
+    const panel = page.getByRole("dialog", { name: "Accessibility" });
+    await expect(panel).toBeVisible();
+    await expectAccessible(page);
+
+    await panel.getByRole("switch", { name: "Dyslexia-Friendly Reading" }).click();
+    await expect(html(page)).toHaveAttribute("data-dyslexia", "");
+    await panel.getByRole("radio", { name: "Extra Large" }).click();
+    await expect(html(page)).toHaveAttribute("data-text-size", "xl");
+    await panel.getByRole("radio", { name: "Color-Blind Friendly" }).click();
+    await expect(html(page)).toHaveAttribute("data-chart", "cvd");
+    await expect(button).toHaveAttribute("aria-label", "Accessibility, settings active");
+
+    await page.keyboard.press("Escape");
+    await expect(panel).toBeHidden();
+    await expect(button).toBeFocused();
+
+    await page.reload();
+    await expect(html(page)).toHaveAttribute("data-text-size", "xl");
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+
+    await page.getByRole("button", { name: /^Accessibility/ }).click();
+    await page.getByRole("dialog", { name: "Accessibility" }).getByRole("button", { name: "Reset" }).click();
+    await expect(html(page)).not.toHaveAttribute("data-text-size", /.*/);
+    await expect(html(page)).not.toHaveAttribute("data-dyslexia", /.*/);
+  });
+
+  test("High Visibility preset stays accessible", async ({ page }) => {
+    await page.goto(await firstMarketHref(page));
+    await page.getByRole("button", { name: /^Accessibility/ }).click();
+    await page.getByRole("button", { name: "High Visibility" }).click();
+    await expect(html(page)).toHaveAttribute("data-contrast", "");
+    await expect(page.getByRole("button", { name: "High Visibility" })).toHaveAttribute("aria-pressed", "true");
+    await page.keyboard.press("Escape");
+    await expectAccessible(page);
+  });
+
+  test("language menu translates the interface and returns to English", async ({ page }) => {
+    await page.goto("/");
+    await page.getByRole("button", { name: /^Language/ }).click();
+    await page.getByRole("menuitemradio", { name: /Español/ }).click();
+    await expect(html(page)).toHaveAttribute("lang", "es");
+    await expect(page.getByRole("navigation", { name: "Principal" }).getByRole("link", { name: "Mercados" })).toBeVisible();
+    await page.reload();
+    await expect(page.getByRole("link", { name: /Explorar mercados/ }).first()).toBeVisible();
+
+    await page.getByRole("button", { name: /^Idioma/ }).click();
+    await page.getByRole("menuitemradio", { name: /English/ }).click();
+    await expect(html(page)).toHaveAttribute("lang", "en");
+    await expect(page.getByRole("link", { name: /Explore markets/ }).first()).toBeVisible();
+  });
+});
+
 test.describe("app chrome", () => {
   test("Ctrl+K opens search, finds markets, and Escape closes it", async ({ page }) => {
     await page.goto("/");
@@ -136,14 +228,19 @@ test.describe("app chrome", () => {
     await expect(dialog).toBeHidden();
   });
 
-  test("theme toggle switches to dark and remembers it", async ({ page }) => {
+  test("theme toggle switches between light and dark and remembers it", async ({ page }) => {
+    await page.emulateMedia({ colorScheme: "light" });
     await page.goto("/");
-    await page.getByRole("button", { name: /^Theme:/ }).click();
-    await page.getByRole("menuitemradio", { name: "Dark" }).click();
-    await expect(page.locator("html")).toHaveClass(/\bdark\b/);
-    await page.reload();
-    await expect(page.locator("html")).toHaveClass(/\bdark\b/);
+    const html = page.locator("html");
+    await expect(html).not.toHaveClass(/\bdark\b/);
     await expectAccessible(page);
+    await page.getByRole("button", { name: "Toggle dark mode" }).click();
+    await expect(html).toHaveClass(/\bdark\b/);
+    await page.reload();
+    await expect(html).toHaveClass(/\bdark\b/);
+    await expectAccessible(page);
+    await page.getByRole("button", { name: "Toggle dark mode" }).click();
+    await expect(html).not.toHaveClass(/\bdark\b/);
   });
 });
 
@@ -179,6 +276,20 @@ test.describe("public API", () => {
       expect(market).not.toHaveProperty("organizationId");
     }
     expect(body.meta).toHaveProperty("nextCursor");
+  });
+
+  test("replay history is normalized and carries no user data", async ({ request }) => {
+    const listing = await (await request.get("/api/markets?limit=1")).json();
+    const response = await request.get(`/api/markets/${listing.data[0].slug}/replay`);
+    expect(response.ok()).toBe(true);
+    const { data } = await response.json();
+    expect(["real", "demo"]).toContain(data.source);
+    expect(data.end).toBeGreaterThanOrEqual(data.start);
+    for (const point of data.points) {
+      expect(Object.keys(point).sort()).toEqual(["at", "credits", "forecasts", "general", "model", "verified"]);
+    }
+    expect(JSON.stringify(data)).not.toMatch(/userId|clerkId|email/);
+    expect((await request.get("/api/markets/does-not-exist-0000/replay")).status()).toBe(404);
   });
 
   test("invalid filters are rejected with the shared error envelope", async ({ request }) => {

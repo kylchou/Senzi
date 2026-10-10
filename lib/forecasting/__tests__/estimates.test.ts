@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { defaultConfig, type CommunityEstimateRule } from '../index.js';
+import { defaultConfig, type CommunityEstimateRule } from '../index';
 import {
   computeWithRule,
   confidenceFor,
@@ -7,8 +7,8 @@ import {
   formatPercent,
   labelFor,
   type CalibrationEvidence,
-} from '../estimates.js';
-import { DAY, expectCode, modelService, setup, T0 } from './helpers.js';
+} from '../estimates';
+import { DAY, expectCode, modelService, setup, T0 } from './helpers';
 
 const goodEvidence: CalibrationEvidence = {
   line: 'general',
@@ -19,12 +19,14 @@ const goodEvidence: CalibrationEvidence = {
 };
 
 describe('labels', () => {
-  it('never calls an uncalibrated allocation share a probability', () => {
+  it('never calls an allocation share a probability, and never tags a market price calibrated without evidence', () => {
     for (const line of ['general', 'specialized'] as const) {
       expect(labelFor('allocation_share', line, false).toLowerCase()).not.toContain('probability');
-      expect(labelFor('market_price', line, false).toLowerCase()).not.toContain('probability');
       expect(labelFor(null, line, false).toLowerCase()).not.toContain('probability');
+      expect(labelFor('market_price', line, false).toLowerCase()).not.toContain('calibrated');
     }
+    expect(labelFor('market_price', 'general', false)).toBe('Market probability (all users)');
+    expect(labelFor('market_price', 'specialized', false)).toBe('Market probability (verified users)');
   });
 
   it('allows the calibrated label only with sufficient evidence for the same line and rule', () => {
@@ -37,7 +39,10 @@ describe('labels', () => {
     expect(evidenceSupportsCalibratedLabel({ ...goodEvidence, resolvedMarkets: 29 }, 'general', 'test-count-share', c)).toBe(false);
     expect(evidenceSupportsCalibratedLabel({ ...goodEvidence, expectedCalibrationError: 0.051 }, 'general', 'test-count-share', c)).toBe(false);
     expect(labelFor('allocation_share', 'general', true, goodEvidence)).toBe(
-      'Community probability, all forecasters (calibrated on 40 resolved markets)',
+      'Community probability, all users (calibrated on 40 resolved markets)',
+    );
+    expect(labelFor('market_price', 'general', true, goodEvidence)).toBe(
+      'Market probability (all users) · calibrated on 40 resolved markets',
     );
   });
 });
@@ -73,8 +78,8 @@ describe('getMarketEstimates', () => {
     const t = setup();
     const m = await t.createMarket();
     const e = await t.engine.getMarketEstimates(m.id);
-    expect(e.openingBaseline).toMatchObject({ value: 0.4, display: '40%', label: 'Model opening baseline' });
-    expect(e.model).toMatchObject({ value: 0.4, label: 'Model prediction (latest)' });
+    expect(e.openingBaseline).toMatchObject({ value: 0.4, display: '40%', label: 'Model baseline (at open)' });
+    expect(e.model).toMatchObject({ value: 0.4, label: 'Model baseline' });
     expect(e.general).toMatchObject({
       value: null,
       display: null,
@@ -114,7 +119,7 @@ describe('getMarketEstimates', () => {
     expect(e.general.value).toBe(1);
     expect(e.openingBaseline.value).toBe(0.4);
     expect(e.model.value).toBe(0.4);
-    expect(e.general.label).toBe('YES allocation share, all forecasters');
+    expect(e.general.label).toBe('YES allocation share, all users');
     expect(e.general).toMatchObject({ forecasterCount: 3, forecastCount: 3, totalAmount: 30, confidence: 'low' });
   });
 

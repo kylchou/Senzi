@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/Button";
 import { cn } from "@/components/ui/cn";
 import { toast } from "@/components/ui/Toaster";
 import { refreshMe } from "@/components/ui/me-client";
+import { Term } from "@/components/ui/Term";
 import { formatCredits, formatDateTime, formatShare } from "@/lib/market-view/format";
 import {
   errorMessage,
@@ -123,7 +124,7 @@ export function ForecastPanel({
     setReceipt(null);
     setTouched(false);
     idempotencyKey.current = null;
-    if (session.state === "ready" && receipt?.balanceAfter === undefined) {
+    if (session.state === "ready" && receipt?.balanceAfter == null) {
       fetchBalance()
         .then((value) => setSession({ state: "ready", balance: value }))
         .catch(() => undefined);
@@ -137,9 +138,11 @@ export function ForecastPanel({
     >
       <div className="flex items-baseline justify-between gap-2">
         <h2 id="forecast-heading" className="font-display text-lg font-bold text-ink-900">
-          Forecast
+          <Term id="forecast" />
         </h2>
-        <span className="text-xs text-ink-500">Virtual credits</span>
+        <span className="text-xs text-ink-500">
+          <Term id="credits" />
+        </span>
       </div>
 
       {closed ? (
@@ -294,7 +297,8 @@ function Receipt({ receipt, onReset }: { receipt: ForecastReceiptData; onReset: 
     ["Allocation", `${formatCredits(receipt.credits)} credits`],
   ];
   if (receipt.entryAllocationShare != null) rows.push(["YES allocation at entry", formatShare(receipt.entryAllocationShare)]);
-  if (receipt.balanceAfter !== undefined) rows.push(["Balance after", `${formatCredits(receipt.balanceAfter)} credits`]);
+  if (receipt.priceAfter != null) rows.push(["General Users estimate after", formatShare(receipt.priceAfter)]);
+  if (receipt.balanceAfter != null) rows.push(["Balance after", `${formatCredits(receipt.balanceAfter)} credits`]);
   rows.push(["Recorded", formatDateTime(receipt.createdAt)]);
 
   return (

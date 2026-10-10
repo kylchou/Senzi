@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useLayoutEffect, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useFocusTrap } from "./a11y/useFocusTrap";
 import { createPortal } from "react-dom";
 import { Button } from "./Button";
 
@@ -38,6 +39,8 @@ function seen(): boolean {
 export function MarketTour() {
   const [step, setStep] = useState<number | null>(null);
   const [rect, setRect] = useState<Rect | null>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(dialogRef, step !== null);
 
   // Start shortly after the page settles, only for first-time visitors.
   useEffect(() => {
@@ -93,7 +96,7 @@ export function MarketTour() {
   const cardLeft = Math.min(Math.max(16, rect.left + rect.width / 2 - cardWidth / 2), window.innerWidth - cardWidth - 16);
 
   return createPortal(
-    <div className="fixed inset-0 z-[80]" role="dialog" aria-modal="true" aria-labelledby="tour-title">
+    <div ref={dialogRef} className="fixed inset-0 z-[80]" role="dialog" aria-modal="true" aria-labelledby="tour-title">
       {/* Spotlight: an outline around the figure (not a ring, which would be replaced by the dimming shadow). */}
       <div
         aria-hidden

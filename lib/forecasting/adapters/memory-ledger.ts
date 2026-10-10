@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
-import { ForecastingError, InsufficientBalanceError } from '../errors.js';
-import type { Clock, CreditLedger, LedgerEntryRequest } from '../ports.js';
-import type { LedgerTransaction } from '../types.js';
+import { ForecastingError, InsufficientBalanceError } from '../errors';
+import type { Clock, CreditLedger, LedgerEntryRequest } from '../ports';
+import type { LedgerTransaction } from '../types';
 
 /**
  * DEV STAND-IN for Engineer 1's credit ledger, for tests and local runs only.

@@ -1,0 +1,247 @@
+/*
+ * Accessibility preferences. Each setting is a data attribute on <html>
+ * (see components/ui/a11y/keys.ts); everything here reacts to those, so pages
+ * and components need no settings logic of their own. Charts, logos, and
+ * numeric data are excluded from reading tweaks.
+ */
+
+/* ---------- Text size and dyslexia-friendly scale ---------- */
+:root {
+  --a11y-scale: 1;
+  --a11y-read: 1;
+}
+:root[data-text-size="sm"] {
+  --a11y-scale: 0.9;
+}
+:root[data-text-size="lg"] {
+  --a11y-scale: 1.125;
+}
+:root[data-text-size="xl"] {
+  --a11y-scale: 1.25;
+}
+:root[data-dyslexia] {
+  --a11y-read: 1.06;
+}
+
+/* Reading text scales fully; large headings scale half as much so they never overflow. */
+:root:is([data-text-size], [data-dyslexia]) {
+  --a11y-body: calc(var(--a11y-scale) * var(--a11y-read));
+  --a11y-heading: calc(1 + (var(--a11y-scale) - 1) * 0.5);
+  --text-xs: calc(0.75rem * var(--a11y-body));
+  --text-sm: calc(0.875rem * var(--a11y-body));
+  --text-base: calc(1rem * var(--a11y-body));
+  --text-lg: calc(1.125rem * var(--a11y-body));
+  --text-xl: calc(1.25rem * var(--a11y-body));
+  --text-2xl: calc(1.5rem * var(--a11y-heading));
+  --text-3xl: calc(1.875rem * var(--a11y-heading));
+  --text-4xl: calc(2.25rem * var(--a11y-heading));
+  --text-5xl: calc(3rem * var(--a11y-heading));
+  --text-6xl: calc(3.75rem * var(--a11y-heading));
+}
+:root:is([data-text-size], [data-dyslexia]) body {
+  font-size: calc(1rem * var(--a11y-body));
+}
+/* Small fixed-size labels follow too, except inside charts. */
+:root:is([data-text-size], [data-dyslexia]) .text-\[10px\]:not(svg *) {
+  font-size: max(10px, calc(10px * var(--a11y-body)));
+}
+:root:is([data-text-size], [data-dyslexia]) .text-\[11px\]:not(svg *) {
+  font-size: max(10px, calc(11px * var(--a11y-body)));
+}
+
+/* ---------- Dyslexia-friendly reading ---------- */
+:root[data-dyslexia]
+  :is(p, li, dd, dt, blockquote, figcaption, label, summary, td, [data-reading]):not(
+    svg *,
+    [translate="no"],
+    .tabular-nums
+  ) {
+  letter-spacing: 0.035em;
+  word-spacing: 0.14em;
+  line-height: 1.75;
+}
+:root[data-dyslexia] :is(h1, h2, h3, h4) {
+  letter-spacing: 0.005em;
+  line-height: 1.3;
+}
+:root[data-dyslexia] p:not(svg *) {
+  max-width: 68ch;
+}
+:root[data-dyslexia] :is(p, h1, h2) + p {
+  margin-top: 0.85em;
+}
+
+/* ---------- Comfortable spacing ---------- */
+:root[data-spacing] {
+  /* Every Tailwind spacing step grows by 5%: padding, gaps, and control sizes. */
+  --spacing: 0.2625rem;
+}
+:root[data-spacing] :is(p, li, dd):not(svg *) {
+  line-height: 1.75;
+}
+:root[data-spacing] :is(p, ul, ol) + :is(p, ul, ol) {
+  margin-top: 0.75em;
+}
+
+/* ---------- High contrast ---------- */
+:root[data-contrast] {
+  --color-page: #ffffff;
+  --color-surface: #ffffff;
+  --color-hairline: rgb(37 40 43 / 0.34);
+  --color-ink-600: #33373b;
+  --color-ink-500: #3d4247;
+  --color-ink-400: #5f656b;
+  --color-ink-300: #868c92;
+  --color-ink-200: #b4b9be;
+  --color-ink-100: #e3e5e7;
+  --shadow-card: none;
+}
+:root.dark[data-contrast] {
+  --color-page: #000000;
+  --color-surface: #0e1012;
+  --color-hairline: #5a6168;
+  --color-ink-600: #dcdfe2;
+  --color-ink-500: #c9cdd1;
+  --color-ink-400: #a6acb2;
+  --color-ink-300: #6f757c;
+  --color-ink-200: #4a5056;
+  --color-ink-100: #2e3237;
+}
+:root[data-contrast] :focus-visible {
+  outline: 3px solid var(--color-ink-900);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 5px var(--color-surface);
+}
+/* Plain text links get an underline so they read as links without color. */
+:root[data-contrast] main a:not(:has(*)):not([class*="rounded"]) {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+:root[data-contrast] :is(:disabled, [aria-disabled="true"]) {
+  opacity: 0.45 !important;
+  filter: grayscale(1);
+  cursor: not-allowed;
+}
+
+/* ---------- Reduced motion (also follows the OS setting) ---------- */
+:root[data-reduce-motion] {
+  scroll-behavior: auto !important;
+}
+:root[data-reduce-motion] *,
+:root[data-reduce-motion] *::before,
+:root[data-reduce-motion] *::after {
+  animation-duration: 0.01ms !important;
+  animation-delay: 0s !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+}
+:root[data-reduce-motion] .home-reveal {
+  animation: none !important;
+}
+:root[data-reduce-motion] :is(.card-hover:hover, .card-hover:active) {
+  transform: none !important;
+}
+:root[data-reduce-motion] :is([class*="hover:scale"]:hover, [class*="active:scale"]:active),
+:root[data-reduce-motion] .group:is(:hover, :focus-visible) :is([class*="group-hover:scale"], [class*="group-focus-visible:scale"]) {
+  scale: none !important;
+}
+:root[data-reduce-motion] .group:hover [class*="group-hover:translate"] {
+  translate: none !important;
+}
+:root[data-reduce-motion]::view-transition-group(*),
+:root[data-reduce-motion]::view-transition-old(*),
+:root[data-reduce-motion]::view-transition-new(*) {
+  animation: none !important;
+}
+
+/* ---------- Focus mode ---------- */
+:root[data-focus] :is(.dot-grid, [data-decorative], [data-focus-hide]) {
+  display: none !important;
+}
+:root[data-focus] [data-focus-plain] {
+  background-image: none !important;
+}
+:root[data-focus] .surface-card {
+  box-shadow: none;
+}
+:root[data-focus] :is(.card-hover:hover, .card-hover:active) {
+  transform: none;
+  box-shadow: none;
+}
+/* Secondary sections collapse behind a "Show" button (components/ui/a11y/Secondary.tsx). */
+[data-secondary-toggle] {
+  display: none;
+}
+:root[data-focus] [data-secondary]:not([data-open]) > [data-secondary-body] {
+  display: none;
+}
+:root[data-focus] [data-secondary]:not([data-open]) > [data-secondary-toggle] {
+  display: inline-flex;
+}
+
+/* ---------- Larger controls ---------- */
+:root[data-large-controls]
+  :is(
+    button,
+    select,
+    summary,
+    input:not([type="range"], [type="checkbox"], [type="radio"], [type="hidden"]),
+    [role="button"],
+    [role="radio"],
+    [role="switch"],
+    [role="tab"],
+    [role="menuitem"],
+    [role="menuitemradio"],
+    [role="option"],
+    label:has(> input[type="radio"]),
+    label:has(> input[type="checkbox"])
+  ):not([data-hit-exempt]) {
+  min-height: 2.75rem;
+  align-content: center;
+}
+:root[data-large-controls] :is(button, a, [role="button"])[aria-label]:not([data-hit-exempt]) {
+  min-width: 2.75rem;
+}
+:root[data-large-controls] :is(header nav a, footer nav a, nav[aria-label="Breadcrumb"] a) {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.75rem;
+}
+/* Small targets inside charts keep their position and gain invisible reach. */
+:root[data-large-controls] [data-hit-exempt="marker"] {
+  padding: 0.6rem;
+}
+:root[data-large-controls] [role="slider"]::after {
+  content: "";
+  position: absolute;
+  inset: -0.75rem;
+}
+
+/* ---------- Chart accessibility ---------- */
+:root[data-chart="contrast"] svg :is(.stroke-ink-100, .stroke-ink-200) {
+  stroke: var(--color-ink-300);
+}
+:root[data-chart="contrast"] svg .fill-ink-500 {
+  fill: var(--color-ink-700);
+}
+
+/* Read Aloud level bars. */
+@keyframes speak-bar {
+  0%,
+  100% {
+    transform: scaleY(0.35);
+  }
+  50% {
+    transform: scaleY(1);
+  }
+}
+
+/* Bottom sheet entrance on phones. */
+@keyframes sheet-up {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: none;
+  }
+}

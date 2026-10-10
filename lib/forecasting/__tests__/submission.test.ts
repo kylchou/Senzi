@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import type { ForecastRepository } from '../index.js';
-import { anonymous, asUser, DAY, expectCode, modelService, setup, T0 } from './helpers.js';
+import type { ForecastRepository } from '../index';
+import { anonymous, asUser, DAY, expectCode, modelService, setup, T0 } from './helpers';
 
 describe('submitForecast: happy path', () => {
   it('accepts a forecast, debits the ledger and returns an authoritative receipt', async () => {

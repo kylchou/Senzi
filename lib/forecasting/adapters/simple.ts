@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import type { AuthContext, Clock, IdGenerator, SettlementAuthorizer, TraderDirectory } from '../ports.js';
+import type { AuthContext, Clock, IdGenerator, SettlementAuthorizer, TraderDirectory } from '../ports';
 
 export const systemClock: Clock = { now: () => new Date() };
 

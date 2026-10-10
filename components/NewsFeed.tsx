@@ -51,7 +51,11 @@ export function NewsFeed({
             {showStartup && item.startup && (
               <>
                 <span aria-hidden>·</span>
-                <Link href={`/startups/${item.startup.slug}`} className="relative z-10 font-medium text-ink-700 hover:underline">
+                <Link
+                  href={`/startups/${item.startup.slug}`}
+                  translate="no"
+                  className="relative z-10 font-medium text-ink-700 hover:underline"
+                >
                   {item.startup.name}
                 </Link>
               </>
