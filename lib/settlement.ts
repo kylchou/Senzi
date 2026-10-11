@@ -2,6 +2,7 @@ import type { ResolutionOutcome } from "@/generated/prisma/enums";
 import { SettlementStatus } from "@/generated/prisma/enums";
 import { invalidState, notFound } from "@/lib/api-response";
 import { db, type DbOrTx } from "@/lib/db";
+import { forecastingSettle as engineSettle } from "@/lib/forecasting/server/settle";
 
 /**
  * Runs settlement for approved resolutions and keeps its state consistent.
@@ -22,11 +23,8 @@ export interface SettleInput {
 /** Returns the id of the settlement model used, for the record. */
 export type SettleFn = (input: SettleInput) => Promise<{ settlementModelId?: string } | void>;
 
-/**
- * The forecasting engine's settle function. Felix: replace null with it once
- * the engine has its database adapter. Until then resolutions stay PENDING.
- */
-const forecastingSettle: SettleFn | null = null;
+/** The forecasting engine's settle function: LMSR payouts per share, VOID refunds. */
+const forecastingSettle: SettleFn | null = engineSettle;
 
 /** An IN_PROGRESS attempt older than this is assumed to have crashed. */
 export const STALE_SETTLEMENT_MS = 10 * 60 * 1000;

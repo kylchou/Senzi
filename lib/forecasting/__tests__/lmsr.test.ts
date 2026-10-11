@@ -140,6 +140,31 @@ describe('engine on LMSR', () => {
     await t.engine.submitForecast(asUser('a'), { marketId: m.id, side: 'YES', amount: 100, idempotencyKey: 'k-a2', quotedPrice: fresh.fill.priceBefore! + 0.01 });
   });
 
+  it('leaves the verified line empty until a verified user trades', async () => {
+    const t = lmsrSetup();
+    const m = await t.createMarket({ lmsrB: 1700 });
+    t.traders.verify('vera', 'acme');
+    for (const u of ['vera', 'gus']) await t.fund(u, 1000);
+
+    const r = await t.forecast('gus', m.id, 'YES', 200);
+    expect(r.entry.specializedAfter).toBeNull();
+    const e = await t.engine.getMarketEstimates(m.id);
+    expect(e.general.value).not.toBeNull();
+    expect(e.specialized.value).toBeNull();
+    expect(e.specialized.emptyReason).toBe('No forecasts from verified users yet');
+
+    const v = await t.forecast('vera', m.id, 'NO', 100);
+    expect(v.entry.specializedBefore).toBeNull();
+    expect((await t.engine.getMarketEstimates(m.id)).specialized.value).toBeCloseTo(yesPrice(replay(0.4, 1700, [{ side: 'NO', credits: 100 }])), 12);
+  });
+
+  it("won't quote a market that isn't open", async () => {
+    const t = lmsrSetup();
+    const m = await t.createMarket({ lmsrB: 1700 });
+    await t.repo.saveMarket({ ...(await t.repo.getMarket(m.id))!, status: 'resolved' });
+    await expectCode(t.engine.quoteForecast({ marketId: m.id, side: 'YES', amount: 10 }), 'MARKET_NOT_OPEN');
+  });
+
   it('refuses to trade a market without an opening price', async () => {
     const t = lmsrSetup();
     const m = await t.createMarket({ openingBaseline: null, model: null });
