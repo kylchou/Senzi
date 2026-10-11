@@ -49,7 +49,20 @@ async function Setup({ searchParams }: { searchParams: Promise<{ bypass?: string
     );
   }
 
-  // Trader accounts are verified on choice, so only VCs reach this point.
+  // Traders signed up before confirming their email; signing in now is enough.
+  if (user.accountType === "TRADER") {
+    return (
+      <div className="surface-card mx-auto max-w-md p-6 text-center">
+        <h1 className="text-2xl font-bold text-ink-900">You&apos;re almost in</h1>
+        <p className="mt-2 text-ink-600">Your email is confirmed. Finish setting up your trader account to start forecasting.</p>
+        <form action={chooseAccountTypeAction} className="mt-6">
+          <input type="hidden" name="accountType" value="TRADER" />
+          <Button type="submit">Continue</Button>
+        </form>
+      </div>
+    );
+  }
+
   const latest = await latestVcVerification(user.id);
   const bypassEnabled = !!process.env.DEMO_VC_BYPASS_CODE?.trim();
   const bypassMessage = BYPASS_MESSAGES[(await searchParams).bypass ?? ""];

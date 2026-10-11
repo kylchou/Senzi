@@ -201,12 +201,16 @@ export function isPlatformAdmin(user: Pick<SessionUser, "platformRole"> | null):
 }
 
 /**
- * Sets the account type once. A no-op if it's already set. Signing in proves
+ * Sets the account type once. A no-op if it's already set, except that a trader
+ * provisioned before their email was confirmed gets verified here. Signing in proves
  * Clerk verified their email, which is all a trader needs; VCs still need review.
  */
 export async function chooseAccountType(user: SessionUser, type: AccountType): Promise<SessionUser> {
   await db.user.updateMany({
-    where: { id: user.id, accountType: null },
+    where: {
+      id: user.id,
+      OR: [{ accountType: null }, ...(type === AccountType.TRADER ? [{ accountType: AccountType.TRADER, accountVerifiedAt: null }] : [])],
+    },
     data: { accountType: type, accountVerifiedAt: type === AccountType.TRADER ? new Date() : null },
   });
   return db.user.findUniqueOrThrow({ where: { id: user.id }, select: sessionUserSelect });
