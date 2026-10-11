@@ -85,6 +85,17 @@ describe("account types", () => {
     expect((await chooseAccountType(user, "TRADER")).accountType).toBe("VC");
   });
 
+  it("finishes a trader who signed up before confirming their email", async () => {
+    const trader = await provisionUser(identity({ accountType: "TRADER", emailVerified: false }));
+    expect(trader.accountVerifiedAt).toBeNull();
+    const finished = await chooseAccountType(trader, "TRADER");
+    expect(finished).toMatchObject({ accountType: "TRADER", accountVerifiedAt: expect.any(Date) });
+
+    // An unverified VC can't use this to skip review.
+    const vc = await provisionUser(identity({ authId: "user_vc", email: "vc@fund.example", accountType: "VC" }));
+    expect(await chooseAccountType(vc, "TRADER")).toMatchObject({ accountType: "VC", accountVerifiedAt: null });
+  });
+
   it("ignores junk metadata and routes each type home", () => {
     expect(parseAccountType("ADMIN")).toBeNull();
     expect(parseAccountType(undefined)).toBeNull();
