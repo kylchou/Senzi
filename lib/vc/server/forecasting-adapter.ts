@@ -9,6 +9,7 @@
 import "server-only";
 import type { PrismaClient } from "@/generated/prisma/client";
 import { SnapshotTrigger } from "@/generated/prisma/enums";
+import { demoCount } from "@/lib/demo-scale";
 import type { ForecastingGateway } from "../ports";
 import type { EstimatePoint, MarketEstimate } from "../types";
 
@@ -64,17 +65,17 @@ export function createForecastingGateway(db: PrismaClient): ForecastingGateway {
               openingBaseline:
                 m.openingBaseline != null ? { value: m.openingBaseline, methodology: m.baselineMethodology } : null,
               allocation: {
-                yesCredits: m.yesCredits,
-                noCredits: m.noCredits,
-                totalCredits: m.yesCredits + m.noCredits,
+                yesCredits: demoCount(m.yesCredits, m.id),
+                noCredits: demoCount(m.noCredits, m.id),
+                totalCredits: demoCount(m.yesCredits + m.noCredits, m.id),
                 yesShare: share(m.yesCredits, m.noCredits),
               },
               calibratedProbability:
                 latest?.calibratedProbability != null
                   ? { value: latest.calibratedProbability, method: null, sampleSize: null }
                   : null,
-              participantCount: latest?.forecasterCount ?? 0,
-              forecastCount: m.forecastCount,
+              participantCount: demoCount(latest?.forecasterCount ?? 0, m.id),
+              forecastCount: demoCount(m.forecastCount, m.id),
               lastForecastAt: lastForecastAt.get(m.id) ?? null,
               asOf: latest?.recordedAt ?? m.updatedAt,
               resolution: m.resolution
@@ -106,8 +107,8 @@ export function createForecastingGateway(db: PrismaClient): ForecastingGateway {
         yesShare: r.estimateKind === "MARKET_PRICE" ? r.generalEstimate : r.forecastCount === 0 ? r.openingBaseline : null,
         modelValue: r.modelValue ?? r.openingBaseline,
         specializedPrice: r.estimateKind === "MARKET_PRICE" && r.specializedForecasters > 0 ? r.specializedEstimate : null,
-        totalCredits: r.yesCredits + r.noCredits,
-        participantCount: r.forecasterCount,
+        totalCredits: demoCount(r.yesCredits + r.noCredits, marketId),
+        participantCount: demoCount(r.forecasterCount, marketId),
       }));
     },
   };

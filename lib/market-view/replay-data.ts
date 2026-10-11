@@ -1,5 +1,6 @@
 import "server-only";
 import { db } from "@/lib/db";
+import { demoCount } from "@/lib/demo-scale";
 import { PUBLIC_MARKET_WHERE } from "@/lib/permissions";
 import { getMarket } from "./queries";
 import {
@@ -81,8 +82,8 @@ export async function getReplayData(slug: string, now: number): Promise<ReplayDa
       model: row.modelValue,
       general: row.generalEstimate,
       verified: row.specializedEstimate,
-      forecasts: row.forecastCount,
-      credits: row.yesCredits + row.noCredits,
+      forecasts: demoCount(row.forecastCount, market.id),
+      credits: demoCount(row.yesCredits + row.noCredits, market.id),
     })),
   );
 
@@ -157,7 +158,16 @@ export async function getReplayData(slug: string, now: number): Promise<ReplayDa
     end,
     points,
     events,
-    activity: forecasts.length ? bucketForecasts(forecasts, start, end) : null,
+    activity: forecasts.length
+      ? bucketForecasts(forecasts, start, end).map((b) => ({
+          ...b,
+          yes: demoCount(b.yes, market.id),
+          no: demoCount(b.no, market.id),
+          yesCredits: demoCount(b.yesCredits, market.id),
+          noCredits: demoCount(b.noCredits, market.id),
+          verified: demoCount(b.verified, market.id),
+        }))
+      : null,
     resolution,
   };
 }
