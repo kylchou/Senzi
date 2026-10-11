@@ -23,10 +23,7 @@ export interface SettleInput {
 /** Returns the id of the settlement model used, for the record. */
 export type SettleFn = (input: SettleInput) => Promise<{ settlementModelId?: string } | void>;
 
-/**
- * The forecasting engine's settle function (LMSR payouts, VOID refunds). Approvals,
- * admin retries and the cron all default to it.
- */
+/** The forecasting engine's settle function: LMSR payouts per share, VOID refunds. */
 const forecastingSettle: SettleFn | null = engineSettle;
 
 /** An IN_PROGRESS attempt older than this is assumed to have crashed. */

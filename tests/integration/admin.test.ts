@@ -87,7 +87,7 @@ describe("market lifecycle", () => {
 });
 
 describe("resolution", () => {
-  it("records evidence, notifies forecasters, and audits", async () => {
+  it("records evidence, notifies forecasters, audits, and leaves settlement pending", async () => {
     const admin = await makeAdmin();
     const user = await makeUser();
     const market = await makeMarket(admin);
@@ -122,8 +122,8 @@ describe("resolution", () => {
     const admin = await makeAdmin();
     const market = await makeMarket(admin);
     const resolution = await resolveMarket(admin, market.id, { outcome: "NO", ...evidence });
-    // Resolving settles straight away; put it back in the queue for the workers.
-    await db.resolution.update({ where: { id: resolution.id }, data: { settlementStatus: SettlementStatus.PENDING } });
+    // Resolving settles straight away; start from unsettled to test the claim itself.
+    await db.resolution.update({ where: { id: resolution.id }, data: { settlementStatus: "PENDING", settledAt: null } });
 
     const claims = await Promise.all([1, 2, 3].map(() => claimResolutionForSettlement(resolution.id)));
     expect(claims.filter(Boolean)).toHaveLength(1);

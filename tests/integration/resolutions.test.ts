@@ -9,14 +9,8 @@ import {
 import { runPendingSettlements, runSettlement, STALE_SETTLEMENT_MS } from "@/lib/settlement";
 import { makeAdmin, makeMarket, makeUser, placeForecast, resetDatabase } from "./helpers";
 
-// Stand-in for the forecasting engine so these tests control when payouts happen.
-// Real LMSR payouts are covered in resolution-payouts.test.ts.
-const engine = vi.hoisted(() => ({ settle: vi.fn() }));
-vi.mock("@/lib/forecasting/server/settle", () => ({ forecastingSettle: (...args: unknown[]) => engine.settle(...args) }));
-
 beforeEach(async () => {
   await resetDatabase();
-  engine.settle.mockReset().mockResolvedValue({ settlementModelId: "test" });
   // These tests check the real two-admin rule.
   vi.stubEnv("SENZI_ALLOW_SELF_APPROVAL", "false");
 });
@@ -40,8 +34,8 @@ describe("two-admin resolution", () => {
 
     const { resolution, settlement } = await approveProposal(bob, proposal.id, { note: "Checked the filing" });
     expect(resolution).toMatchObject({ outcome: "YES", resolvedById: alice.id, approvedById: bob.id, currentProposalId: proposal.id });
+    // Approval settles right away through the forecasting engine.
     expect(settlement).toMatchObject({ ran: true, status: "COMPLETED" });
-    expect(engine.settle).toHaveBeenCalledTimes(1);
     expect((await db.market.findUniqueOrThrow({ where: { id: market.id } })).status).toBe("RESOLVED");
 
     const stored = await db.resolutionProposal.findUniqueOrThrow({ where: { id: proposal.id }, include: { evidence: true } });
@@ -118,9 +112,9 @@ describe("corrections", () => {
   }
 
   it("can change the outcome before credits settle, with a reason and full history", async () => {
-    // Settlement runs on approval, so a correction only fits in if that run failed.
-    engine.settle.mockRejectedValueOnce(new Error("ledger timeout"));
     const { alice, bob, market, resolution } = await resolved();
+    // Approval settles straight away; put it back to unsettled (as when settlement failed) to test the correction path.
+    await db.resolution.update({ where: { id: resolution.id }, data: { settlementStatus: "PENDING", settledAt: null } });
     const correction = await proposeCorrection(alice, resolution.id, { ...voidCancelled, correctionReason: "The company was acquired before the deadline" });
     const { resolution: corrected } = await approveProposal(bob, correction.id);
 
@@ -133,6 +127,7 @@ describe("corrections", () => {
 
   it("can't change the outcome after credits settle, but can still fix evidence", async () => {
     const { alice, bob, resolution } = await resolved();
+    await runSettlement(resolution.id, async () => ({ settlementModelId: "test" }));
 
     await expect(
       proposeCorrection(alice, resolution.id, { ...voidCancelled, correctionReason: "Should have been void" }),
@@ -150,30 +145,32 @@ describe("corrections", () => {
 });
 
 describe("settlement runs", () => {
-  /** An approved resolution whose first settlement attempt (on approval) failed. */
   async function approved() {
-    engine.settle.mockRejectedValueOnce(new Error("ledger timeout"));
     const alice = await makeAdmin();
     const bob = await makeAdmin();
     const user = await makeUser();
     const market = await makeMarket(alice);
     await placeForecast(user, market.id);
     const proposal = await proposeResolution(alice, market.id, yes);
-    return (await approveProposal(bob, proposal.id)).resolution;
+    const { resolution } = await approveProposal(bob, proposal.id);
+    // Approval already ran the engine's settlement; these tests drive the state machine themselves from PENDING.
+    return db.resolution.update({
+      where: { id: resolution.id },
+      data: { settlementStatus: "PENDING", settlementAttempts: 0, settlementError: null, settledAt: null, settlementModelId: null, settlementStartedAt: null },
+    });
   }
 
-  it("does nothing without a settle function", async () => {
+  it("stays PENDING until the forecasting engine is configured", async () => {
     const resolution = await approved();
-    expect(await runSettlement(resolution.id, null)).toMatchObject({ ran: false, status: "FAILED" });
+    expect(await runSettlement(resolution.id, null)).toMatchObject({ ran: false, status: "PENDING" });
   });
 
   it("records failures and succeeds on retry", async () => {
     const resolution = await approved();
-    expect(await db.resolution.findUniqueOrThrow({ where: { id: resolution.id } })).toMatchObject({
-      settlementStatus: "FAILED",
-      settlementError: "ledger timeout",
-      settlementAttempts: 1,
+    const failing = await runSettlement(resolution.id, async () => {
+      throw new Error("ledger timeout");
     });
+    expect(failing).toMatchObject({ ran: true, status: "FAILED", error: "ledger timeout" });
 
     const retry = await runPendingSettlements(async () => ({ settlementModelId: "pari-mutuel-v1" }));
     expect(retry).toEqual([expect.objectContaining({ status: "COMPLETED" })]);
