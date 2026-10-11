@@ -26,6 +26,8 @@ export default defineConfig({
           environment: "node",
           globalSetup: ["tests/support/integration-global-setup.ts"],
           setupFiles: ["tests/support/integration-setup.ts"],
+          // Integration tests assert real activity counts, not the demo-inflated ones.
+          env: { DEMO_INFLATE_COUNTS: "false" },
           // Tests share one database, so run files one at a time.
           fileParallelism: false,
           testTimeout: 30_000,
