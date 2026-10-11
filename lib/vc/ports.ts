@@ -99,7 +99,7 @@ export interface PlatformGateway {
   closeMarketForStudy(input: { studyId: string; closedById: string | null; reason: string | null }): Promise<void>;
   /**
    * Pays a study's prize pool once its market has settled, split by each
-   * trader's net gain (lib/vc/prize-pool.ts). Idempotent per trader.
+   * trader's net gain on its settled forecasts (lib/vc/prize-pool.ts). Idempotent per trader.
    * "pending" until settlement completes; "done" afterwards, even if no one gained.
    */
   payPrizePool(input: { studyId: string; marketId: string; credits: number; question: string }): Promise<
