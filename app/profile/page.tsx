@@ -34,6 +34,7 @@ const ACTIVITY: Record<string, string> = {
   admin_grant: "Credits from Senzi",
   admin_adjustment: "Balance correction",
   achievement_reward: "Achievement reward",
+  prize_pool_payout: "Prize pool payout",
 };
 
 export default function ProfilePage() {

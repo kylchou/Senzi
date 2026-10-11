@@ -1,4 +1,6 @@
 import { conflict, notFound } from "@/lib/api-response";
+import { OrgRole } from "@/generated/prisma/enums";
+import { recordAudit } from "@/lib/audit";
 import { db, isUniqueViolation } from "@/lib/db";
 import { PENDING_AUTH_PREFIX, type CurrentUserResponse, type PublicUserProfile, type SessionUser } from "@/lib/types";
 import type { UpdateProfileInput } from "@/lib/validation";
@@ -79,8 +81,8 @@ export async function markNotificationsRead(user: SessionUser, ids: string[] | "
 export async function anonymizeDeletedUser(authId: string) {
   const user = await db.user.findUnique({ where: { authId }, select: { id: true } });
   if (!user) return;
-  await db.$transaction([
-    db.user.update({
+  await db.$transaction(async (tx) => {
+    await tx.user.update({
       where: { id: user.id },
       data: {
         authId: `deleted:${user.id}`,
@@ -90,19 +92,37 @@ export async function anonymizeDeletedUser(authId: string) {
         avatarUrl: null,
         bio: null,
       },
-    }),
-    db.organizationMembership.deleteMany({ where: { userId: user.id } }),
-    db.studyParticipant.deleteMany({ where: { userId: user.id } }),
-  ]);
+    });
+    const owned = await tx.organizationMembership.findMany({ where: { userId: user.id, role: OrgRole.OWNER }, select: { organizationId: true } });
+    await tx.organizationMembership.deleteMany({ where: { userId: user.id } });
+    await tx.studyParticipant.deleteMany({ where: { userId: user.id } });
+
+    // Don't leave an org without an owner: hand it to the most senior remaining admin, else the longest-standing member.
+    for (const { organizationId } of owned) {
+      if (await tx.organizationMembership.count({ where: { organizationId, role: OrgRole.OWNER } })) continue;
+      const members = await tx.organizationMembership.findMany({ where: { organizationId }, orderBy: { createdAt: "asc" } });
+      const heir = members.find((m) => m.role === OrgRole.ADMIN) ?? members[0];
+      if (!heir) continue;
+      await tx.organizationMembership.update({ where: { id: heir.id }, data: { role: OrgRole.OWNER } });
+      await recordAudit(
+        { actorId: null, organizationId, action: "organization.member.role", entityType: "OrganizationMembership", entityId: heir.id, data: { userId: heir.userId, from: heir.role, to: OrgRole.OWNER, reason: "Last owner deleted their account" } },
+        tx,
+      );
+    }
+  });
 }
 
-/** Keeps the cached profile fields in sync when the auth provider reports a change. */
-export async function syncProfileFromAuth(
-  authId: string,
-  fields: { email: string; displayName: string; avatarUrl: string | null },
-) {
-  await db.user.updateMany({
-    where: { authId },
-    data: { email: fields.email.toLowerCase(), displayName: fields.displayName, avatarUrl: fields.avatarUrl },
-  });
+/**
+ * Keeps the cached email and avatar in sync when the auth provider reports a change.
+ * Display names are edited in Senzi, so they aren't overwritten here.
+ */
+export async function syncProfileFromAuth(authId: string, fields: { email: string; avatarUrl: string | null }) {
+  try {
+    await db.user.updateMany({ where: { authId }, data: { email: fields.email.toLowerCase(), avatarUrl: fields.avatarUrl } });
+  } catch (error) {
+    // Another (likely deleted or merged) row already has this email. Keep the old one rather
+    // than failing the webhook, which Clerk would otherwise retry forever.
+    if (!isUniqueViolation(error, "email")) throw error;
+    await db.user.updateMany({ where: { authId }, data: { avatarUrl: fields.avatarUrl } });
+  }
 }
