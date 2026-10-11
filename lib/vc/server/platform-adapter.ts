@@ -6,7 +6,7 @@
  */
 import "server-only";
 import type { PrismaClient } from "@/generated/prisma/client";
-import { CreditTransactionType, SettlementStatus } from "@/generated/prisma/enums";
+import { CreditTransactionType, ForecastStatus, SettlementStatus } from "@/generated/prisma/enums";
 import { closeMarketForStudy, createMarketForStudy } from "@/lib/admin";
 import { applyCreditTransaction } from "@/lib/credits";
 import { getCurrentUser, isPlatformAdmin } from "@/lib/auth";
@@ -97,25 +97,16 @@ export function createPlatformGateway(db: PrismaClient): PlatformGateway {
     async payPrizePool({ studyId, marketId, credits, question }) {
       const resolution = await db.resolution.findUnique({ where: { marketId }, select: { settlementStatus: true } });
       if (resolution?.settlementStatus !== SettlementStatus.COMPLETED) return { state: "pending" as const };
-      // Net credits each trader ended with on this market: stakes, reversals, payouts and refunds.
-      const rows = await db.creditTransaction.groupBy({
+      // Each trader's net result on this market: settled payouts minus what they staked. Read from the
+      // forecasts, which the engine always records; its ledger rows don't carry the market id.
+      const rows = await db.forecast.groupBy({
         by: ["userId"],
-        where: {
-          marketId,
-          type: {
-            in: [
-              CreditTransactionType.FORECAST_STAKE,
-              CreditTransactionType.FORECAST_REVERSAL,
-              CreditTransactionType.SETTLEMENT_PAYOUT,
-              CreditTransactionType.MARKET_REFUND,
-            ],
-          },
-        },
-        _sum: { amount: true },
+        where: { marketId, status: ForecastStatus.SETTLED },
+        _sum: { credits: true, payout: true },
       });
       const shares = splitPrizePool(
         credits,
-        rows.map((r) => ({ userId: r.userId, gain: r._sum.amount ?? 0 })),
+        rows.map((r) => ({ userId: r.userId, gain: (r._sum.payout ?? 0) - (r._sum.credits ?? 0) })),
       );
       await db.$transaction(async (tx) => {
         for (const share of shares) {

@@ -432,11 +432,10 @@ describe("prize pools and who can trade", () => {
     // Not settled yet: nothing is paid.
     expect(await services.studies.payPrizePools()).toMatchObject({ paid: 0, pending: 1 });
 
-    // Settlement pays the winner 250 credits (a 150 gain); the loser ends 100 down.
-    const { applyCreditTransaction } = await import("@/lib/credits");
-    await db.$transaction((tx) =>
-      applyCreditTransaction(tx, { userId: winner.id, amount: 250, type: "SETTLEMENT_PAYOUT", idempotencyKey: `test-settle:${study.marketId}`, marketId: study.marketId }),
-    );
+    // Settlement pays the winner 250 credits (a 150 gain); the loser ends 100 down. This is what the
+    // engine records on each forecast; the real engine flow is covered in credits-e2e.test.ts.
+    await db.forecast.updateMany({ where: { marketId: study.marketId!, userId: winner.id }, data: { status: "SETTLED", payout: 250 } });
+    await db.forecast.updateMany({ where: { marketId: study.marketId!, userId: loser.id }, data: { status: "SETTLED", payout: 0 } });
     await db.resolution.update({ where: { marketId: study.marketId! }, data: { settlementStatus: "COMPLETED" } });
 
     expect(await services.studies.payPrizePools()).toMatchObject({ paid: 1, pending: 0, failed: 0 });
