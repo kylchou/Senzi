@@ -132,6 +132,21 @@ export function verifiedOnly(forecasts: readonly Forecast[]): Forecast[] {
   return forecasts.filter((f) => f.verifiedAtEntry);
 }
 
+/**
+ * The specialized line: verified users' forecasts replayed from the opening price.
+ * Empty until a verified user forecasts. A market price rule would otherwise return
+ * the opening price, which would read as verified users agreeing with the model.
+ */
+export function computeSpecializedLine(
+  rule: CommunityEstimateRule | undefined,
+  baseline: number | null,
+  forecasts: readonly Forecast[],
+): LineStats {
+  const verified = verifiedOnly(forecasts);
+  const stats = computeLine(rule, baseline, verified);
+  return verified.length === 0 ? { ...stats, value: null } : stats;
+}
+
 export function toEstimateView(
   stats: LineStats,
   line: EstimateLine,
@@ -205,7 +220,7 @@ export function buildMarketEstimates(params: {
     model: toBaselineView(market.model, 'model'),
     general: toEstimateView(computeLine(rule, baseline, forecasts), 'general', rule, config, evidence?.general),
     specialized: toEstimateView(
-      computeLine(rule, baseline, verifiedOnly(forecasts)),
+      computeSpecializedLine(rule, baseline, forecasts),
       'specialized',
       rule,
       config,

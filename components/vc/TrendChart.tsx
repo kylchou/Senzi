@@ -223,7 +223,7 @@ export function TrendChart({ points, baseline }: { points: TrendPoint[]; baselin
               }}
             >
               <div className="font-semibold tabular-nums text-slate-900 dark:text-slate-50">
-                {hovered.v == null ? "No allocation" : `${(hovered.v * 100).toFixed(1)}%`}
+                {hovered.v == null ? "No price yet" : `${(hovered.v * 100).toFixed(1)}%`}
               </div>
               <div>{ALLOCATION_SHARE_LABEL}</div>
               {baseline != null && <div>Baseline {pct(baseline)}</div>}

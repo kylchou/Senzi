@@ -3,7 +3,7 @@
 // calibration analysis.
 
 import { ForecastingError } from './errors';
-import { computeLine, verifiedOnly } from './estimates';
+import { computeLine, computeSpecializedLine } from './estimates';
 import type { CommunityEstimateRule } from './ports';
 import type { EstimateKind, Forecast, Market, MarketSnapshot, SnapshotTrigger } from './types';
 
@@ -20,7 +20,7 @@ export function buildSnapshot(params: {
   const { market, forecasts, rule } = params;
   const opening = market.openingBaseline?.value ?? null;
   const general = computeLine(rule, opening, forecasts);
-  const specialized = computeLine(rule, opening, verifiedOnly(forecasts));
+  const specialized = computeSpecializedLine(rule, opening, forecasts);
   return {
     marketId: market.id,
     sequence: params.sequence,
