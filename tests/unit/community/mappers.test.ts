@@ -1,5 +1,9 @@
-import { describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { allocationShare, cleanShare, toMarketDetail, toMarketSummary, toNewsItem } from "@/lib/market-view/mappers";
+
+// These check the real mapping; the demo display scaling (lib/demo-scale.ts) has its own test.
+beforeAll(() => vi.stubEnv("DEMO_INFLATE_COUNTS", "false"));
+afterAll(() => vi.unstubAllEnvs());
 import { marketOrder, publicMarketFilter } from "@/lib/market-view/queries";
 import { publicNewsWhere } from "@/lib/news/queries";
 import { publicStartupFilter } from "@/lib/discovery/queries";

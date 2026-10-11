@@ -1,4 +1,5 @@
 import type { Prisma } from "@/generated/prisma/client";
+import { demoCount } from "@/lib/demo-scale";
 import { openingPrice } from "./probability";
 import type {
   HistoryPoint,
@@ -114,12 +115,12 @@ export function toMarketSummary(row: SummaryRow): MarketSummary {
     probability: cleanShare(snapshot?.generalEstimate) ?? (row.forecastCount === 0 ? openingPrice(row.openingBaseline) : null),
     allocation: {
       share: allocationShare(row.yesCredits, row.noCredits),
-      yesCredits: row.yesCredits,
-      noCredits: row.noCredits,
-      forecastCount: row.forecastCount,
+      yesCredits: demoCount(row.yesCredits, row.id),
+      noCredits: demoCount(row.noCredits, row.id),
+      forecastCount: demoCount(row.forecastCount, row.id),
     },
     calibratedProbability: cleanShare(snapshot?.calibratedProbability),
-    forecasterCount: snapshot?.forecasterCount ?? null,
+    forecasterCount: snapshot ? demoCount(snapshot.forecasterCount, row.id) : null,
     updatedAt: snapshot?.recordedAt.toISOString() ?? null,
     outcome: row.resolution?.outcome ?? null,
     resolvedAt: row.resolution?.resolvedAt.toISOString() ?? null,
@@ -172,16 +173,19 @@ export function toMarketDetail(row: DetailRow): MarketDetail {
   };
 }
 
-export function toHistoryPoint(row: {
-  recordedAt: Date;
-  allocationShare: number | null;
-  calibratedProbability: number | null;
-  forecasterCount: number;
-}): HistoryPoint {
+export function toHistoryPoint(
+  row: {
+    recordedAt: Date;
+    allocationShare: number | null;
+    calibratedProbability: number | null;
+    forecasterCount: number;
+  },
+  marketId: string,
+): HistoryPoint {
   return {
     at: row.recordedAt.toISOString(),
     share: cleanShare(row.allocationShare),
     calibrated: cleanShare(row.calibratedProbability),
-    forecasterCount: row.forecasterCount,
+    forecasterCount: demoCount(row.forecasterCount, marketId),
   };
 }
