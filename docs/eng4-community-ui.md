@@ -23,7 +23,7 @@ Outcome and evidence come from `Resolution` and only appear once a market is res
 | Opening baseline | `Market.openingBaseline` with `baselineMethodology` in its tooltip. Shows "Not set" when empty. |
 | Outcome | `Resolution.outcome` (`YES`, `NO`, `VOID`), `evidenceSummary`, `evidenceUrls` |
 
-Market pages show `yesCriteria`, `noCriteria`, and `MarketSource` rows (by `position`). Startup profiles show `StartupFact` rows with their source and date. News carries its `verification` label: Verified, Reported (unverified), or Disputed.
+Market pages show `yesCriteria` and `noCriteria`. Linked news appears only as markers on the chart; market pages no longer list sources or coverage separately. Startup profiles show `StartupFact` rows with their source and date. News carries its `verification` label: Verified, Reported (unverified), or Disputed.
 
 ## Public read API
 
