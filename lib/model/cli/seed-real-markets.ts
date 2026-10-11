@@ -78,8 +78,8 @@ const HIRING_DAY = "2026-11-08";
 const HIRING_MULTIPLE = 1.05;
 const FUNDING_BY = "2026-12-31";
 const TRADERS = 250;
-/** Extra credits per simulated trader so a busy market doesn't run them dry. Labelled in the ledger. */
-const SIM_BANKROLL = 4_000;
+/** Extra credits per simulated trader. Stakes stay locked until a market resolves, so this has to cover a trader's share of every market (4,000 ran dry for the companies seeded last). Labelled in the ledger. */
+const SIM_BANKROLL = 12_000;
 /** Simulated trades per open market (min + random extra), per past market, and per short-lived market. */
 const OPEN_TRADES = { min: 45, extra: 35 } as const;
 const PAST_TRADES = { min: 30, extra: 20 } as const;
