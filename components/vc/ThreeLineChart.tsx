@@ -77,7 +77,7 @@ export function ThreeLineChart({ marketId, points, baseline }: { marketId: strin
         {lines.map((l) => (
           <span key={l.key} className="inline-flex items-center gap-1.5">
             <span aria-hidden className="inline-block h-0.5 w-4 rounded" style={{ backgroundColor: l.color }} />
-            {l.label}: <span className="font-medium tabular-nums">{formatShare(series[l.key].at(-1)?.value, 1)}</span>
+            {l.label}: <span className="font-medium tabular-nums">{formatShare(valueAt(l.key, points.length - 1), 1)}</span>
           </span>
         ))}
       </div>
@@ -106,13 +106,14 @@ export function ThreeLineChart({ marketId, points, baseline }: { marketId: strin
               </g>
             ))}
             {lines.map((l) => {
+              // Steps, not diagonals: a price holds until the next trade or model update.
               let connected = false;
               const path = series[l.key]
                 .map((p) => {
                   if (p.value === null) { connected = false; return ""; }
-                  const command = connected ? "L" : "M";
+                  const command = connected ? `H${x(p.at)} V${y(p.value)}` : `M${x(p.at)},${y(p.value)}`;
                   connected = true;
-                  return `${command}${x(p.at)},${y(p.value)}`;
+                  return command;
                 })
                 .join(" ");
               return (
