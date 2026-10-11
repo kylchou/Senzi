@@ -10,7 +10,6 @@ import { getCurrentUser } from "@/lib/auth";
 import { isVerifiedUserOfSlug } from "@/lib/product-verification";
 import { MarketBrief } from "@/components/MarketBrief";
 import { MarketMovement } from "@/components/MarketMovement";
-import { NewsFeed } from "@/components/NewsFeed";
 import { ProbabilityChart } from "@/components/ProbabilityChart";
 import { Container } from "@/components/ui/Container";
 import { ExternalLink } from "@/components/ui/ExternalLink";
@@ -194,39 +193,7 @@ async function MarketView({ params }: Pick<PageProps<"/markets/[slug]">, "params
             <MarketDiscussion slug={market.slug} />
           </Secondary>
 
-          <Secondary label="sources, coverage, and startup details" className="render-when-visible" bodyClassName="space-y-8">
-          <section aria-labelledby="sources-heading">
-            <h2 id="sources-heading" className="mb-3 font-display text-lg font-bold text-ink-900">
-              Sources
-            </h2>
-            {market.sources.length === 0 ? (
-              <p className="text-sm text-ink-600">No sources listed.</p>
-            ) : (
-              <ul className="divide-y divide-ink-100 surface-card">
-                {market.sources.map((source) => (
-                  <li
-                    key={source.url}
-                    className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 px-5 py-3.5 text-sm"
-                  >
-                    <ExternalLink href={source.url}>{source.title}</ExternalLink>
-                    <span className="text-xs text-ink-500">
-                      {[source.publisher, source.publishedAt && formatDate(source.publishedAt)]
-                        .filter(Boolean)
-                        .join(" · ")}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
-
-          <section aria-labelledby="coverage-heading">
-            <h2 id="coverage-heading" className="mb-3 font-display text-lg font-bold text-ink-900">
-              Coverage
-            </h2>
-            <NewsFeed items={market.coverage} showStartup={false} emptyTitle="No linked coverage yet" />
-          </section>
-
+          <Secondary label="startup details" className="render-when-visible">
           <section aria-labelledby="startup-heading" className="surface-card p-5">
             <h2 id="startup-heading" className="font-display text-lg font-bold text-ink-900">
               About {market.startup.name}

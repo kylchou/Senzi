@@ -193,7 +193,7 @@ const REPLIES = [
   "Fair point, though the criteria are strict about what counts.",
   "Agreed. I'm on the same side.",
   "I read it the other way, but it's close.",
-  "The sources section on this page lists what will be checked.",
+  "The criteria above spell out exactly what will be checked.",
   "Good question. I'd assume only a public, dated announcement counts.",
   "Same here. Waiting for the next update before adding more.",
   "Could go either way. The deadline is doing a lot of work in this question.",
