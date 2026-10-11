@@ -2,6 +2,7 @@ import "server-only";
 import { cache } from "react";
 import type { Prisma } from "@/generated/prisma/client";
 import { db } from "@/lib/db";
+import { demoCount } from "@/lib/demo-scale";
 import type { MarketQuery } from "@/lib/discovery/params";
 import { PUBLIC_MARKET_WHERE, PUBLIC_STARTUP_WHERE } from "@/lib/permissions";
 import { rankMoves, type MarketMove } from "./insights";
@@ -144,7 +145,7 @@ export async function getMarketHistory(marketId: string): Promise<HistoryPoint[]
       at: row.recordedAt.toISOString(),
       share,
       calibrated: cleanShare(row.calibratedProbability),
-      forecasterCount: row.forecasterCount,
+      forecasterCount: demoCount(row.forecasterCount, marketId),
     };
   });
 }
