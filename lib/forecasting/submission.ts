@@ -11,7 +11,7 @@ import { createHash } from 'node:crypto';
 import { marketLockKey, requireRule, requireUser, type EngineDeps } from './deps';
 import { checkEligibility } from './eligibility';
 import { ForecastingError, InsufficientBalanceError } from './errors';
-import { computeLine, toEstimateEntries, verifiedOnly } from './estimates';
+import { computeLine, computeSpecializedLine, toEstimateEntries } from './estimates';
 import { buildSnapshot, nextSnapshotSequence } from './history';
 import type { AuthContext } from './ports';
 import type { EntrySnapshot, Forecast, Side } from './types';
@@ -156,6 +156,8 @@ export async function quoteForecast(deps: EngineDeps, input: { marketId: string;
   if (!rule.describeFill) throw new ForecastingError('NOT_CONFIGURED', 'The pricing rule cannot quote trades');
   const market = await deps.repo.getMarket(input.marketId);
   if (!market) throw new ForecastingError('MARKET_NOT_FOUND', 'Market not found', { marketId: input.marketId });
+  // A closed or resolved market has no live price to trade at.
+  if (market.status !== 'open') throw new ForecastingError('MARKET_NOT_OPEN', `Market is ${market.status}`, { status: market.status });
   const opening = market.openingBaseline?.value ?? null;
   if (opening === null) throw new ForecastingError('MARKET_NOT_OPEN', 'This market has no opening price yet');
   const existing = await deps.repo.listForecastsByMarket(market.id);
@@ -230,7 +232,7 @@ export async function submitForecast(
       throw new ForecastingError('MARKET_NOT_OPEN', 'This market has no opening price yet');
     }
     const generalBefore = computeLine(rule, opening, existing).value;
-    const specializedBefore = computeLine(rule, opening, verifiedOnly(existing)).value;
+    const specializedBefore = computeSpecializedLine(rule, opening, existing).value;
 
     const forecastId = deps.ids.next('fc');
     const entryBase = { forecastId, side: input.side, amount: input.amount, sequence };

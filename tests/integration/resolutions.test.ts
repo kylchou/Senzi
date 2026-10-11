@@ -34,7 +34,8 @@ describe("two-admin resolution", () => {
 
     const { resolution, settlement } = await approveProposal(bob, proposal.id, { note: "Checked the filing" });
     expect(resolution).toMatchObject({ outcome: "YES", resolvedById: alice.id, approvedById: bob.id, currentProposalId: proposal.id });
-    expect(settlement.ran).toBe(false); // the forecasting engine isn't wired in yet
+    // Approval settles right away through the forecasting engine.
+    expect(settlement).toMatchObject({ ran: true, status: "COMPLETED" });
     expect((await db.market.findUniqueOrThrow({ where: { id: market.id } })).status).toBe("RESOLVED");
 
     const stored = await db.resolutionProposal.findUniqueOrThrow({ where: { id: proposal.id }, include: { evidence: true } });
@@ -112,6 +113,8 @@ describe("corrections", () => {
 
   it("can change the outcome before credits settle, with a reason and full history", async () => {
     const { alice, bob, market, resolution } = await resolved();
+    // Approval settles straight away; put it back to unsettled (as when settlement failed) to test the correction path.
+    await db.resolution.update({ where: { id: resolution.id }, data: { settlementStatus: "PENDING", settledAt: null } });
     const correction = await proposeCorrection(alice, resolution.id, { ...voidCancelled, correctionReason: "The company was acquired before the deadline" });
     const { resolution: corrected } = await approveProposal(bob, correction.id);
 
@@ -149,7 +152,12 @@ describe("settlement runs", () => {
     const market = await makeMarket(alice);
     await placeForecast(user, market.id);
     const proposal = await proposeResolution(alice, market.id, yes);
-    return (await approveProposal(bob, proposal.id)).resolution;
+    const { resolution } = await approveProposal(bob, proposal.id);
+    // Approval already ran the engine's settlement; these tests drive the state machine themselves from PENDING.
+    return db.resolution.update({
+      where: { id: resolution.id },
+      data: { settlementStatus: "PENDING", settlementAttempts: 0, settlementError: null, settledAt: null, settlementModelId: null, settlementStartedAt: null },
+    });
   }
 
   it("stays PENDING until the forecasting engine is configured", async () => {

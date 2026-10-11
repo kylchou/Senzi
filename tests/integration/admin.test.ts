@@ -122,6 +122,8 @@ describe("resolution", () => {
     const admin = await makeAdmin();
     const market = await makeMarket(admin);
     const resolution = await resolveMarket(admin, market.id, { outcome: "NO", ...evidence });
+    // Resolving settles straight away; start from unsettled to test the claim itself.
+    await db.resolution.update({ where: { id: resolution.id }, data: { settlementStatus: "PENDING", settledAt: null } });
 
     const claims = await Promise.all([1, 2, 3].map(() => claimResolutionForSettlement(resolution.id)));
     expect(claims.filter(Boolean)).toHaveLength(1);
